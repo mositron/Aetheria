@@ -104,6 +104,21 @@ export function getBiomeValue(x: number, z: number): number {
   return fbm(_biomeNoise, x * 0.03, z * 0.03, 2);
 }
 
+// Coarse biome classification — slow-changing zones, deterministic per (x, z).
+export type Biome = "plains" | "forest" | "desert" | "snow" | "swamp";
+export function getBiome(x: number, z: number): Biome {
+  // Use a second very-low-freq noise layer for biome cells; combine with
+  // distance from origin so far chunks tend toward more extreme biomes.
+  const n = fbm(_biomeNoise, x * 0.006, z * 0.006, 3);
+  const d = Math.hypot(x, z);
+  const farFactor = Math.min(1, d / 250);     // 0 near spawn → 1 far
+  if (n < 0.30) return farFactor > 0.5 ? "snow" : "plains";
+  if (n < 0.50) return "forest";
+  if (n < 0.70) return "plains";
+  if (n < 0.85) return farFactor > 0.4 ? "desert" : "plains";
+  return "swamp";
+}
+
 export function canWalk(fx: number, fz: number, tx: number, tz: number): boolean {
   return Math.abs(getHeight(tx, tz) - getHeight(fx, fz)) <= STEP;
 }

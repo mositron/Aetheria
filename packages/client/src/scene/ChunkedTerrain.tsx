@@ -10,7 +10,8 @@ import type { Room } from "colyseus.js";
 import type { WorldState } from "@game/shared";
 import {
   CHUNK_SIZE, CELL_SIZE, CHUNK_CELLS, STEP, MAX_HEIGHT, WATER_Y,
-  getHeight, getBiomeValue, isWater, getChunkDecor, worldToChunk,
+  getHeight, getBiomeValue, getBiome, isWater, getChunkDecor, worldToChunk,
+  type Biome,
 } from "./chunkWorld";
 import { registerObstacles, unregisterObstacles } from "./obstacles";
 
@@ -32,17 +33,24 @@ const toonGradient = (() => {
   return t;
 })();
 
-function pickColor(biome: number, h: number): string {
+function pickColor(biome: Biome, h: number): string {
   const ratio = h / MAX_HEIGHT;
-  if (ratio > 0.75) return biome < 0.5 ? "#d8d4c8" : "#a8a09a";   // snowy/gray peaks
+  // High elevations always rocky/snowy regardless of biome
+  if (ratio > 0.75) return biome === "snow" ? "#f0f4f8" : "#a8a09a";
   if (ratio > 0.45) {
-    if (biome < 0.3) return "#b8845a";   // tan sandstone
-    if (biome < 0.6) return "#7c5e3f";   // brown rock
-    return "#6b8e5a";                     // mossy
+    if (biome === "desert") return "#c9986a";
+    if (biome === "snow")   return "#d4dce4";
+    if (biome === "swamp")  return "#5e6b3f";
+    return "#7c5e3f";  // rocky mid
   }
-  if (biome < 0.4) return "#86c259";      // grass
-  if (biome < 0.7) return "#a3d962";      // bright grass
-  return "#5e9b3f";                       // dark grass
+  // Ground level by biome
+  switch (biome) {
+    case "forest": return "#3fb555";
+    case "desert": return "#e8c890";
+    case "snow":   return "#e6ecf2";
+    case "swamp":  return "#4a6b3f";
+    default:       return "#86c259";    // plains
+  }
 }
 
 // ── Single chunk renderer ────────────────────────────────────────────────────
@@ -63,7 +71,7 @@ function Chunk({ cx, cz }: { cx: number; cz: number }) {
         if (isWater(x, z)) {
           waterTiles.push({ x, z });
         } else if (h > 0) {
-          const biome = getBiomeValue(x, z);
+          const biome = getBiome(x, z);
           columns.push({ x, z, h, color: pickColor(biome, h) });
         }
       }
