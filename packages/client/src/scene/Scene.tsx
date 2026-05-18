@@ -1466,7 +1466,14 @@ const PlayerView = React.memo(function PlayerView({ p, self, selfRef, attackPuls
   const appearance = useMemo(() => parseAppearance(p.appearance), [p.appearance]);
   const bodyColor = appearance.shirt || (self ? "#16a34a" : (JOB_COLORS[p.job] ?? "#60a5fa"));
   return (
-    <group ref={(selfRef as any) ?? ref}>
+    <group
+      ref={(selfRef as any) ?? ref}
+      onClick={(e: ThreeEvent<MouseEvent>) => {
+        if (self) return; // can't target self
+        e.stopPropagation();
+        useStore.setState({ targetPlayerId: p.id, targetMonsterId: null });
+      }}
+    >
       {/* Mount: render animal under player when mounted */}
       {p.mounted && p.petKind && (
         <group position={[0, 0, 0]}>

@@ -37,8 +37,13 @@ export function DayNight({ mapId }: { mapId: MapId }) {
       // Warmer sun mid-day, golden at horizon
       dirLightRef.current.color.setRGB(1, 1 - horizon * 0.35, 0.85 - horizon * 0.55);
     }
-    // Cooler ambient = stronger sun/shadow separation = more "stylized"
-    if (ambRef.current) ambRef.current.intensity = 0.18 + dayFactor * 0.42;
+    // Cooler ambient = stronger sun/shadow separation = more "stylized".
+    // At night, blend ambient toward blue moonlight tones for atmosphere.
+    if (ambRef.current) {
+      ambRef.current.intensity = night ? 0.32 : 0.18 + dayFactor * 0.42;
+      if (night) ambRef.current.color.setRGB(0.45, 0.55, 0.85);  // moonlit blue
+      else       ambRef.current.color.setRGB(0.66, 0.83, 1.00);  // sky blue
+    }
 
     if (moonRef.current) {
       moonRef.current.visible = night;
@@ -47,6 +52,8 @@ export function DayNight({ mapId }: { mapId: MapId }) {
     if (moonLightRef.current) {
       moonLightRef.current.visible = night;
       moonLightRef.current.position.set(-sx * 0.7, 15, -sz * 0.7);
+      // Brighter moon glow for better night visibility
+      moonLightRef.current.intensity = night ? 2.2 : 0;
     }
     if (starsRef.current) starsRef.current.visible = night;
     if (skyGroupRef.current) skyGroupRef.current.visible = !night;

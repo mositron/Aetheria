@@ -135,22 +135,28 @@ export function Minimap({ room, mapId }: { room: Room<WorldState>; mapId: MapId 
           >✕</button>
         )}
       </div>
-      <canvas
-        ref={canvasRef}
-        width={SIZE}
-        height={SIZE}
-        onClick={onMapClick}
-        style={{
-          display: "block",
-          // Top corners square — flush with the rounded-top header above.
-          borderTopLeftRadius: 0,
-          borderTopRightRadius: 0,
-          borderBottomLeftRadius: 6,
-          borderBottomRightRadius: 6,
-          boxShadow: "0 4px 12px rgba(0,0,0,0.5), inset 0 0 8px rgba(0,0,0,0.4)",
-          cursor: "crosshair",
-        }}
-      />
+      <div className="relative" style={{ width: SIZE, height: SIZE }}>
+        <canvas
+          ref={canvasRef}
+          width={SIZE}
+          height={SIZE}
+          onClick={onMapClick}
+          style={{
+            display: "block",
+            borderTopLeftRadius: 0,
+            borderTopRightRadius: 0,
+            borderBottomLeftRadius: 6,
+            borderBottomRightRadius: 6,
+            boxShadow: "0 4px 12px rgba(0,0,0,0.5), inset 0 0 8px rgba(0,0,0,0.4)",
+            cursor: "crosshair",
+          }}
+        />
+        {/* Compass labels — N/E/S/W in the corners of the map */}
+        <span className="absolute top-0.5 left-1/2 -translate-x-1/2 text-cyan-300 font-bold pointer-events-none drop-shadow-[0_1px_1px_rgba(0,0,0,0.9)]" style={{ fontSize: 8 }}>N</span>
+        <span className="absolute bottom-0.5 left-1/2 -translate-x-1/2 text-cyan-300 font-bold pointer-events-none drop-shadow-[0_1px_1px_rgba(0,0,0,0.9)]" style={{ fontSize: 8 }}>S</span>
+        <span className="absolute top-1/2 left-0.5 -translate-y-1/2 text-cyan-300 font-bold pointer-events-none drop-shadow-[0_1px_1px_rgba(0,0,0,0.9)]" style={{ fontSize: 8 }}>W</span>
+        <span className="absolute top-1/2 right-0.5 -translate-y-1/2 text-cyan-300 font-bold pointer-events-none drop-shadow-[0_1px_1px_rgba(0,0,0,0.9)]" style={{ fontSize: 8 }}>E</span>
+      </div>
     </div>
   );
 }

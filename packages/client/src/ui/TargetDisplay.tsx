@@ -18,7 +18,7 @@ type TargetInfo =
 export function TargetDisplay({ room }: { room: Room<WorldState> }) {
   const targetMonsterId = useStore((s) => s.targetMonsterId);
   const activeNpcId = useStore((s) => s.activeNpcId);
-  const targetPlayerId = useStore((s) => (s as any).targetPlayerId ?? null);
+  const targetPlayerId = useStore((s) => s.targetPlayerId);
   const [, setTick] = useState(0);
 
   // Refresh 5×/s so HP bar tracks live damage

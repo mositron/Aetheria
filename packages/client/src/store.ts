@@ -25,6 +25,7 @@ type S = {
   sessionId: string | null;
   chat: ChatEntry[];
   targetMonsterId: string | null;
+  targetPlayerId: string | null;
   inventoryOpen: boolean;
   activeNpcId: string | null;
   botMode: boolean;
@@ -54,6 +55,7 @@ export const useStore = create<S>((set, get) => ({
   sessionId: null,
   chat: [],
   targetMonsterId: null,
+  targetPlayerId: null,
   inventoryOpen: false,
   activeNpcId: null,
   botMode: false,
