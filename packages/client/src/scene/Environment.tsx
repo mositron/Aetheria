@@ -264,8 +264,9 @@ export function Environment({ mapId, room }: { mapId: MapId; room?: import("coly
         </>
       )}
 
-      {/* fog — closer fog hides chunk borders nicely on open world */}
-      <fog attach="fog" args={[mapId === "dungeon" ? "#1a0f2c" : "#a8d8f0", 35, 100]} />
+      {/* fog — tuned so chunks fade in well before the 3-chunk load radius (~96m).
+          Near = 40m so close terrain is sharp; far = 90m so chunks blend before they pop. */}
+      <fog attach="fog" args={[mapId === "dungeon" ? "#1a0f2c" : "#a8d8f0", 40, 90]} />
     </group>
   );
 }
