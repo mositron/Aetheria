@@ -46,6 +46,7 @@ export class GameRoom extends Room<WorldState> {
   monsterSpawn = new Map<string, { x: number; z: number; kind: MonsterKind }>();
   sessionToCharId = new Map<string, string>(); // sid -> Character.id (for DB writes)
   chunkSpawnAcc = 0;                            // tick accumulator for chunk spawning
+  spawnedChestChunks = new Set<string>();       // chunks that have already had a chest roll
   mpRegenAcc = 0;
   autoSaveAcc = 0;
   bossEventAcc = 0;
@@ -1386,6 +1387,10 @@ export class GameRoom extends Room<WorldState> {
       const def = STATUS_DEFS[s.kind as StatusKind];
       if (def?.speedMult !== undefined) mult *= def.speedMult;
     }
+    // Mount bonus: +30% speed when riding a pet
+    if ("mounted" in p && (p as any).mounted) mult *= 1.3;
+    // Hunger penalty: -25% when hungry
+    if ("hunger" in p && (p as any).hunger < 25) mult *= 0.75;
     return mult;
   }
 
@@ -2177,6 +2182,27 @@ export class GameRoom extends Room<WorldState> {
       const kind = table[Math.floor(Math.random() * table.length)] as MonsterKind;
       // Only spawn occasionally — keeps density low and feels natural
       if (Math.random() < 0.35) this.spawnMonster(kind, sx, sz);
+    }
+
+    // ── Procedural treasure chests: spawn once per chunk for chunks beyond
+    //    the spawn radius. Better loot the further the chunk is from origin.
+    for (const k of candidates) {
+      if (this.spawnedChestChunks.has(k)) continue;
+      const [cx, cz] = k.split(",").map(Number);
+      const chunkCx = (cx + 0.5) * CHUNK_SIZE;
+      const chunkCz = (cz + 0.5) * CHUNK_SIZE;
+      const distToOrigin = Math.hypot(chunkCx, chunkCz);
+      if (distToOrigin < SPAWN_RADIUS + 20) { this.spawnedChestChunks.add(k); continue; }
+      // 1/12 chance per chunk
+      if (Math.random() > 1 / 12) { this.spawnedChestChunks.add(k); continue; }
+      const sx = (cx + 0.2 + Math.random() * 0.6) * CHUNK_SIZE;
+      const sz = (cz + 0.2 + Math.random() * 0.6) * CHUNK_SIZE;
+      const tier = Math.min(3, Math.floor(distToOrigin / 80));
+      const loot = ["hp_potion", "mp_potion", tier > 0 ? "iron_sword" : "wood_sword", tier > 1 ? "crystal" : "wood"];
+      const item = loot[Math.floor(Math.random() * loot.length)];
+      const qty = tier > 0 ? 2 + Math.floor(Math.random() * 3) : 1;
+      this.spawnGroundItem(item, qty, sx, sz);
+      this.spawnedChestChunks.add(k);
     }
   }
 
