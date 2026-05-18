@@ -39,8 +39,8 @@ Designed cute / anime-style with pastel UI, chibi characters with blinking eyes,
 
 ```bash
 # 1. Clone
-git clone https://github.com/mositron/game-mmorpg.git
-cd game-mmorpg
+git clone https://github.com/mositron/Aetheria.git
+cd Aetheria
 
 # 2. Install (pnpm 10+ required — npm/yarn won't link workspaces)
 pnpm install
@@ -208,7 +208,7 @@ Open another tab/browser → second account → both players see each other in r
 ## 🏗 Architecture
 
 ```
-game-mmorpg/
+Aetheria/
 ├── packages/
 │   ├── shared/              @game/shared
 │   │   └── src/             Types, schemas, items, jobs, biomes, recipes, achievements
