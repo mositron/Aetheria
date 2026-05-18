@@ -10,6 +10,8 @@ Read `README.md` and the `docs/` folder before making changes. In particular:
 - `docs/ARCHITECTURE.md` — file layout + data flow + critical perf decisions
 - `docs/DEVELOPMENT.md` — gotchas + conventions + how to add content
 - `docs/FEATURES.md` — what already exists (don't rebuild)
+- **`BACKLOG.md` ← READ THIS FIRST** — current state, what's done, what's next,
+  priorities (P0–P6), gotchas/decisions, recent commit log. Updated every session.
 
 ## Stack reminders
 
