@@ -66,6 +66,25 @@ export function StatPanel({ room }: { room: Room<WorldState> }) {
               <div>ASPD mult: <b>{d.aspdMult.toFixed(2)}x</b> (lower = faster)</div>
               <div>Zeny: <b className="text-yellow-300">{me.zeny}z</b></div>
             </div>
+
+            <button
+              onClick={() => room.send("togglePvp" as any, {})}
+              className={`w-full rounded px-3 py-1.5 text-xs font-bold border-2 transition ${
+                me.pvpFlag
+                  ? "bg-rose-700 hover:bg-rose-600 border-rose-300 text-white"
+                  : "bg-slate-800 hover:bg-slate-700 border-slate-500 text-slate-300"
+              }`}
+            >
+              {me.pvpFlag ? "⚔ PvP เปิดอยู่ (กดปิด)" : "🕊 PvP ปิดอยู่ — กดเปิด"}
+            </button>
+            {me.level >= 30 && (
+              <button
+                onClick={() => window.dispatchEvent(new Event("toggle-job-advance"))}
+                className="w-full rounded px-3 py-1.5 text-xs font-bold border-2 bg-amber-700 hover:bg-amber-600 border-amber-300 text-white"
+              >
+                ✨ เปลี่ยนอาชีพ 2nd-class
+              </button>
+            )}
           </div>
         </div>
       )}
