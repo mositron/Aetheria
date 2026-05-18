@@ -1,7 +1,22 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { Room } from "colyseus.js";
 import { MAPS, NPCS, type MapId, type WorldState } from "@game/shared";
 import { useStore } from "../store";
+
+// Friend list cache: keeps a Set of friend names refreshed from server.
+function useFriendNames(room: Room<WorldState>) {
+  const [friends, setFriends] = useState<Set<string>>(new Set());
+  useEffect(() => {
+    const off = room.onMessage("friend:list" as any, (m: any) => {
+      setFriends(new Set((m.friends ?? []).map((f: any) => f.name)));
+    });
+    // Refresh every 20s
+    const id = setInterval(() => room.send("friend:list" as any, {}), 20000);
+    room.send("friend:list" as any, {});
+    return () => { off?.(); clearInterval(id); };
+  }, [room]);
+  return friends;
+}
 
 // Mobile-style size for all screens (110px).
 const SIZE = 110;
@@ -15,6 +30,7 @@ export function Minimap({ room, mapId }: { room: Room<WorldState>; mapId: MapId 
   const mapDef = MAPS[mapId];
   const waypoint = useStore((s) => s.waypoint);
   const setWaypoint = useStore((s) => s.setWaypoint);
+  const friends = useFriendNames(room);
 
   function onMapClick(e: React.MouseEvent<HTMLCanvasElement>) {
     const c = canvasRef.current;
@@ -66,13 +82,21 @@ export function Minimap({ room, mapId }: { room: Room<WorldState>; mapId: MapId 
         ctx.fillStyle = m.kind === "wolf" ? "#9ca3af" : "#a3e635";
         ctx.fillRect(x - 1.5, y - 1.5, 3, 3);
       }
-      // other players
+      // other players (friends shown in cyan/larger)
       for (const [sid, p] of room.state.players) {
         if (p.dead) continue;
         const x = (p.pos.x + mapDef.size / 2) * scale;
         const y = (p.pos.z + mapDef.size / 2) * scale;
-        ctx.fillStyle = sid === room.sessionId ? "#22c55e" : "#60a5fa";
-        ctx.beginPath(); ctx.arc(x, y, sid === room.sessionId ? 3.5 : 2.5, 0, Math.PI * 2); ctx.fill();
+        const isSelf = sid === room.sessionId;
+        const isFriend = !isSelf && friends.has(p.name);
+        ctx.fillStyle = isSelf ? "#22c55e" : isFriend ? "#22d3ee" : "#60a5fa";
+        ctx.beginPath(); ctx.arc(x, y, isSelf ? 3.5 : isFriend ? 3 : 2.5, 0, Math.PI * 2); ctx.fill();
+        if (isFriend) {
+          // Friendly halo
+          ctx.strokeStyle = "rgba(34,211,238,0.6)";
+          ctx.lineWidth = 1;
+          ctx.beginPath(); ctx.arc(x, y, 5, 0, Math.PI * 2); ctx.stroke();
+        }
       }
       // self direction arrow
       const sx = (me.pos.x + mapDef.size / 2) * scale;
