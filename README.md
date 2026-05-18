@@ -5,6 +5,8 @@
 **A blocky, anime-style MMORPG that runs entirely in your browser.**
 Open world · Survival · Crafting · Pets · Farming · Fishing · Flying · Housing
 
+![Aetheria gameplay](media/hero.gif)
+
 🎮 Desktop + Mobile · 🧪 Local multiplayer · 🎨 100% procedural (no asset downloads)
 
 [![Made with TypeScript](https://img.shields.io/badge/TypeScript-007ACC?style=flat&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
@@ -15,7 +17,27 @@ Open world · Survival · Crafting · Pets · Farming · Fishing · Flying · Ho
 [![Tailwind](https://img.shields.io/badge/Tailwind-06B6D4?style=flat&logo=tailwindcss&logoColor=white)](https://tailwindcss.com/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-fde047?style=flat)](#-license)
 
+[▶ Watch full gameplay clip (MP4, 7 MB)](media/gameplay.mp4)
+
 </div>
+
+---
+
+## 📸 Screenshots
+
+<table>
+<tr>
+  <td width="50%"><img src="media/shot1.jpg" alt="Open world village" /></td>
+  <td width="50%"><img src="media/shot2.jpg" alt="Combat with slimes" /></td>
+</tr>
+<tr>
+  <td width="50%"><img src="media/shot3.jpg" alt="Skill arc + auto-potion" /></td>
+  <td width="50%"><img src="media/shot4.jpg" alt="Day/night cycle" /></td>
+</tr>
+<tr>
+  <td colspan="2"><img src="media/shot5.jpg" alt="Wide world view" /></td>
+</tr>
+</table>
 
 ---
 
