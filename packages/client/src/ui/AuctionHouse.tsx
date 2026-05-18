@@ -31,7 +31,7 @@ export function AuctionHouse({ room }: { room: Room<WorldState> }) {
   if (!open) return null;
   const me = room.state.players.get(room.sessionId) as Player | undefined;
   return (
-    <div data-no-screen-joy className="absolute inset-0 z-40 flex items-center justify-center bg-black/65 backdrop-blur-sm py-12 px-4" onClick={() => setOpen(false)}>
+    <div data-no-screen-joy role="dialog" aria-modal="true" className="absolute inset-0 z-40 flex items-center justify-center bg-black/65 backdrop-blur-sm py-12 px-4" onClick={() => setOpen(false)}>
       <div className="w-[28rem] max-w-[94vw]" onClick={(e) => e.stopPropagation()}>
         <GameFrame title="🏛 ตลาดประมูล">
           <button onClick={() => setOpen(false)} className="absolute -top-3 -right-3 w-8 h-8 rounded-full bg-rose-700 hover:bg-rose-600 border-2 border-rose-300 text-white font-bold z-10">✕</button>
@@ -65,7 +65,10 @@ export function AuctionHouse({ room }: { room: Room<WorldState> }) {
                         <div className="text-[10px] text-amber-300 font-bold">{total}z</div>
                         {isMine ? (
                           <button
-                            onClick={() => room.send("auction:cancel" as any, { id: l.id })}
+                            onClick={() => {
+                              if (!confirm("ยกเลิกประกาศ? ของจะกลับมาในกระเป๋า")) return;
+                              room.send("auction:cancel" as any, { id: l.id });
+                            }}
                             className="bg-rose-700 hover:bg-rose-600 rounded px-2 py-0.5 text-[10px] font-bold text-white mt-0.5"
                           >ยกเลิก</button>
                         ) : (

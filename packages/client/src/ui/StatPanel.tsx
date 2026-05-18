@@ -36,7 +36,7 @@ export function StatPanel({ room }: { room: Room<WorldState> }) {
   return (
     <>
       {open && (
-        <div data-no-screen-joy className="absolute inset-0 flex items-center justify-center bg-black/50 backdrop-blur-sm pointer-events-none">
+        <div data-no-screen-joy role="dialog" aria-modal="true" className="absolute inset-0 flex items-center justify-center bg-black/50 backdrop-blur-sm pointer-events-none">
           <div className="panel w-72 space-y-2 pointer-events-auto" onClick={(e) => e.stopPropagation()}>
             <div className="panel-corners" />
             <div className="panel-title">

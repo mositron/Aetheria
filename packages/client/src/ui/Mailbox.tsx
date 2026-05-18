@@ -55,7 +55,7 @@ export function Mailbox({ room }: { room: Room<WorldState> }) {
   const unread = mails.filter((m) => !m.read).length;
 
   return (
-    <div data-no-screen-joy className="absolute inset-0 z-40 flex items-center justify-center bg-black/65 backdrop-blur-sm py-16 px-4" onClick={() => setOpen(false)}>
+    <div data-no-screen-joy role="dialog" aria-modal="true" className="absolute inset-0 z-40 flex items-center justify-center bg-black/65 backdrop-blur-sm py-16 px-4" onClick={() => setOpen(false)}>
       <div className="w-[26rem] max-w-[94vw] flex flex-col min-h-0" style={{ maxHeight: "calc(100vh - 8rem)" }} onClick={(e) => e.stopPropagation()}>
         <GameFrame
           title={`กล่องจดหมาย ${unread > 0 ? `· ${unread} ใหม่` : ""}`}

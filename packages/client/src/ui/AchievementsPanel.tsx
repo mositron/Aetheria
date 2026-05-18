@@ -43,7 +43,7 @@ export function AchievementsPanel({ room }: { room: Room<WorldState> }) {
   const titles = ACHIEVEMENTS.filter((a) => a.title && prog.unlocked.includes(a.id)).map((a) => a.title!);
 
   return (
-    <div data-no-screen-joy className="absolute inset-0 z-40 flex items-center justify-center bg-black/65 backdrop-blur-sm py-16 px-4" onClick={() => setOpen(false)}>
+    <div data-no-screen-joy role="dialog" aria-modal="true" className="absolute inset-0 z-40 flex items-center justify-center bg-black/65 backdrop-blur-sm py-16 px-4" onClick={() => setOpen(false)}>
       <div className="w-[28rem] max-w-[94vw] flex flex-col min-h-0" style={{ maxHeight: "calc(100vh - 8rem)" }} onClick={(e) => e.stopPropagation()}>
         <GameFrame
           title={`เหรียญตรา ${unlockedCount}/${total}`}

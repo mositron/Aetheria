@@ -131,6 +131,15 @@ export class GameRoom extends Room<WorldState> {
     this.onMessage("input", (client, msg: InputMsg) => {
       const p = this.state.players.get(client.sessionId);
       if (!p || p.dead) return;
+      // Anti-cheat: any input value > 100 is suspicious (legitimate joystick is [-1,1])
+      const abnormal = Math.abs(msg.mx) > 100 || Math.abs(msg.mz) > 100 || !Number.isFinite(msg.mx) || !Number.isFinite(msg.mz);
+      if (abnormal) {
+        // Throttle the alerts so a single bad client can't flood logs
+        if (this.checkRateLimit(client.sessionId, "anticheat-log", 1, 5000)) {
+          console.warn("[anticheat] suspicious input", { sid: client.sessionId, name: p.name, mx: msg.mx, mz: msg.mz });
+        }
+        return; // drop the message — don't update intent
+      }
       const mag = Math.hypot(msg.mx, msg.mz);
       const mx = mag > 1 ? msg.mx / mag : msg.mx;
       const mz = mag > 1 ? msg.mz / mag : msg.mz;

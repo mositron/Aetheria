@@ -10,4 +10,20 @@ export default defineConfig({
       "/leaderboard": "http://localhost:2567",
     },
   },
+  build: {
+    // Separate vendor chunks so app updates don't invalidate the (cacheable)
+    // Three.js / React / Colyseus payloads.
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          three: ["three"],
+          drei: ["@react-three/drei", "@react-three/fiber"],
+          colyseus: ["colyseus.js"],
+          react: ["react", "react-dom"],
+        },
+      },
+    },
+    chunkSizeWarningLimit: 800,
+    sourcemap: false,
+  },
 });

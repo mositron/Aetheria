@@ -99,13 +99,19 @@ export function NpcDialog({ room }: { room: Room<WorldState> }) {
               {/* Bulk-sell shortcuts (sit at top of the sell list) */}
               <div className="flex gap-1.5 mb-1.5 sticky top-0 bg-slate-900/90 backdrop-blur-sm py-1 z-10">
                 <button
-                  onClick={() => { setErr(null); room.send("shopSellMany", { npcId: npc.id, sellAllMaterials: true }); }}
+                  onClick={() => {
+                    if (!confirm("ขาย material ทั้งหมด? (รวมของในกระเป๋าทั้งหมด)")) return;
+                    setErr(null); room.send("shopSellMany", { npcId: npc.id, sellAllMaterials: true });
+                  }}
                   className="flex-1 bg-amber-700/70 hover:bg-amber-600 border border-amber-400/40 rounded px-2 py-1.5 text-[11px] font-bold text-white"
                 >
                   💼 ขาย material ทั้งหมด
                 </button>
                 <button
-                  onClick={() => { setErr(null); room.send("shopSellMany", { npcId: npc.id, sellAllJunk: true }); }}
+                  onClick={() => {
+                    if (!confirm("ขายของรกๆ ทั้งหมด?")) return;
+                    setErr(null); room.send("shopSellMany", { npcId: npc.id, sellAllJunk: true });
+                  }}
                   className="flex-1 bg-rose-700/70 hover:bg-rose-600 border border-rose-400/40 rounded px-2 py-1.5 text-[11px] font-bold text-white"
                 >
                   🗑 ขายของรกๆ

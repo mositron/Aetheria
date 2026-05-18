@@ -3,6 +3,7 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { prisma } from "./db.js";
 import { GAME_CONFIG, JOBS, type JobId } from "@game/shared";
+import { logger } from "./logger.js";
 
 // JWT_SECRET must be set in env. In dev only, allow a clearly-marked fallback
 // but log a loud warning so it's obvious if it's accidentally used in prod.
@@ -12,7 +13,7 @@ const SECRET = (() => {
   if (process.env.NODE_ENV === "production") {
     throw new Error("[FATAL] JWT_SECRET must be set (>= 16 chars) in production");
   }
-  console.warn("[auth] ⚠ JWT_SECRET not set or too short — using insecure dev fallback");
+  logger.warn("auth.jwtSecret.insecureFallback", { reason: "missing or too short" });
   return "dev-only-insecure-fallback-DO-NOT-USE-IN-PROD";
 })();
 const TOKEN_TTL: any = process.env.JWT_TTL ?? "30d";
@@ -63,9 +64,10 @@ authRouter.post("/login", async (req, res) => {
     ? await bcrypt.compare(password, user.passwordHash)
     : (await bcrypt.compare(password, DUMMY_HASH), false);
   if (!user || !ok) {
-    console.warn("[auth] failed login", { username: username.slice(0, 24), ip: req.ip, ts: Date.now() });
+    logger.warn("auth.login.failed", { username: username.slice(0, 24), ip: req.ip });
     return res.status(401).json({ error: "bad credentials" });
   }
+  logger.info("auth.login.ok", { uid: user.id });
   const token = jwt.sign({ uid: user.id, username }, SECRET, { expiresIn: TOKEN_TTL });
   res.json({ token, username, characters: user.characters.map(summarizeCharacter) });
 });
@@ -133,7 +135,7 @@ authRouter.post("/characters", authMiddleware, async (req: any, res) => {
     });
     res.json({ character: summarizeCharacter(c) });
   } catch (e: any) {
-    console.error("[auth] character create failed", e?.message);
+    logger.error("auth.character.createFailed", { err: e?.message, code: e?.code });
     // Don't leak DB schema details to client
     const friendly = String(e?.code) === "P2002" ? "name already taken" : "failed to create character";
     res.status(500).json({ error: friendly });

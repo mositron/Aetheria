@@ -35,7 +35,7 @@ export function FriendList({ room }: { room: Room<WorldState> }) {
 
   if (!open) return null;
   return (
-    <div data-no-screen-joy className="absolute inset-0 z-40 flex items-center justify-center bg-black/65 backdrop-blur-sm py-12 px-4" onClick={() => setOpen(false)}>
+    <div data-no-screen-joy role="dialog" aria-modal="true" className="absolute inset-0 z-40 flex items-center justify-center bg-black/65 backdrop-blur-sm py-12 px-4" onClick={() => setOpen(false)}>
       <div className="w-[22rem] max-w-[94vw]" onClick={(e) => e.stopPropagation()}>
         <GameFrame title="🤝 เพื่อน">
           <button onClick={() => setOpen(false)} className="absolute -top-3 -right-3 w-8 h-8 rounded-full bg-rose-700 hover:bg-rose-600 border-2 border-rose-300 text-white font-bold z-10">✕</button>
@@ -76,7 +76,10 @@ export function FriendList({ room }: { room: Room<WorldState> }) {
                     >💬 hi</button>
                   )}
                   <button
-                    onClick={() => room.send("friend:remove" as any, { name: f.name })}
+                    onClick={() => {
+                      if (!confirm(`ลบ ${f.name} ออกจากเพื่อน?`)) return;
+                      room.send("friend:remove" as any, { name: f.name });
+                    }}
                     className="bg-rose-700 hover:bg-rose-600 rounded px-2 py-0.5 text-[10px] font-bold text-white"
                   >✕</button>
                 </div>

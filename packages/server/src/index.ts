@@ -9,6 +9,7 @@ import { MAPS } from "@game/shared";
 import { GameRoom } from "./rooms/GameRoom.js";
 import { authRouter } from "./auth.js";
 import { getTop } from "./leaderboard.js";
+import { logger } from "./logger.js";
 
 // World grew large with new biomes/items — bump Colyseus encode buffer.
 Encoder.BUFFER_SIZE = 64 * 1024;
@@ -16,7 +17,7 @@ Encoder.BUFFER_SIZE = 64 * 1024;
 const PORT = (() => {
   const p = parseInt(process.env.PORT ?? "2567", 10);
   if (!Number.isFinite(p) || p < 1 || p > 65535) {
-    console.error("[server] invalid PORT, falling back to 2567");
+    logger.error("invalid PORT, falling back to 2567", { provided: process.env.PORT });
     return 2567;
   }
   return p;
@@ -55,7 +56,7 @@ for (const id of Object.keys(MAPS)) {
 }
 
 gameServer.listen(PORT).then(() => {
-  console.log(`[server] listening on http://localhost:${PORT} (NODE_ENV=${process.env.NODE_ENV ?? "development"})`);
+  logger.info("server.listening", { port: PORT, nodeEnv: process.env.NODE_ENV ?? "development", pid: process.pid });
 });
 
 // ── Graceful shutdown ─────────────────────────────────────────────────────────
@@ -65,23 +66,22 @@ let shuttingDown = false;
 async function shutdown(signal: string) {
   if (shuttingDown) return;
   shuttingDown = true;
-  console.log(`[server] received ${signal} — graceful shutdown (saving players)`);
+  logger.info("server.shutdown.start", { signal });
   try {
-    await gameServer.gracefullyShutdown(false); // false = don't exit; we'll exit after http close
+    await gameServer.gracefullyShutdown(false);
   } catch (e) {
-    console.error("[server] gracefullyShutdown error", e);
+    logger.error("server.shutdown.gracefulFailed", { err: String(e) });
   }
   httpServer.close(() => {
-    console.log("[server] HTTP server closed; exiting");
+    logger.info("server.shutdown.complete");
     process.exit(0);
   });
-  // hard exit if cleanup hangs > 10s
   setTimeout(() => {
-    console.error("[server] shutdown timeout (10s) — forcing exit");
+    logger.error("server.shutdown.timeout", { timeoutMs: 10000 });
     process.exit(1);
   }, 10_000).unref();
 }
 process.on("SIGTERM", () => shutdown("SIGTERM"));
 process.on("SIGINT", () => shutdown("SIGINT"));
-process.on("unhandledRejection", (reason) => console.error("[server] unhandledRejection", reason));
-process.on("uncaughtException", (err) => console.error("[server] uncaughtException", err));
+process.on("unhandledRejection", (reason) => logger.error("unhandledRejection", { reason: String(reason) }));
+process.on("uncaughtException", (err) => logger.error("uncaughtException", { err: err?.message, stack: err?.stack }));
