@@ -12,6 +12,18 @@ document.addEventListener("contextmenu", (e) => {
   e.preventDefault();
 });
 
+// Global click sfx for any <button> in the UI — tactile feedback.
+// Lazy-loaded so AudioContext only initializes on first user interaction.
+document.addEventListener("pointerdown", (e) => {
+  const t = e.target as HTMLElement | null;
+  if (!t) return;
+  const btn = t.closest("button");
+  if (!btn) return;
+  // Skip rapid-fire elements (sliders / range)
+  if (btn.querySelector("input[type=range]")) return;
+  import("./sfx/sfx").then((m) => m.Sfx?.click?.()).catch(() => {});
+}, { capture: true });
+
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     <App />
