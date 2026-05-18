@@ -43,6 +43,7 @@ import { Mailbox } from "./ui/Mailbox";
 import { WaypointControls } from "./ui/WaypointControls";
 import { QuestTracker } from "./ui/QuestTracker";
 import { TargetDisplay } from "./ui/TargetDisplay";
+import { FriendList } from "./ui/FriendList";
 import { useSettings } from "./ui/SettingsPanel";
 import { DayNight } from "./scene/DayNight";
 import { useSfx } from "./hooks/useSfx";
@@ -175,6 +176,7 @@ export function Game() {
       <WaypointControls />
       <QuestTracker room={room} />
       <TargetDisplay room={room} />
+      <FriendList room={room} />
       <Chat room={room} />
       <Inventory room={room} />
       <Hotbar room={room} />
