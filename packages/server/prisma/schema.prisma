@@ -15,6 +15,16 @@ model User {
   characters   Character[]
 }
 
+model Guild {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  leaderName  String
+  tag         String   @default("")        // 3-4 letter prefix shown next to names
+  description String   @default("")
+  membersJson String   @default("[]")      // ["char1", "char2", ...]
+  createdAt   DateTime @default(now())
+}
+
 model Mail {
   id          String   @id @default(cuid())
   toName      String
@@ -76,6 +86,8 @@ model Character {
   petsJson      String @default("[]")
   petRare       Int    @default(0)
   decorationsJson String @default("[]")
+  friendsJson   String @default("[]")
+  guildId       String @default("")
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
