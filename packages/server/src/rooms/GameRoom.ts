@@ -690,6 +690,38 @@ export class GameRoom extends Room<WorldState> {
       client.send("system", { text: p.pvpFlag ? "⚔ เปิด PvP — ผู้เล่นอื่นที่เปิด PvP ตีเราได้" : "🕊 ปิด PvP — ปลอดภัยจากผู้เล่นอื่น" });
     });
 
+    // PvP attack — only succeeds if BOTH attacker and target have pvpFlag.
+    this.onMessage("pvpAttack", (client, msg: any) => {
+      const attacker = this.state.players.get(client.sessionId);
+      if (!attacker || attacker.dead || !attacker.pvpFlag) return;
+      const targetSid = String(msg?.targetSid ?? "");
+      const target = this.state.players.get(targetSid);
+      if (!target || target.dead || !target.pvpFlag) {
+        return client.send("system", { text: target ? "เป้าหมายไม่เปิด PvP" : "ไม่พบเป้าหมาย" });
+      }
+      if (target === attacker) return;
+      const cooldown = GAME_CONFIG.ATTACK_COOLDOWN_MS;
+      const now = Date.now();
+      const last = this.lastAttack.get(attacker.id) ?? 0;
+      if (now - last < cooldown) return;
+      const dist = Math.hypot(target.pos.x - attacker.pos.x, target.pos.z - attacker.pos.z);
+      const reach = ["mage", "archer", "sniper", "wizard"].includes(attacker.job) ? 8 : GAME_CONFIG.ATTACK_RANGE + 0.5;
+      if (dist > reach) return;
+      this.lastAttack.set(attacker.id, now);
+      const d = derived({ str: attacker.str, agi: attacker.agi, vit: attacker.vit, int: attacker.int, dex: attacker.dex, luk: attacker.luk }, attacker.level);
+      const def = derived({ str: target.str, agi: target.agi, vit: target.vit, int: target.int, dex: target.dex, luk: target.luk }, target.level);
+      let dmg = Math.max(1, (attacker.atk + d.atkBonus) - target.def);
+      if (Math.random() * 100 < d.crit) dmg = Math.floor(dmg * 1.6);
+      // Lower damage in PvP to avoid one-shots
+      dmg = Math.max(1, Math.floor(dmg * 0.6));
+      target.hp = Math.max(0, target.hp - dmg);
+      this.broadcast("damage", { targetId: target.id, amount: dmg, from: attacker.id });
+      if (target.hp === 0) {
+        target.dead = true;
+        this.broadcast("system", { text: `⚔ ${attacker.name} เอาชนะ ${target.name}!` });
+      }
+    });
+
     this.onMessage("chat", (client, msg: ChatMsg) => {
       const p = this.state.players.get(client.sessionId);
       if (!p) return;
