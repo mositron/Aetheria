@@ -53,6 +53,7 @@ export function Scene({ room }: { room: Room<WorldState> }) {
   // Y-physics: jump velocity + altitude. Y is purely client-side visual.
   const jumpVy = useRef(0);
   const jumpY = useRef(0);
+  const lastGroundY = useRef(0);
   const flyAlt = useRef(5);   // current fly altitude when flying
   const pickupTarget = useRef<string | null>(null);
   const botWanderTarget = useRef<{ x: number; z: number } | null>(null);
@@ -450,12 +451,22 @@ export function Scene({ room }: { room: Room<WorldState> }) {
     // frame-rate-independent smoothing: ~75% catch-up over 100ms
     const alpha = 1 - Math.exp(-dt * 18);
 
-    // ── Y-physics (client-side only, server is XZ-authoritative) ───────────
-    // Jump: integrate velocity + gravity each frame
+    // ── Y-physics (client-side only, server is XZ-authoritative).
+    //    Falling: if player Y > terrain Y at current position, gravity pulls
+    //    jumpY back toward 0 (i.e., the player falls onto the ground below).
     if (jumpY.current > 0.01 || jumpVy.current !== 0) {
-      jumpVy.current -= 22 * dt;             // gravity
+      jumpVy.current -= 22 * dt;
       jumpY.current += jumpVy.current * dt;
       if (jumpY.current <= 0) { jumpY.current = 0; jumpVy.current = 0; }
+    } else {
+      // Step-down: if we walked off a ledge (terrain dropped), feel gravity.
+      // Compare last frame's terrainY vs now; if dropped, give us a gentle fall.
+      const groundY = terrainHeight(me.pos.x, me.pos.z);
+      if (lastGroundY.current > groundY + 0.05) {
+        jumpY.current = lastGroundY.current - groundY;
+        jumpVy.current = 0;
+      }
+      lastGroundY.current = groundY;
     }
     // Fly altitude: smoothly settle when flying, reset when grounded
     if (!me.flying) {
