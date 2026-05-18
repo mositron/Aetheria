@@ -728,6 +728,43 @@ export class GameRoom extends Room<WorldState> {
       if (!p) return;
       const text = String(msg.text ?? "").slice(0, 200).trim();
       if (!text) return;
+      // ── Slash commands ───────────────────────────────────────────────
+      if (text.startsWith("/")) {
+        const [cmd, ...args] = text.slice(1).split(/\s+/);
+        switch (cmd.toLowerCase()) {
+          case "help":
+            client.send("system", { text: "📜 คำสั่ง: /help · /w ชื่อ ข้อความ · /pvp · /home · /who" });
+            return;
+          case "pvp":
+            p.pvpFlag = !p.pvpFlag;
+            client.send("system", { text: p.pvpFlag ? "⚔ PvP เปิดแล้ว" : "🕊 PvP ปิดแล้ว" });
+            return;
+          case "home":
+            p.pos.x = 0; p.pos.z = 0;
+            client.send("system", { text: "🏡 กลับสู่หมู่บ้าน" });
+            return;
+          case "who": {
+            const names: string[] = [];
+            for (const [, q] of this.state.players) if (!this.botIds.has(q.id)) names.push(q.name);
+            client.send("system", { text: `👥 ออนไลน์: ${names.join(", ")}` });
+            return;
+          }
+          case "w":
+            // Already handled via whisper handler — forward
+            if (args.length >= 2) {
+              const to = args[0]; const body = args.slice(1).join(" ");
+              let target: Client | null = null;
+              for (const c of this.clients) {
+                const pp = this.state.players.get(c.sessionId);
+                if (pp?.name === to) { target = c; break; }
+              }
+              if (!target) return client.send("system", { text: `ไม่พบ "${to}" ในแมพ` });
+              target.send("whisper", { from: p.name, text: body, ts: Date.now() });
+              client.send("whisper", { from: `${p.name} → ${to}`, text: body, ts: Date.now() });
+            }
+            return;
+        }
+      }
       this.broadcast("chat", { from: p.name, text, ts: Date.now() });
     });
   }
