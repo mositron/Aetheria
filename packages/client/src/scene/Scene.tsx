@@ -344,35 +344,36 @@ export function Scene({ room }: { room: Room<WorldState> }) {
       }
 
       // ── Client-side collision (terrain cliffs + obstacle objects).
-      //    Allowed to climb low ledges while jumping. Slide along edges when
-      //    blocked on one axis. Disabled while flying.
+      //    Strict: any climb > 1 step requires jumping; 0→raised requires jump.
+      //    Multi-sample along the path so fast input can't tunnel through walls.
       if ((mx || mz) && !me.flying) {
-        const speed = 5.0;
-        const dtSec = 0.5;
+        const LOOKAHEAD = 1.5;                 // total distance to check ahead
+        const SAMPLES = 3;                     // sample points along the path
+        const MAX_STEP = TERRAIN_CONFIG.STEP * 1.0; // walking climb limit = 1 step
         const fromH = terrainHeight(me.pos.x, me.pos.z);
 
         function canStepTo(nx: number, nz: number): boolean {
-          // Object obstacles (houses, trees, rocks) always block
           if (isObstacle(nx, nz)) return false;
-          // Terrain height — allowed if delta small OR jump high enough
           const toH = terrainHeight(nx, nz);
           const delta = toH - fromH;
-          if (delta <= TERRAIN_CONFIG.STEP * 2.5) return true;
-          // Jumping helps climb low ledges (up to current jump height)
-          return jumpY.current >= delta - TERRAIN_CONFIG.STEP * 1.2;
+          if (delta <= MAX_STEP) return true;
+          // Jumping clears short ledges (up to current jump height + small leeway)
+          return jumpY.current >= delta - MAX_STEP;
         }
 
-        const nx = me.pos.x + mx * speed * dtSec;
-        const nz = me.pos.z + mz * speed * dtSec;
-        if (!canStepTo(nx, nz)) {
-          // Slide: try X-only, then Z-only
-          if (mz !== 0 && canStepTo(me.pos.x + mx * speed * dtSec, me.pos.z)) {
-            mz = 0;
-          } else if (mx !== 0 && canStepTo(me.pos.x, me.pos.z + mz * speed * dtSec)) {
-            mx = 0;
-          } else {
-            mx = 0; mz = 0;
+        function pathClear(dirX: number, dirZ: number): boolean {
+          for (let i = 1; i <= SAMPLES; i++) {
+            const t = (i / SAMPLES) * LOOKAHEAD;
+            if (!canStepTo(me.pos.x + dirX * t, me.pos.z + dirZ * t)) return false;
           }
+          return true;
+        }
+
+        if (!pathClear(mx, mz)) {
+          // Try sliding along one axis only
+          if (mz !== 0 && pathClear(mx, 0)) mz = 0;
+          else if (mx !== 0 && pathClear(0, mz)) mx = 0;
+          else { mx = 0; mz = 0; }
         }
       }
 
