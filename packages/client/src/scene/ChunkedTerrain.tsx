@@ -109,6 +109,34 @@ function Chunk({ cx, cz }: { cx: number; cz: number }) {
       {data.decor.trees.map((t, i) => <Tree key={`t${i}`} {...t} />)}
       {data.decor.rocks.map((r, i) => <Rock key={`r${i}`} {...r} />)}
       {data.decor.bushes.map((b, i) => <Bush key={`b${i}`} {...b} />)}
+      {/* One signpost per chunk near origin facing back home (every 4th chunk) */}
+      {((cx + cz) & 3) === 0 && <Signpost cx={cx} cz={cz} />}
+    </group>
+  );
+}
+
+function Signpost({ cx, cz }: { cx: number; cz: number }) {
+  const px = (cx + 0.5) * CHUNK_SIZE;
+  const pz = (cz + 0.5) * CHUNK_SIZE;
+  const baseY = getHeight(px, pz);
+  const dist = Math.hypot(px, pz);
+  if (dist < 28) return null; // not too close to spawn
+  // Rotate sign to point toward origin
+  const angle = Math.atan2(-pz, -px);
+  return (
+    <group position={[px, baseY, pz]} rotation={[0, angle, 0]}>
+      <mesh position={[0, 0.5, 0]} castShadow>
+        <boxGeometry args={[0.15, 1, 0.15]} />
+        <meshToonMaterial color="#6b3917" gradientMap={toonGradient} />
+      </mesh>
+      <mesh position={[0.45, 1.0, 0]} castShadow>
+        <boxGeometry args={[1, 0.4, 0.08]} />
+        <meshToonMaterial color="#caa472" gradientMap={toonGradient} />
+      </mesh>
+      <mesh position={[0.6, 1.0, 0]}>
+        <boxGeometry args={[0.05, 0.25, 0.09]} />
+        <meshToonMaterial color="#2b1808" gradientMap={toonGradient} />
+      </mesh>
     </group>
   );
 }

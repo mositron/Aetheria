@@ -47,6 +47,7 @@ import { FriendList } from "./ui/FriendList";
 import { GuildPanel } from "./ui/GuildPanel";
 import { AuctionHouse } from "./ui/AuctionHouse";
 import { JobAdvancement } from "./ui/JobAdvancement";
+import { Onboarding } from "./ui/Onboarding";
 import { useSettings } from "./ui/SettingsPanel";
 import { DayNight } from "./scene/DayNight";
 import { useSfx } from "./hooks/useSfx";
@@ -183,6 +184,7 @@ export function Game() {
       <GuildPanel room={room} />
       <AuctionHouse room={room} />
       <JobAdvancement room={room} />
+      <Onboarding room={room} />
       <Chat room={room} />
       <Inventory room={room} />
       <Hotbar room={room} />
