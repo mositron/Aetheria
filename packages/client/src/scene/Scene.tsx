@@ -1746,7 +1746,8 @@ const MonsterView = React.memo(function MonsterView({ m, selected, onClick, onHo
   useFrame((_, dt) => {
     if (ref.current) {
       const alpha = 1 - Math.exp(-dt * 18);
-      ref.current.position.lerp(tmp.current.set(m.pos.x, terrainHeight(m.pos.x, m.pos.z), m.pos.z), alpha);
+      const my = terrainHeight(m.pos.x, m.pos.z);
+      ref.current.position.lerp(tmp.current.set(m.pos.x, my, m.pos.z), alpha);
       const dx = m.pos.x - lastPos.current.x;
       const dz = m.pos.z - lastPos.current.z;
       if (Math.hypot(dx, dz) > 0.001) {
@@ -1847,8 +1848,9 @@ function DropView({ g, onClick, onHoverIn, onHoverOut }: { g: GroundItem; onClic
   });
   const def = ITEMS[g.itemId];
   const color = def?.color ?? "#fbbf24";
+  const baseY = terrainHeight(g.pos.x, g.pos.z);
   return (
-    <group position={[g.pos.x, 0, g.pos.z]}>
+    <group position={[g.pos.x, baseY, g.pos.z]}>
       {/* larger invisible click target so tiny drops are easy to grab */}
       <mesh
         position={[0, 0.5, 0]}
