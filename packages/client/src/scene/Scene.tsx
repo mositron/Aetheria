@@ -17,8 +17,9 @@ import { SkillEffects } from "./SkillEffects";
 import { Environment } from "./Environment";
 import { AmbientParticles } from "./AmbientParticles";
 import { Weather } from "./Weather";
-import { getHeight as terrainHeight, canWalk as terrainCanWalk, TERRAIN_CONFIG } from "./terrain";
+import { getHeight as terrainHeight, isWater as terrainIsWater, SPAWN_RADIUS, STEP as TERRAIN_STEP } from "./chunkWorld";
 import { isBlocked as isObstacle } from "./obstacles";
+const TERRAIN_CONFIG = { STEP: TERRAIN_STEP };
 import { HeroModel } from "./models/HeroModel";
 import { SlimeModel } from "./models/SlimeModel";
 import { WolfModel } from "./models/WolfModel";
@@ -361,10 +362,11 @@ export function Scene({ room }: { room: Room<WorldState> }) {
           return jumpY.current >= delta - MAX_STEP;
         }
 
+        const px = me.pos.x, pz = me.pos.z;
         function pathClear(dirX: number, dirZ: number): boolean {
           for (let i = 1; i <= SAMPLES; i++) {
             const t = (i / SAMPLES) * LOOKAHEAD;
-            if (!canStepTo(me.pos.x + dirX * t, me.pos.z + dirZ * t)) return false;
+            if (!canStepTo(px + dirX * t, pz + dirZ * t)) return false;
           }
           return true;
         }
@@ -455,8 +457,9 @@ export function Scene({ room }: { room: Room<WorldState> }) {
     }
 
     if (selfRef.current) {
-      // Y composition: jump (when grounded) OR flyAlt (when flying)
-      const yVis = me.flying ? flyAlt.current : jumpY.current;
+      // Y composition: terrain height + jump (grounded) OR flyAlt (flying)
+      const terrainY = terrainHeight(me.pos.x, me.pos.z);
+      const yVis = me.flying ? flyAlt.current : terrainY + jumpY.current;
       // smoothly lerp self position toward server-authoritative pos + custom Y
       tmpVec.current.set(me.pos.x, yVis, me.pos.z);
       selfRef.current.position.lerp(tmpVec.current, alpha);
@@ -487,7 +490,7 @@ export function Scene({ room }: { room: Room<WorldState> }) {
 
   return (
     <group>
-      <Environment mapId={mapDef.id} />
+      <Environment mapId={mapDef.id} room={room} />
       <AmbientParticles room={room} />
       <Weather room={room} />
       {/* invisible click-catcher slightly above textured ground */}
@@ -1390,7 +1393,7 @@ const PlayerView = React.memo(function PlayerView({ p, self, selfRef, attackPuls
   useFrame((_, dt) => {
     if (!self && ref.current) {
       const alpha = 1 - Math.exp(-dt * 18);
-      ref.current.position.lerp(tmp.current.set(p.pos.x, 0, p.pos.z), alpha);
+      ref.current.position.lerp(tmp.current.set(p.pos.x, terrainHeight(p.pos.x, p.pos.z), p.pos.z), alpha);
       // shortest-path rotation
       const cur = ref.current.rotation.y;
       let delta = p.rotY - cur;
@@ -1708,7 +1711,7 @@ const MonsterView = React.memo(function MonsterView({ m, selected, onClick, onHo
   useFrame((_, dt) => {
     if (ref.current) {
       const alpha = 1 - Math.exp(-dt * 18);
-      ref.current.position.lerp(tmp.current.set(m.pos.x, 0, m.pos.z), alpha);
+      ref.current.position.lerp(tmp.current.set(m.pos.x, terrainHeight(m.pos.x, m.pos.z), m.pos.z), alpha);
       const dx = m.pos.x - lastPos.current.x;
       const dz = m.pos.z - lastPos.current.z;
       if (Math.hypot(dx, dz) > 0.001) {

@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
-import { MAPS, biomeAt, BIOMES, type MapId } from "@game/shared";
-import { StepTerrain } from "./StepTerrain";
-import { setObstacles } from "./obstacles";
+import type { Room } from "colyseus.js";
+import { MAPS, biomeAt, BIOMES, type MapId, type WorldState } from "@game/shared";
+import { ChunkedTerrain } from "./ChunkedTerrain";
+import { registerObstacles, unregisterObstacles } from "./obstacles";
+import { SPAWN_RADIUS } from "./chunkWorld";
 // 5-band gradient texture for built-in toon material (Pagonia-look)
 const toonGradient = (() => {
   const steps = [60, 130, 195, 230, 255];
@@ -216,70 +218,54 @@ function buildField(mapId: MapId, size: number, pal: Palette) {
   return { groundPatches, mountains, river, decor, village, lakeBlocks };
 }
 
-export function Environment({ mapId }: { mapId: MapId }) {
+export function Environment({ mapId, room }: { mapId: MapId; room?: import("colyseus.js").Room<WorldState> }) {
   const mapDef = MAPS[mapId];
   const pal = PALETTES[mapId];
   const data = useMemo(() => buildField(mapId, mapDef.size, pal), [mapId, mapDef.size, pal]);
 
-  // Publish obstacles for client-side collision detection.
+  // Register village obstacles under "village" namespace so chunk streaming
+  // doesn't wipe them. Trees/rocks from chunks register their own.
   useEffect(() => {
+    if (mapId !== "field") return;
     const obs: { x: number; z: number; r: number }[] = [];
-    // Village buildings (huts at ±6, ±6 with 3-wide footprint)
     for (const v of data.village) {
-      // include only roof/wall blocks (skip doors/windows decoration which are thin)
       if (v.sy >= 1.5) obs.push({ x: v.x, z: v.z, r: Math.max(v.sx, v.sz) * 0.55 });
     }
-    // Decor: trees + rocks block, bushes/flowers don't
-    for (const d of data.decor) {
-      if (d.type === "tree") obs.push({ x: d.x, z: d.z, r: 0.5 * d.s });
-      else if (d.type === "rock") obs.push({ x: d.x, z: d.z, r: 0.6 * d.s });
-    }
-    setObstacles(obs);
-  }, [data.village, data.decor]);
+    registerObstacles("village", obs);
+    return () => unregisterObstacles("village");
+  }, [mapId, data.village]);
 
   return (
     <group>
-      {/* Toon-shaded ground plane (Pagonia-look, no custom shader = safe) */}
-      <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow position={[0, 0, 0]}>
-        <planeGeometry args={[mapDef.size, mapDef.size, 1, 1]} />
-        <meshToonMaterial color={pal.groundC} gradientMap={toonGradient} />
-      </mesh>
-
-      {/* ground patches: thousands of tiny boxes batched (no shadows for perf) */}
-      <InstancedBlocks blocks={data.groundPatches} />
-
-      {/* mountains (no shadow casting — too many cubes, shadow map would melt) */}
-      <InstancedBlocks blocks={data.mountains} />
-
-      {/* Stepped multi-level terrain — plateaus, cliffs, river, waterfalls
-          (only on open-world field, not in dungeon). */}
-      {mapId === "field" && (
-        <StepTerrain
-          innerRadius={22}
-          outerRadius={70}
-          cellSize={2}
-          maxHeight={12}
-          stepSize={1.2}
-          seed={1337}
-        />
+      {mapId === "field" ? (
+        <>
+          {/* Infinite chunked terrain — only loads chunks near player */}
+          {room && <ChunkedTerrain room={room} />}
+          {/* Flat spawn plane at origin so spawn area always has clean ground */}
+          <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow position={[0, 0, 0]}>
+            <circleGeometry args={[SPAWN_RADIUS, 64]} />
+            <meshToonMaterial color={pal.groundC} gradientMap={toonGradient} />
+          </mesh>
+          {/* Village buildings (at center) */}
+          <InstancedBlocks blocks={data.village} />
+        </>
+      ) : (
+        <>
+          <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow position={[0, 0, 0]}>
+            <planeGeometry args={[mapDef.size, mapDef.size, 1, 1]} />
+            <meshToonMaterial color={pal.groundC} gradientMap={toonGradient} />
+          </mesh>
+          <InstancedBlocks blocks={data.groundPatches} />
+          <InstancedBlocks blocks={data.mountains} />
+          <InstancedBlocks blocks={data.village} />
+          {data.decor.map((d, i) => (
+            <Decor key={i} type={d.type} x={d.x} z={d.z} s={d.s} r={d.r} seed={d.seed} pal={pal} />
+          ))}
+        </>
       )}
 
-      {/* river (static — animation removed for perf) */}
-      <InstancedBlocks blocks={data.river} />
-
-      {/* lake (open-world only) */}
-      <InstancedBlocks blocks={data.lakeBlocks} />
-
-      {/* village buildings */}
-      <InstancedBlocks blocks={data.village} />
-
-      {/* decor */}
-      {data.decor.map((d, i) => (
-        <Decor key={i} type={d.type} x={d.x} z={d.z} s={d.s} r={d.r} seed={d.seed} pal={pal} />
-      ))}
-
-      {/* fog */}
-      <fog attach="fog" args={[mapId === "dungeon" ? "#1a0f2c" : "#a8d8f0", 30, 90]} />
+      {/* fog — closer fog hides chunk borders nicely on open world */}
+      <fog attach="fog" args={[mapId === "dungeon" ? "#1a0f2c" : "#a8d8f0", 35, 100]} />
     </group>
   );
 }
