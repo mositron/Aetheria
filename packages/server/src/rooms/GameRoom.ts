@@ -47,6 +47,7 @@ export class GameRoom extends Room<WorldState> {
   sessionToCharId = new Map<string, string>(); // sid -> Character.id (for DB writes)
   chunkSpawnAcc = 0;                            // tick accumulator for chunk spawning
   spawnedChestChunks = new Set<string>();       // chunks that have already had a chest roll
+  spawnedResourceChunks = new Set<string>();    // chunks that already have resource nodes
   mpRegenAcc = 0;
   autoSaveAcc = 0;
   bossEventAcc = 0;
@@ -2240,6 +2241,33 @@ export class GameRoom extends Room<WorldState> {
       if (Math.random() < 0.35) this.spawnMonster(kind, sx, sz);
     }
 
+    // ── Procedural resource nodes: each chunk gets a few harvestable
+    //    tree/rock/berry_bush nodes, one-time spawn. They auto-respawn via
+    //    the monsterSpawn map after RESPAWN_MS just like init resources.
+    for (const k of candidates) {
+      if (this.spawnedResourceChunks.has(k)) continue;
+      const [cx, cz] = k.split(",").map(Number);
+      const chunkCx = (cx + 0.5) * CHUNK_SIZE;
+      const chunkCz = (cz + 0.5) * CHUNK_SIZE;
+      const distToOrigin = Math.hypot(chunkCx, chunkCz);
+      if (distToOrigin < SPAWN_RADIUS + 6) { this.spawnedResourceChunks.add(k); continue; }
+      // 2-4 nodes per chunk depending on biome
+      const nodeCount = 2 + Math.floor(Math.random() * 3);
+      const biome = biomeAtServer(chunkCx, chunkCz);
+      const nodeKinds: MonsterKind[] = biome === "forest" ? ["tree_node", "tree_node", "berry_bush"]
+        : biome === "snow" ? ["rock_node", "rock_node", "ore_node"]
+        : biome === "desert" ? ["rock_node", "rock_node", "crystal_node"]
+        : ["tree_node", "rock_node", "berry_bush"];
+      for (let n = 0; n < nodeCount; n++) {
+        const sx = (cx + 0.1 + Math.random() * 0.8) * CHUNK_SIZE;
+        const sz = (cz + 0.1 + Math.random() * 0.8) * CHUNK_SIZE;
+        if (Math.hypot(sx, sz) < SPAWN_RADIUS + 4) continue;
+        const kind = nodeKinds[Math.floor(Math.random() * nodeKinds.length)];
+        this.spawnMonster(kind, sx, sz);
+      }
+      this.spawnedResourceChunks.add(k);
+    }
+
     // ── Procedural treasure chests: spawn once per chunk for chunks beyond
     //    the spawn radius. Better loot the further the chunk is from origin.
     for (const k of candidates) {
@@ -2482,6 +2510,11 @@ export class GameRoom extends Room<WorldState> {
       for (const [, p] of this.state.players) {
         if (p.dead) continue;
         const d = Math.hypot(p.pos.x - m.pos.x, p.pos.z - m.pos.z);
+        // Terrain LOS proxy: if estimated heights differ by more than 3m,
+        // assume cliff blocks line-of-sight and don't aggro. Uses the same
+        // coarse trig-noise as biome classification — cheap, deterministic.
+        const heightDiff = Math.abs(estimateHeight(p.pos.x, p.pos.z) - estimateHeight(m.pos.x, m.pos.z));
+        if (heightDiff > 3) continue;
         if (d < nearestD) { nearestD = d; nearest = p; }
       }
       if (nearest && nearestD < def.aggroRange && !this.isStunned(m)) {
@@ -2571,6 +2604,21 @@ function defaultSellPrice(itemId: string): number {
     dragon_plate: 7000,
   };
   return map[itemId] ?? 5;
+}
+
+// Lightweight terrain-height estimator for server-side LOS checks. Mirrors
+// the client's chunkWorld.getHeight approximation via the same coarse
+// noise pattern (deterministic). Not pixel-accurate — good enough to
+// suppress aggro through cliffs.
+function estimateHeight(x: number, z: number): number {
+  const d = Math.hypot(x, z);
+  if (d < 18) return 0;                                              // flat spawn ring
+  const n = (Math.sin(x * 0.05) * Math.cos(z * 0.05) +
+             Math.sin(x * 0.11) * 0.3 + Math.cos(z * 0.09) * 0.3) * 0.5 + 0.5;
+  const ramp = Math.min(1, (d - 18) / 10);
+  let h = Math.pow(Math.max(0, n), 1.5) * 18 * ramp;
+  h = Math.floor(h / 1.2) * 1.2;
+  return h;
 }
 
 function countItem(p: Player, itemId: string): number {

@@ -497,15 +497,17 @@ export function Scene({ room }: { room: Room<WorldState> }) {
       while (delta < -Math.PI) delta += Math.PI * 2;
       selfRef.current.rotation.y = cur + delta * alpha;
     }
-    // camera follows the *visual* (smoothed) position, not the raw server pos
+    // Camera follows visual (smoothed) position + terrain Y + altitude.
     const visualX = selfRef.current?.position.x ?? me.pos.x;
     const visualZ = selfRef.current?.position.z ?? me.pos.z;
+    const terrainBaseY = terrainHeight(me.pos.x, me.pos.z);
     const flyOffset = me.flying ? flyAlt.current : jumpY.current * 0.6;
+    const camY = terrainBaseY + 1 + flyOffset;
     const { yaw, pitch, dist } = cam.current;
-    const target = tmpVec.current.set(visualX, 1 + flyOffset, visualZ);
+    const target = tmpVec.current.set(visualX, camY, visualZ);
     const desired = tmpVec2.current.set(
       visualX + Math.sin(yaw) * Math.cos(pitch) * dist,
-      Math.sin(pitch) * dist + flyOffset,
+      camY + Math.sin(pitch) * dist,
       visualZ + Math.cos(yaw) * Math.cos(pitch) * dist,
     );
     const camAlpha = 1 - Math.exp(-dt * 10);
