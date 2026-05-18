@@ -142,4 +142,36 @@ export const MONSTER_DROPS: Record<string, DropEntry[]> = {
     { itemId: "gacha_box", chance: 1.0, min: 1, max: 2 },
     { itemId: "glider", chance: 0.2 },
   ],
+  // ── new biome mobs ─────────────────────────────────────────────────────
+  boar: [
+    { itemId: "raw_meat", chance: 0.9, min: 1, max: 3 },
+    { itemId: "leather_armor", chance: 0.05 },
+    { itemId: "hp_potion", chance: 0.2 },
+  ],
+  spider: [
+    { itemId: "wolf_fang", chance: 0.5 },     // reused for spider fangs
+    { itemId: "berry", chance: 0.3 },
+    { itemId: "mp_potion", chance: 0.25 },
+  ],
+  ghost: [
+    { itemId: "dark_crystal", chance: 0.15 },
+    { itemId: "mp_potion", chance: 0.4 },
+    { itemId: "hp_potion", chance: 0.2 },
+  ],
+  bat: [
+    { itemId: "wolf_fang", chance: 0.4 },
+    { itemId: "berry", chance: 0.3 },
+    { itemId: "mp_potion", chance: 0.2 },
+  ],
+  golem: [
+    { itemId: "stone_chunk", chance: 1.0, min: 3, max: 6 },
+    { itemId: "crystal", chance: 0.6 },
+    { itemId: "iron_ore", chance: 0.5, min: 1, max: 3 },
+    { itemId: "iron_sword", chance: 0.08 },
+  ],
+  fox: [
+    { itemId: "raw_meat", chance: 0.8 },
+    { itemId: "wolf_fang", chance: 0.3 },
+    { itemId: "berry", chance: 0.3 },
+  ],
 };

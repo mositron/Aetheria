@@ -17,6 +17,9 @@ export function DayNight({ mapId }: { mapId: MapId }) {
   const [isNight, setIsNight] = useState(false);
   const lastNight = useRef(false);
   const { scene } = useThree();
+  // Pre-allocate sky colors to avoid per-transition GC
+  const nightColor = useRef(new THREE.Color("#1a0f3a")).current;
+  const dayColor = useRef(new THREE.Color("#bae6fd")).current;
 
   // mount Stars/moon once — toggle visibility per frame instead of remounting
   useFrame(() => {
@@ -63,7 +66,7 @@ export function DayNight({ mapId }: { mapId: MapId }) {
       lastNight.current = night;
       setIsNight(night);
       // Brighter cheerful daytime: pastel sky-blue; night: deep navy with hint of violet
-      const col = night ? new THREE.Color("#1a0f3a") : new THREE.Color("#bae6fd");
+      const col = night ? nightColor : dayColor;
       scene.background = col;
       if (scene.fog) (scene.fog as THREE.Fog).color.copy(col);
     }

@@ -414,14 +414,22 @@ export class GameRoom extends Room<WorldState> {
     this.onMessage("friend:add", async (client, msg: any) => {
       const me = this.state.players.get(client.sessionId);
       if (!me) return;
-      const name = String(msg?.name ?? "").trim();
+      const name = String(msg?.name ?? "").trim().slice(0, 24);
       if (!name || name === me.name) return;
       const charId = this.sessionToCharId.get(client.sessionId);
       if (!charId) return;
       try {
+        // Validate target exists
+        const target = await prisma.character.findUnique({ where: { name } });
+        if (!target) {
+          return client.send("system", { text: `ไม่พบตัวละครชื่อ "${name}"` });
+        }
         const c = await prisma.character.findUnique({ where: { id: charId } });
         if (!c) return;
         const friends: string[] = JSON.parse(((c as any).friendsJson) ?? "[]");
+        if (friends.length >= 100) {
+          return client.send("system", { text: "เพื่อนเต็ม (สูงสุด 100 คน) — ลบบางคนออกก่อน" });
+        }
         if (!friends.includes(name)) {
           friends.push(name);
           await prisma.character.update({
@@ -430,7 +438,7 @@ export class GameRoom extends Room<WorldState> {
           });
         }
         client.send("friend:list", { friends: friends.map((n) => ({ name: n, online: this.isOnline(n) })) });
-      } catch {}
+      } catch (e) { console.error("[friend:add] error", e); }
     });
 
     this.onMessage("friend:remove", async (client, msg: any) => {
@@ -521,18 +529,38 @@ export class GameRoom extends Room<WorldState> {
         if (!gid) return;
         const g = await (prisma as any).guild.findUnique({ where: { id: gid } });
         if (g) {
-          const next = JSON.parse(g.membersJson ?? "[]").filter((n: string) => n !== me.name);
-          // leader leaving = disband if alone, else transfer
-          if (next.length === 0) await (prisma as any).guild.delete({ where: { id: gid } });
-          else await (prisma as any).guild.update({
-            where: { id: gid },
-            data: { membersJson: JSON.stringify(next), leaderName: g.leaderName === me.name ? next[0] : g.leaderName },
-          });
+          const members: string[] = JSON.parse(g.membersJson ?? "[]");
+          const next = members.filter((n: string) => n !== me.name);
+          // Disband entirely if alone — also clear ALL remaining members' guildId
+          if (next.length === 0) {
+            await prisma.$transaction([
+              (prisma as any).guild.delete({ where: { id: gid } }),
+              prisma.character.update({ where: { id: charId }, data: { guildId: "" } as any }),
+            ]);
+          } else {
+            // Single-member transfer + clear my guildId
+            const newLeader = g.leaderName === me.name ? next[0] : g.leaderName;
+            await prisma.$transaction([
+              (prisma as any).guild.update({
+                where: { id: gid },
+                data: { membersJson: JSON.stringify(next), leaderName: newLeader },
+              }),
+              prisma.character.update({ where: { id: charId }, data: { guildId: "" } as any }),
+            ]);
+          }
+        } else {
+          // Guild was already deleted — just clear my stale guildId
+          await prisma.character.update({ where: { id: charId }, data: { guildId: "" } as any });
         }
-        await prisma.character.update({ where: { id: charId }, data: { guildId: "" } as any });
         client.send("guild:info", null as any);
-      } catch {}
+      } catch (e) {
+        console.error("[guild:leave] error", e);
+      }
     });
+
+    // ── Periodic stale-guildId reconciliation: when fetching guild:info, if
+    //    Character.guildId points to a nonexistent Guild row, clear it.
+    // (Already implicitly handled by guild:info handler — improved below.)
 
     this.onMessage("guild:info", async (client) => {
       const charId = this.sessionToCharId.get(client.sessionId);
@@ -543,12 +571,17 @@ export class GameRoom extends Room<WorldState> {
         const gid = (c as any).guildId;
         if (!gid) { client.send("guild:info", null as any); return; }
         const g = await (prisma as any).guild.findUnique({ where: { id: gid } });
-        if (!g) { client.send("guild:info", null as any); return; }
+        if (!g) {
+          // Stale guildId — guild was deleted, clear the reference
+          await prisma.character.update({ where: { id: charId }, data: { guildId: "" } as any }).catch(() => {});
+          client.send("guild:info", null as any);
+          return;
+        }
         client.send("guild:info", {
           id: g.id, name: g.name, tag: g.tag, leader: g.leaderName,
           members: JSON.parse(g.membersJson ?? "[]"),
         });
-      } catch {}
+      } catch (e) { console.error("[guild:info] error", e); }
     });
 
     this.onMessage("guild:chat", async (client, msg: any) => {
@@ -640,16 +673,30 @@ export class GameRoom extends Room<WorldState> {
       if (!p) return;
       const id = String(msg?.id ?? "");
       try {
+        // Atomically claim the listing — only one concurrent buyer wins.
+        // deleteMany returns count = 0 if already gone OR if it's the seller's own listing.
         const listing = await (prisma as any).auctionListing.findUnique({ where: { id } });
         if (!listing) return client.send("system", { text: "ของถูกซื้อหรือลบไปแล้ว" });
         if (listing.sellerName === p.name) return client.send("system", { text: "ซื้อของตัวเองไม่ได้" });
         const total = listing.pricePer * listing.qty;
         if (p.zeny < total) return client.send("system", { text: `เงินไม่พอ (ต้อง ${total}z)` });
-        // Transfer: deduct from buyer, mail proceeds to seller, give buyer item
+
+        // Atomic delete-with-condition — if another buyer already claimed it, count = 0
+        const claim = await (prisma as any).auctionListing.deleteMany({
+          where: { id, sellerName: { not: p.name } },
+        });
+        if (claim.count === 0) return client.send("system", { text: "ของถูกคนอื่นซื้อไปแล้ว" });
+
+        // We own the claim; now try to give item + deduct zeny atomically on player state
         const ok = this.addToInventory(p, listing.itemId, listing.qty);
-        if (!ok) return client.send("system", { text: "กระเป๋าเต็ม" });
+        if (!ok) {
+          // Re-list it so item isn't lost (best effort)
+          try {
+            await (prisma as any).auctionListing.create({ data: { sellerName: listing.sellerName, itemId: listing.itemId, qty: listing.qty, pricePer: listing.pricePer } });
+          } catch {}
+          return client.send("system", { text: "กระเป๋าเต็ม — ของถูก re-list" });
+        }
         p.zeny -= total;
-        await (prisma as any).auctionListing.delete({ where: { id } });
         // Mail proceeds to seller (offline-friendly)
         try {
           await prisma.mail.create({
@@ -661,9 +708,14 @@ export class GameRoom extends Room<WorldState> {
               zeny: total, itemId: "", itemQty: 0,
             },
           });
-        } catch {}
+        } catch (e) {
+          console.error("[auction] mail to seller failed", e);
+        }
         client.send("system", { text: `✅ ซื้อ ${listing.itemId} ×${listing.qty} (-${total}z)` });
-      } catch {}
+      } catch (e) {
+        console.error("[auction:buy] error", e);
+        client.send("system", { text: "⚠ เกิดข้อผิดพลาดในการซื้อ" });
+      }
     });
 
     this.onMessage("auction:cancel", async (client, msg: any) => {
@@ -777,19 +829,54 @@ export class GameRoom extends Room<WorldState> {
           }
           return taken;
         }
+        // Pre-flight: validate inventory caps so we can refuse before
+        // mutating either side. INVENTORY_SIZE = 200. After A gives N items
+        // away, A's free slots grow by however many stacks fully empty.
+        // Conservative check: each player must have room for partner's
+        // unique items (assuming no merge).
+        const aFreeAfter = (INVENTORY_SIZE - a.inventory.length) + sess.items.length;
+        const bFreeAfter = (INVENTORY_SIZE - b.inventory.length) + partner.items.length;
+        if (aFreeAfter < partner.items.length || bFreeAfter < sess.items.length) {
+          this.cancelTrade(client.sessionId);
+          const c1 = this.clients.find((c) => c.sessionId === client.sessionId);
+          const c2 = this.clients.find((c) => c.sessionId === sess.partnerSid);
+          c1?.send("system", { text: "⚠ ฝั่งใดฝั่งหนึ่งกระเป๋าจะเต็ม — เทรดถูกยกเลิก" });
+          c2?.send("system", { text: "⚠ ฝั่งใดฝั่งหนึ่งกระเป๋าจะเต็ม — เทรดถูกยกเลิก" });
+          return;
+        }
+        // Snapshot inventory + zeny in case we need to roll back
+        const aSnapshot = a.inventory.map((s) => ({ itemId: s.itemId, qty: s.qty }));
+        const bSnapshot = b.inventory.map((s) => ({ itemId: s.itemId, qty: s.qty }));
+        const aZenyPre = a.zeny;
+        const bZenyPre = b.zeny;
         try {
           const aGives = takeFrom(a, sess.items);
           const bGives = takeFrom(b, partner.items);
-          a.zeny -= sess.zeny; b.zeny -= partner.zeny;
-          for (const it of bGives) this.addToInventory(a, it.itemId, it.qty);
-          for (const it of aGives) this.addToInventory(b, it.itemId, it.qty);
-          a.zeny += partner.zeny; b.zeny += sess.zeny;
+          // Items first (so we know if either side overflows)
+          for (const it of bGives) {
+            if (!this.addToInventory(a, it.itemId, it.qty)) throw new Error("inv-full-a");
+          }
+          for (const it of aGives) {
+            if (!this.addToInventory(b, it.itemId, it.qty)) throw new Error("inv-full-b");
+          }
+          // Zeny swap only after items succeed
+          a.zeny = aZenyPre - sess.zeny + partner.zeny;
+          b.zeny = bZenyPre - partner.zeny + sess.zeny;
           const c1 = this.clients.find((c) => c.sessionId === client.sessionId);
           const c2 = this.clients.find((c) => c.sessionId === sess.partnerSid);
           c1?.send("trade:done" as any, {}); c1?.send("system", { text: "✅ เทรดสำเร็จ" });
           c2?.send("trade:done" as any, {}); c2?.send("system", { text: "✅ เทรดสำเร็จ" });
-        } catch {
-          client.send("system", { text: "⚠ เทรดล้มเหลว — ของไม่พอ" });
+        } catch (err: any) {
+          // Roll back both inventories + zeny to pre-trade snapshot
+          a.inventory.splice(0, a.inventory.length);
+          for (const s of aSnapshot) a.inventory.push({ itemId: s.itemId, qty: s.qty } as any);
+          b.inventory.splice(0, b.inventory.length);
+          for (const s of bSnapshot) b.inventory.push({ itemId: s.itemId, qty: s.qty } as any);
+          a.zeny = aZenyPre; b.zeny = bZenyPre;
+          const c1 = this.clients.find((c) => c.sessionId === client.sessionId);
+          const c2 = this.clients.find((c) => c.sessionId === sess.partnerSid);
+          c1?.send("system", { text: `⚠ เทรดล้มเหลว: ${err.message}` });
+          c2?.send("system", { text: `⚠ เทรดล้มเหลว: ${err.message}` });
         } finally {
           this.tradeSessions.delete(client.sessionId);
           this.tradeSessions.delete(sess.partnerSid);
@@ -858,10 +945,15 @@ export class GameRoom extends Room<WorldState> {
             p.pvpFlag = !p.pvpFlag;
             client.send("system", { text: p.pvpFlag ? "⚔ PvP เปิดแล้ว" : "🕊 PvP ปิดแล้ว" });
             return;
-          case "home":
-            p.pos.x = 0; p.pos.z = 0;
+          case "home": {
+            // Spawn near center but offset slightly so we don't land inside the fountain/houses
+            const a = Math.random() * Math.PI * 2;
+            const r = 3 + Math.random() * 3;
+            p.pos.x = Math.cos(a) * r;
+            p.pos.z = Math.sin(a) * r;
             client.send("system", { text: "🏡 กลับสู่หมู่บ้าน" });
             return;
+          }
           case "who": {
             const names: string[] = [];
             for (const [, q] of this.state.players) if (!this.botIds.has(q.id)) names.push(q.name);
@@ -942,6 +1034,20 @@ export class GameRoom extends Room<WorldState> {
     p.zeny = (c as any).zeny ?? 0;
     p.appearance = (c as any).appearance ?? "{}";
     p.achievementsJson = (c as any).achievementsJson ?? "{}";
+    p.pvpFlag = !!(c as any).pvpFlag;
+    // Restore daily challenge state (only if today's date matches)
+    try {
+      const daily = JSON.parse((c as any).dailyJson || "{}");
+      const today = new Date().toISOString().slice(0, 10);
+      if (daily.date === today) {
+        this.dailyState.set(client.sessionId, {
+          date: daily.date,
+          kills: daily.kills | 0,
+          harvest: daily.harvest | 0,
+          rewards: new Set(daily.rewards ?? []),
+        });
+      }
+    } catch {}
     p.title = (c as any).title ?? "";
 
     // Daily login reward — check if first login today
@@ -966,7 +1072,7 @@ export class GameRoom extends Room<WorldState> {
       };
       const reward = rewards[day];
       p.zeny += reward.zeny;
-      for (const it of reward.items) this.addToInventory(p, it.id, it.qty);
+      for (const it of reward.items) this.addToInventoryOrMail(p, it.id, it.qty, "DAILY_LOGIN");
       // Persist via savePlayer's withExtras
       (p as any)._newLoginDate = today;
       (p as any)._newLoginStreak = streak;
@@ -1019,15 +1125,32 @@ export class GameRoom extends Room<WorldState> {
   }
 
   async onLeave(client: Client) {
-    await this.savePlayer(client.sessionId);
-    this.handlePartyLeave(client.sessionId);
-    this.state.players.delete(client.sessionId);
-    this.intents.delete(client.sessionId);
-    this.lastAttack.delete(client.sessionId);
-    this.playerUserId.delete(client.sessionId);
-    this.playerCharId.delete(client.sessionId);
-    this.playerQuests.delete(client.sessionId);
-    this.partyInvites.delete(client.sessionId);
+    const sid = client.sessionId;
+    // Cancel any in-flight trade so partner gets notified before save
+    if (this.tradeSessions.has(sid)) this.cancelTrade(sid);
+    await this.savePlayer(sid);
+    this.handlePartyLeave(sid);
+    this.state.players.delete(sid);
+    this.intents.delete(sid);
+    this.lastAttack.delete(sid);
+    this.playerUserId.delete(sid);
+    this.playerCharId.delete(sid);
+    this.playerQuests.delete(sid);
+    this.partyInvites.delete(sid);
+    // Additional session-keyed maps (memory leak prevention)
+    this.sessionToCharId.delete(sid);
+    this.dailyState.delete(sid);
+    this.fishingState.delete(sid);
+    this.tradeSessions.delete(sid);
+    this.botIds.delete(sid);
+    this.botState.delete(sid);
+    // Prune compound-keyed maps that include this session
+    for (const k of this.tameProgress.keys()) if (k.startsWith(sid + ":")) this.tameProgress.delete(k);
+    for (const k of this.statusTickAcc.keys()) if (k.startsWith(sid + ":")) this.statusTickAcc.delete(k);
+    // Remove party invites SENT BY this player to others
+    for (const [toSid, fromSid] of this.partyInvites.entries()) {
+      if (fromSid === sid) this.partyInvites.delete(toSid);
+    }
   }
 
   // ---------- party ----------
@@ -1225,7 +1348,16 @@ export class GameRoom extends Room<WorldState> {
     // New fields — may not exist in stale Prisma client; merged optimistically.
     const newLoginDate = (p as any)._newLoginDate;
     const newLoginStreak = (p as any)._newLoginStreak;
-    const withExtras: any = { ...core, hunger: p.hunger, thirst: p.thirst, stamina: p.stamina, maxStamina: p.maxStamina, houseSlot: p.houseSlot, petKind: p.petKind, mounted: p.mounted ? 1 : 0, achievementsJson: p.achievementsJson, title: p.title, petsJson: p.petsJson, petRare: p.petRare ? 1 : 0, decorationsJson: p.decorationsJson };
+    const withExtras: any = {
+      ...core,
+      hunger: p.hunger, thirst: p.thirst, stamina: p.stamina, maxStamina: p.maxStamina,
+      houseSlot: p.houseSlot, petKind: p.petKind, mounted: p.mounted ? 1 : 0,
+      achievementsJson: p.achievementsJson, title: p.title,
+      petsJson: p.petsJson, petRare: p.petRare ? 1 : 0,
+      decorationsJson: p.decorationsJson,
+      pvpFlag: p.pvpFlag ? 1 : 0,
+      dailyJson: JSON.stringify(this.serializedDailyState(p.id)),
+    };
     if (newLoginDate) withExtras.lastLoginDate = newLoginDate;
     if (newLoginStreak) withExtras.loginStreak = newLoginStreak;
 
@@ -1282,7 +1414,7 @@ export class GameRoom extends Room<WorldState> {
     p.zeny += q.reward.zeny;
     this.grantExp(p, q.reward.exp);
     if (q.reward.itemId && q.reward.qty) {
-      this.addToInventory(p, q.reward.itemId, q.reward.qty);
+      this.addToInventoryOrMail(p, q.reward.itemId, q.reward.qty, "QUEST");
     }
     delete qs.active[questId];
     if (!qs.completed.includes(questId)) qs.completed.push(questId);
@@ -1427,6 +1559,13 @@ export class GameRoom extends Room<WorldState> {
     const c2 = this.clients.find((c) => c.sessionId === partnerSid);
     c1?.send("trade:cancelled" as any, {}); c1?.send("system", { text: "🚫 ยกเลิกเทรด" });
     c2?.send("trade:cancelled" as any, {}); c2?.send("system", { text: "🚫 ยกเลิกเทรด" });
+  }
+
+  /** Serialize daily state to a plain JSON-safe object (Sets become arrays). */
+  serializedDailyState(sid: string) {
+    const st = this.dailyState.get(sid);
+    if (!st) return {};
+    return { date: st.date, kills: st.kills, harvest: st.harvest, rewards: Array.from(st.rewards) };
   }
 
   /** True if a player with this name is currently connected to the room. */
@@ -2111,6 +2250,26 @@ export class GameRoom extends Room<WorldState> {
     this.state.drops.delete(dropId);
   }
 
+  /** Add items, falling back to mail delivery if inventory is full. Reward paths use this. */
+  async addToInventoryOrMail(p: Player, itemId: string, qty: number, source = "REWARD") {
+    if (this.addToInventory(p, itemId, qty)) return;
+    // Inventory full — mail it instead
+    try {
+      await prisma.mail.create({
+        data: {
+          toName: p.name, fromName: source,
+          subject: `${itemId} ×${qty}`,
+          body: `กระเป๋าเต็ม — รางวัลถูกส่งไปไว้ในจดหมาย`,
+          zeny: 0, itemId, itemQty: qty,
+        },
+      });
+      const cli = this.clients.find((c) => c.sessionId === p.id);
+      cli?.send("system", { text: `📬 ${itemId} ×${qty} ส่งเป็นจดหมาย (กระเป๋าเต็ม)` });
+    } catch (e) {
+      console.error("[addToInventoryOrMail] mail failed", e);
+    }
+  }
+
   addToInventory(p: Player, itemId: string, qty: number): boolean {
     const def = ITEMS[itemId];
     if (!def) return false;
@@ -2774,6 +2933,7 @@ function defaultSellPrice(itemId: string): number {
     energy_tonic: 40,
     // consumables
     hp_potion: 25,
+    mp_potion: 20,
     // gear (sell back at half via SELL_RATIO)
     wood_sword: 200,
     iron_sword: 1500,

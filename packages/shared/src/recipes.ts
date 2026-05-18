@@ -206,10 +206,10 @@ export const RECIPES: Recipe[] = [
     desc: "เบอร์รี่ + คริสตัล → ยาเติม MP",
     minLevel: 5,
   },
-  // ── ENERGY TONIC (from cooked meat + berry) ──
+  // ── ENERGY TONIC v2 (from cooked meat + berry — alternate ingredients) ──
   {
-    id: "recipe_energy_tonic",
-    name: "Energy Tonic",
+    id: "recipe_energy_tonic_meat",
+    name: "Energy Tonic (เนื้อ)",
     icon: "⚡",
     category: "potion",
     inputs: [
@@ -219,10 +219,10 @@ export const RECIPES: Recipe[] = [
     output: { itemId: "energy_tonic", qty: 1 },
     desc: "เนื้อย่าง + เบอร์รี่ → ฟื้น stamina ทั้งหมด",
   },
-  // ── HP POTION (cooked fish + crystal) ──
+  // ── HP POTION v2 (cooked fish + crystal — alternate, Lv5 unlock) ──
   {
-    id: "recipe_hp_potion",
-    name: "ยา HP",
+    id: "recipe_hp_potion_fish",
+    name: "ยา HP (ปลา)",
     icon: "🧪",
     category: "potion",
     inputs: [

@@ -22,7 +22,8 @@ export function Onboarding({ room }: { room: Room<WorldState> }) {
     // Only show for first-time chars
     const me = room.state.players.get(room.sessionId);
     if (!me) return;
-    const key = "onboarded:" + me.id;
+    // Use character NAME (stable across sessions) rather than session id
+    const key = "onboarded:" + me.name;
     if (localStorage.getItem(key) === "1") return;
     setOpen(true);
     const id = setInterval(() => {
@@ -41,7 +42,7 @@ export function Onboarding({ room }: { room: Room<WorldState> }) {
 
   function skip() {
     const me = room.state.players.get(room.sessionId);
-    if (me) localStorage.setItem("onboarded:" + me.id, "1");
+    if (me) localStorage.setItem("onboarded:" + me.name, "1");
     setOpen(false);
   }
 

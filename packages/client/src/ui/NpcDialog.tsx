@@ -43,7 +43,7 @@ export function NpcDialog({ room }: { room: Room<WorldState> }) {
   const npcQuestIds = QUESTS_BY_GIVER[npc.id] ?? [];
 
   return (
-    <div className="panel absolute inset-x-0 bottom-32 mx-auto w-[28rem] space-y-2">
+    <div data-no-screen-joy className="panel absolute inset-x-0 bottom-32 mx-auto w-[28rem] space-y-2">
       <div className="panel-corners" />
       <div className="panel-title">
         <span>{npc.icon} {npc.name}</span>

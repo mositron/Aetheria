@@ -452,6 +452,19 @@ export function Scene({ room }: { room: Room<WorldState> }) {
     // frame-rate-independent smoothing: ~75% catch-up over 100ms
     const alpha = 1 - Math.exp(-dt * 18);
 
+    // ── Detect teleport / map switch: if server position jumped >30m
+    //    in one frame, reset jump physics so we don't fall-through-ground.
+    if (selfRef.current) {
+      const dx = me.pos.x - selfRef.current.position.x;
+      const dz = me.pos.z - selfRef.current.position.z;
+      if (Math.hypot(dx, dz) > 30) {
+        jumpY.current = 0; jumpVy.current = 0;
+        lastGroundY.current = terrainHeight(me.pos.x, me.pos.z);
+        // Snap visual position so the camera doesn't lurch
+        selfRef.current.position.set(me.pos.x, lastGroundY.current, me.pos.z);
+      }
+    }
+
     // ── Y-physics (client-side only, server is XZ-authoritative).
     //    Falling: if player Y > terrain Y at current position, gravity pulls
     //    jumpY back toward 0 (i.e., the player falls onto the ground below).
