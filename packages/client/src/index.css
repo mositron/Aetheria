@@ -1,0 +1,294 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html, body, #root { width: 100%; height: 100%; }
+
+@layer components {
+  /* Modern glassmorphism panel — cyan/violet neon accent */
+  .panel {
+    @apply text-xs relative;
+    border-radius: 14px;
+    background: linear-gradient(160deg, rgba(30, 41, 80, 0.7) 0%, rgba(15, 23, 42, 0.8) 100%);
+    backdrop-filter: blur(14px) saturate(160%);
+    -webkit-backdrop-filter: blur(14px) saturate(160%);
+    border: 1px solid rgba(125, 211, 252, 0.28);
+    box-shadow:
+      0 0 0 1px rgba(125, 211, 252, 0.15),
+      inset 0 1px 0 rgba(255, 255, 255, 0.1),
+      0 8px 32px rgba(0, 0, 0, 0.45),
+      0 0 24px rgba(244, 114, 182, 0.1);
+    padding: 8px 10px;
+  }
+  /* neon top edge */
+  .panel::before {
+    content: "";
+    position: absolute;
+    top: 0; left: 14px; right: 14px;
+    height: 1px;
+    background: linear-gradient(90deg, transparent 0%, rgba(34, 211, 238, 0.7) 30%, rgba(168, 85, 247, 0.7) 70%, transparent 100%);
+    border-radius: 2px;
+  }
+  /* tiny corner dots */
+  .panel > .panel-corners::before,
+  .panel > .panel-corners::after {
+    content: "";
+    position: absolute;
+    width: 5px; height: 5px;
+    background: #22d3ee;
+    border-radius: 999px;
+    box-shadow: 0 0 6px #22d3ee, 0 0 12px rgba(34, 211, 238, 0.5);
+  }
+  .panel > .panel-corners { position: absolute; inset: 0; pointer-events: none; }
+  .panel > .panel-corners::before { top: -2px; left: -2px; }
+  .panel > .panel-corners::after  { top: -2px; right: -2px; background: #a855f7; box-shadow: 0 0 6px #a855f7, 0 0 12px rgba(168, 85, 247, 0.5); }
+  /* title bar — clean modern */
+  .panel-title {
+    @apply -mx-2.5 -mt-2 mb-2 px-3 py-1.5 text-[11px] font-semibold flex justify-between items-center;
+    color: #e0f2fe;
+    letter-spacing: 0.04em;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.12);
+    background: linear-gradient(180deg, rgba(34, 211, 238, 0.06) 0%, transparent 100%);
+  }
+  .panel-title button {
+    color: rgba(226, 232, 240, 0.6);
+    transition: color 0.15s;
+  }
+  .panel-title button:hover { color: #22d3ee; }
+  .panel.no-title { padding-top: 6px; }
+  .stat-pill {
+    @apply px-1.5 py-0.5 rounded;
+    background: rgba(15, 23, 42, 0.5);
+    border: 1px solid rgba(34, 211, 238, 0.15);
+  }
+  .btn-3d {
+    @apply px-2.5 py-1 font-semibold text-xs rounded;
+    background: linear-gradient(180deg, var(--btn-hi) 0%, var(--btn-lo) 100%);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.18), 0 2px 8px rgba(0,0,0,0.3);
+    color: #fff;
+    text-shadow: 0 1px 0 rgba(0,0,0,0.4);
+    transition: filter 0.15s, transform 0.05s;
+  }
+  .btn-3d:hover { filter: brightness(1.2); }
+  .btn-3d:active { transform: translateY(1px); }
+  .btn-indigo { --btn-hi: #818cf8; --btn-lo: #4338ca; }
+  .btn-rose   { --btn-hi: #fb7185; --btn-lo: #be123c; }
+  .btn-amber  { --btn-hi: #fbbf24; --btn-lo: #b45309; }
+  .btn-emerald{ --btn-hi: #34d399; --btn-lo: #047857; }
+  .btn-slate  { --btn-hi: #64748b; --btn-lo: #334155; }
+  /* ─── GameFrame — cute pastel window frame ─── */
+  .game-frame {
+    @apply relative;
+    /* soft creamy background with subtle gradient */
+    background:
+      linear-gradient(180deg, rgba(30, 41, 80, 0.88) 0%, rgba(15, 23, 42, 0.92) 100%);
+    border: 3px solid;
+    border-image: linear-gradient(180deg, #67e8f9 0%, #22d3ee 50%, #a855f7 100%) 1;
+    border-radius: 18px;
+    box-shadow:
+      /* outer pastel glow */
+      0 0 0 2px rgba(125, 211, 252, 0.35),
+      0 0 30px rgba(125, 211, 252, 0.3),
+      0 0 60px rgba(244, 114, 182, 0.18),
+      /* inner highlight */
+      inset 0 0 0 1px rgba(255, 255, 255, 0.1),
+      inset 0 2px 0 rgba(255, 255, 255, 0.12),
+      /* depth */
+      0 12px 40px rgba(0, 0, 0, 0.55);
+    padding: 14px 16px;
+  }
+  /* corner gems — 4 round candy-dots */
+  .game-frame > .frame-corner {
+    position: absolute;
+    width: 14px; height: 14px;
+    border-radius: 50%;
+    border: 2px solid #ffffff;
+    box-shadow: 0 0 10px rgba(125, 211, 252, 0.7), inset 0 1px 0 rgba(255,255,255,0.7);
+    pointer-events: none;
+    z-index: 2;
+  }
+  .game-frame > .frame-corner.tl { top: -8px; left: -8px; background: radial-gradient(circle at 30% 30%, #fbcfe8 0%, #f472b6 70%, #db2777 100%); }
+  .game-frame > .frame-corner.tr { top: -8px; right: -8px; background: radial-gradient(circle at 30% 30%, #fde68a 0%, #fbbf24 70%, #b45309 100%); }
+  .game-frame > .frame-corner.bl { bottom: -8px; left: -8px; background: radial-gradient(circle at 30% 30%, #bae6fd 0%, #38bdf8 70%, #0369a1 100%); }
+  .game-frame > .frame-corner.br { bottom: -8px; right: -8px; background: radial-gradient(circle at 30% 30%, #d8b4fe 0%, #a855f7 70%, #7c3aed 100%); }
+
+  /* runic side studs along edges */
+  .game-frame > .frame-rivets {
+    position: absolute; inset: 0; pointer-events: none;
+  }
+  .game-frame > .frame-rivets::before,
+  .game-frame > .frame-rivets::after {
+    content: ""; position: absolute; left: 50%; transform: translateX(-50%);
+    width: 28px; height: 6px;
+    background: repeating-linear-gradient(90deg, #22d3ee 0 6px, transparent 6px 12px);
+    opacity: 0.8;
+    filter: drop-shadow(0 0 4px rgba(34, 211, 238, 0.7));
+  }
+  .game-frame > .frame-rivets::before { top: -3px; }
+  .game-frame > .frame-rivets::after  { bottom: -3px; background: repeating-linear-gradient(90deg, #a855f7 0 6px, transparent 6px 12px); filter: drop-shadow(0 0 4px rgba(168, 85, 247, 0.7)); }
+
+  /* Banner — a hanging pastel ribbon above the frame */
+  .game-frame > .frame-banner {
+    position: absolute;
+    top: -22px;
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 5px 24px 6px;
+    font-weight: 800;
+    font-size: 13px;
+    letter-spacing: 0.1em;
+    color: #fff;
+    background: linear-gradient(180deg, #67e8f9 0%, #22d3ee 60%, #0891b2 100%);
+    border: 2px solid #ffffff;
+    border-radius: 16px;
+    box-shadow:
+      0 0 0 2px rgba(125, 211, 252, 0.5),
+      0 0 20px rgba(125, 211, 252, 0.6),
+      0 4px 12px rgba(0, 0, 0, 0.4);
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+    white-space: nowrap;
+    z-index: 3;
+  }
+  /* small gem inside the banner */
+  .game-frame > .frame-banner::before {
+    content: "◆";
+    color: #a855f7;
+    margin-right: 6px;
+    text-shadow: 0 0 6px #a855f7;
+  }
+  .game-frame > .frame-banner::after {
+    content: "◆";
+    color: #a855f7;
+    margin-left: 6px;
+    text-shadow: 0 0 6px #a855f7;
+  }
+
+  /* Bottom flourish — ornamental hanging tassel/marker */
+  .game-frame > .frame-foot {
+    position: absolute;
+    bottom: -10px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 60px;
+    height: 10px;
+    background: linear-gradient(90deg, transparent 0%, #22d3ee 50%, transparent 100%);
+    opacity: 0.5;
+    filter: blur(2px);
+    pointer-events: none;
+  }
+
+  /* Variant: violet (for character creator etc.) */
+  .game-frame.violet {
+    border-image: linear-gradient(180deg, #f0abfc 0%, #a855f7 50%, #f472b6 100%) 1;
+    box-shadow:
+      0 0 0 2px rgba(240, 171, 252, 0.4),
+      0 0 30px rgba(168, 85, 247, 0.3),
+      0 0 60px rgba(244, 114, 182, 0.2),
+      inset 0 0 0 1px rgba(255, 255, 255, 0.1),
+      inset 0 2px 0 rgba(255, 255, 255, 0.12),
+      0 12px 40px rgba(0, 0, 0, 0.55);
+  }
+  .game-frame.violet > .frame-banner {
+    background: linear-gradient(180deg, #f0abfc 0%, #a855f7 60%, #7c3aed 100%);
+    border-color: #ffffff;
+    box-shadow:
+      0 0 0 2px rgba(240, 171, 252, 0.5),
+      0 0 20px rgba(168, 85, 247, 0.6),
+      0 4px 12px rgba(0, 0, 0, 0.4);
+  }
+
+  /* themed scrollbar — slim cyan rail */
+  .game-scroll::-webkit-scrollbar {
+    width: 8px; height: 8px;
+  }
+  .game-scroll::-webkit-scrollbar-track {
+    background: rgba(2, 6, 23, 0.5);
+    border-radius: 4px;
+  }
+  .game-scroll::-webkit-scrollbar-thumb {
+    background: linear-gradient(180deg, #22d3ee 0%, #0891b2 50%, #164e63 100%);
+    border-radius: 4px;
+    border: 1px solid rgba(34, 211, 238, 0.4);
+    box-shadow: 0 0 6px rgba(34, 211, 238, 0.4);
+  }
+  .game-scroll::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(180deg, #67e8f9 0%, #22d3ee 50%, #0891b2 100%);
+    box-shadow: 0 0 10px rgba(34, 211, 238, 0.7);
+  }
+  .game-scroll::-webkit-scrollbar-corner { background: transparent; }
+  /* Firefox */
+  .game-scroll { scrollbar-width: thin; scrollbar-color: #22d3ee rgba(2, 6, 23, 0.5); }
+
+  .game-scroll.violet::-webkit-scrollbar-thumb {
+    background: linear-gradient(180deg, #a855f7 0%, #7c3aed 50%, #5b21b6 100%);
+    border-color: rgba(168, 85, 247, 0.4);
+    box-shadow: 0 0 6px rgba(168, 85, 247, 0.4);
+  }
+  .game-scroll.violet::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(180deg, #c084fc 0%, #a855f7 50%, #7c3aed 100%);
+    box-shadow: 0 0 10px rgba(168, 85, 247, 0.7);
+  }
+  .game-scroll.violet { scrollbar-color: #a855f7 rgba(2, 6, 23, 0.5); }
+
+  /* themed input inside game frames */
+  .game-input {
+    @apply w-full px-3 py-2 outline-none text-white;
+    background: linear-gradient(180deg, rgba(2, 6, 23, 0.9) 0%, rgba(15, 23, 42, 0.85) 100%);
+    border: 1px solid rgba(34, 211, 238, 0.25);
+    border-radius: 2px;
+    box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.6);
+    transition: border-color 0.15s, box-shadow 0.15s;
+  }
+  .game-input:focus {
+    border-color: #22d3ee;
+    box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(34, 211, 238, 0.4), 0 0 12px rgba(34, 211, 238, 0.3);
+  }
+  .game-label {
+    @apply text-[10px] uppercase tracking-[0.25em] font-semibold mb-1.5;
+    color: #67e8f9;
+    text-shadow: 0 0 6px rgba(34, 211, 238, 0.3);
+  }
+
+  /* cute round game button */
+  .btn-game {
+    @apply relative px-5 py-2.5 font-bold tracking-wide text-sm;
+    color: #fff;
+    background: linear-gradient(180deg, #67e8f9 0%, #22d3ee 60%, #0891b2 100%);
+    border: 2px solid #ffffff;
+    border-radius: 999px;
+    box-shadow:
+      0 0 0 2px rgba(125, 211, 252, 0.4),
+      0 4px 0 rgba(8, 145, 178, 0.5),
+      inset 0 1px 0 rgba(255,255,255,0.5);
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+    transition: filter 0.15s, transform 0.05s;
+  }
+  .btn-game:hover:not(:disabled) { filter: brightness(1.1); }
+  .btn-game:active:not(:disabled) { transform: translateY(2px); box-shadow: 0 0 0 2px rgba(125, 211, 252, 0.4), 0 1px 0 rgba(8, 145, 178, 0.5), inset 0 1px 0 rgba(255,255,255,0.5); }
+  .btn-game:disabled { opacity: 0.4; cursor: not-allowed; }
+  .btn-game.danger {
+    background: linear-gradient(180deg, #fb7185 0%, #f43f5e 60%, #be123c 100%);
+    box-shadow: 0 0 0 2px rgba(254, 205, 211, 0.5), 0 4px 0 rgba(190, 18, 60, 0.5), inset 0 1px 0 rgba(255,255,255,0.45);
+  }
+  .btn-game.violet {
+    background: linear-gradient(180deg, #c084fc 0%, #a855f7 60%, #7c3aed 100%);
+    box-shadow: 0 0 0 2px rgba(216, 180, 254, 0.5), 0 4px 0 rgba(124, 58, 237, 0.5), inset 0 1px 0 rgba(255,255,255,0.45);
+  }
+  .btn-game.muted {
+    background: linear-gradient(180deg, #94a3b8 0%, #64748b 60%, #334155 100%);
+    box-shadow: 0 0 0 2px rgba(203, 213, 225, 0.4), 0 4px 0 rgba(51, 65, 85, 0.5), inset 0 1px 0 rgba(255,255,255,0.3);
+  }
+
+  .slot {
+    @apply aspect-square relative flex items-center justify-center text-lg cursor-pointer rounded;
+    background: linear-gradient(140deg, rgba(30, 41, 59, 0.6) 0%, rgba(15, 23, 42, 0.8) 100%);
+    border: 1px solid rgba(148, 163, 184, 0.15);
+    transition: all 0.15s;
+  }
+  .slot:hover {
+    border-color: rgba(34, 211, 238, 0.5);
+    box-shadow: 0 0 12px rgba(34, 211, 238, 0.3);
+  }
+}
+

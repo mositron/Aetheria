@@ -1,0 +1,46 @@
+export const GAME_CONFIG = {
+  TICK_RATE: 20,
+  WORLD_SIZE: 100,
+  PLAYER_SPEED: 5,
+  PLAYER_BASE_HP: 100,
+  PLAYER_BASE_ATK: 10,
+  ATTACK_RANGE: 2,
+  ATTACK_COOLDOWN_MS: 800,
+  RESPAWN_MS: 5000,
+  BOSS_RESPAWN_MS: 60_000,
+  // Early levels: very easy (a few mobs). Scales smoothly so high levels feel meaningful.
+  // Lv 1→2: 30 (3 slimes), Lv 5→6: 175, Lv 10→11: 525, Lv 20→21: 2025
+  EXP_PER_LEVEL: (lv: number) => Math.floor(25 + lv * lv * 5),
+} as const;
+
+export const ROOM_NAME = "world";
+
+export const MONSTERS = {
+  slime: { name: "Slime", hp: 30, atk: 4, exp: 10, speed: 2, aggroRange: 6 },
+  wolf: { name: "Wolf", hp: 60, atk: 8, exp: 25, speed: 3.5, aggroRange: 8 },
+  orc: { name: "Orc Warrior", hp: 140, atk: 14, exp: 80, speed: 2.5, aggroRange: 7 },
+  darklord: { name: "Dark Lord", hp: 400, atk: 18, exp: 800, speed: 1.8, aggroRange: 7 },
+  scorpion: { name: "Scorpion",  hp: 80,  atk: 11, exp: 35, speed: 3.0, aggroRange: 6 },
+  yeti:     { name: "Yeti",      hp: 200, atk: 16, exp: 110, speed: 2.0, aggroRange: 6 },
+  // resource nodes — static, no aggro, no damage; broken on click
+  tree_node: { name: "Tree", hp: 40, atk: 0, exp: 2, speed: 0, aggroRange: 0 },
+  rock_node: { name: "Rock", hp: 60, atk: 0, exp: 3, speed: 0, aggroRange: 0 },
+  berry_bush: { name: "Berry Bush", hp: 12, atk: 0, exp: 1, speed: 0, aggroRange: 0 },
+  ore_node:   { name: "Iron Ore",   hp: 100, atk: 0, exp: 6, speed: 0, aggroRange: 0 },
+  crystal_node: { name: "Crystal Vein", hp: 180, atk: 0, exp: 12, speed: 0, aggroRange: 0 },
+  // passive animals — wander, flee when attacked (negative aggroRange marker)
+  chicken: { name: "Chicken", hp: 8, atk: 0, exp: 1, speed: 2.5, aggroRange: -1 },
+  pig:     { name: "Pig",     hp: 24, atk: 0, exp: 3, speed: 2, aggroRange: -1 },
+  cow:     { name: "Cow",     hp: 40, atk: 0, exp: 5, speed: 1.5, aggroRange: -1 },
+} as const;
+
+export const PASSIVE_ANIMAL_KINDS: ReadonlyArray<MonsterKind> = ["chicken", "pig", "cow"];
+export function isPassiveAnimal(kind: string): boolean {
+  return (PASSIVE_ANIMAL_KINDS as readonly string[]).includes(kind);
+}
+
+export type MonsterKind = keyof typeof MONSTERS;
+export const RESOURCE_NODE_KINDS: ReadonlyArray<MonsterKind> = ["tree_node", "rock_node", "berry_bush"];
+export function isResourceNode(kind: string): boolean {
+  return (RESOURCE_NODE_KINDS as readonly string[]).includes(kind);
+}

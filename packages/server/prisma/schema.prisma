@@ -1,0 +1,83 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model User {
+  id           String       @id @default(cuid())
+  username     String       @unique
+  passwordHash String
+  createdAt    DateTime     @default(now())
+  characters   Character[]
+}
+
+model Mail {
+  id          String   @id @default(cuid())
+  toName      String
+  fromName    String
+  subject     String
+  body        String
+  zeny        Int      @default(0)
+  itemId      String   @default("")
+  itemQty     Int      @default(0)
+  read        Int      @default(0)
+  claimed     Int      @default(0)
+  createdAt   DateTime @default(now())
+
+  @@index([toName, read])
+}
+
+model Character {
+  id      String  @id @default(cuid())
+  userId  String
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name    String  @unique
+  job     String  @default("novice")
+  level   Int     @default(1)
+  exp     Int     @default(0)
+  hp      Int     @default(100)
+  maxHp   Int     @default(100)
+  mp      Int     @default(20)
+  maxMp   Int     @default(20)
+  atk     Int     @default(10)
+  def     Int     @default(0)
+  weapon  String  @default("")
+  armor   String  @default("")
+  mapId   String  @default("field")
+  posX    Float   @default(0)
+  posY    Float   @default(0)
+  posZ    Float   @default(0)
+  inventoryJson String @default("[]")
+  str     Int     @default(1)
+  agi     Int     @default(1)
+  vit     Int     @default(1)
+  intel   Int     @default(1)
+  dex     Int     @default(1)
+  luk     Int     @default(1)
+  statPoints Int  @default(0)
+  zeny    Int     @default(500)
+  questsJson String @default("{\"active\":{},\"completed\":[]}")
+  appearance String @default("{}")
+  hunger    Float  @default(100)
+  thirst    Float  @default(100)
+  stamina   Float  @default(100)
+  maxStamina Float @default(100)
+  houseSlot Int    @default(-1)
+  petKind   String @default("")
+  mounted   Int    @default(0)
+  achievementsJson String @default("{}")
+  title     String @default("")
+  lastLoginDate String @default("")  // YYYY-MM-DD
+  loginStreak   Int    @default(0)
+  petsJson      String @default("[]")
+  petRare       Int    @default(0)
+  decorationsJson String @default("[]")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+}

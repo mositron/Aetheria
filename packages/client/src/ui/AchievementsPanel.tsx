@@ -1,0 +1,124 @@
+import { useEffect, useState } from "react";
+import type { Room } from "colyseus.js";
+import { ACHIEVEMENTS, type WorldState, type Player } from "@game/shared";
+import { GameFrame } from "./GameFrame";
+
+export function AchievementsPanel({ room }: { room: Room<WorldState> }) {
+  const [open, setOpen] = useState(false);
+  const [, setTick] = useState(0);
+
+  useEffect(() => {
+    const onToggle = () => setOpen((o) => !o);
+    window.addEventListener("toggle-achievements", onToggle);
+    return () => window.removeEventListener("toggle-achievements", onToggle);
+  }, []);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.target as HTMLElement)?.tagName === "INPUT") return;
+      if (e.key === "Escape" && open) setOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    const id = setInterval(() => setTick((t) => t + 1), 500);
+    return () => clearInterval(id);
+  }, [open]);
+
+  if (!open) return null;
+  const me: Player | undefined = room.state.players.get(room.sessionId);
+  if (!me) return null;
+
+  let prog: { counters: Record<string, number>; unlocked: string[] };
+  try { prog = JSON.parse(me.achievementsJson || "{}"); } catch { prog = { counters: {}, unlocked: [] }; }
+  prog.counters ??= {};
+  prog.unlocked ??= [];
+
+  const unlockedCount = prog.unlocked.length;
+  const total = ACHIEVEMENTS.length;
+  // Build available titles from unlocked achievements
+  const titles = ACHIEVEMENTS.filter((a) => a.title && prog.unlocked.includes(a.id)).map((a) => a.title!);
+
+  return (
+    <div data-no-screen-joy className="absolute inset-0 z-40 flex items-center justify-center bg-black/65 backdrop-blur-sm py-16 px-4" onClick={() => setOpen(false)}>
+      <div className="w-[28rem] max-w-[94vw] flex flex-col min-h-0" style={{ maxHeight: "calc(100vh - 8rem)" }} onClick={(e) => e.stopPropagation()}>
+        <GameFrame
+          title={`เหรียญตรา ${unlockedCount}/${total}`}
+          className="flex flex-col min-h-0"
+          innerClassName="flex flex-col flex-1 min-h-0"
+        >
+          <button
+            onClick={() => setOpen(false)}
+            className="absolute -top-3 -right-3 w-8 h-8 rounded-full bg-rose-700 hover:bg-rose-600 border-2 border-rose-300 text-white font-bold z-10"
+          >
+            ✕
+          </button>
+
+          {titles.length > 0 && (
+            <div className="mb-2 p-2 rounded-xl bg-amber-900/30 border border-amber-400/40">
+              <div className="text-[10px] text-amber-300 uppercase tracking-wider font-bold mb-1.5">🏷 ตำแหน่งของฉัน</div>
+              <div className="flex flex-wrap gap-1.5">
+                <button
+                  onClick={() => room.send("setTitle", { title: "" })}
+                  className={`text-[10px] px-2 py-1 rounded-full border-2 transition ${me.title === "" ? "border-amber-300 bg-amber-500/30" : "border-amber-700/50 bg-slate-900/40 hover:border-amber-400"}`}
+                >
+                  ไม่ใช้
+                </button>
+                {titles.map((t) => (
+                  <button
+                    key={t}
+                    onClick={() => room.send("setTitle", { title: t })}
+                    className={`text-[10px] px-2 py-1 rounded-full border-2 transition ${me.title === t ? "border-amber-300 bg-amber-500/30" : "border-amber-700/50 bg-slate-900/40 hover:border-amber-400"}`}
+                  >
+                    {t}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+          <div className="space-y-2 overflow-y-auto game-scroll flex-1 pr-1 pt-1" style={{ minHeight: 0 }}>
+            {ACHIEVEMENTS.map((a) => {
+              const have = prog.counters[a.counter] ?? 0;
+              const done = prog.unlocked.includes(a.id);
+              const pct = Math.min(100, (have / a.goal) * 100);
+              return (
+                <div
+                  key={a.id}
+                  className={`border-2 p-2.5 rounded transition ${done ? "border-amber-400 bg-amber-900/20" : "border-slate-700 bg-slate-900/60"}`}
+                >
+                  <div className="flex items-center gap-2">
+                    <span className={`text-2xl ${done ? "" : "grayscale opacity-50"}`}>{a.icon}</span>
+                    <div className="flex-1">
+                      <div className={`text-sm font-bold ${done ? "text-amber-200" : "text-white"}`}>
+                        {a.name} {done && "✓"}
+                      </div>
+                      <div className="text-[10px] text-slate-400">{a.desc}</div>
+                    </div>
+                    <span className="text-xs tabular-nums">{have}/{a.goal}</span>
+                  </div>
+                  <div className="h-1 bg-black/60 mt-2 overflow-hidden rounded-sm">
+                    <div
+                      className="h-full transition-all"
+                      style={{
+                        width: `${pct}%`,
+                        background: done ? "linear-gradient(90deg, #fbbf24, #f59e0b)" : "linear-gradient(90deg, #22d3ee, #0ea5e9)",
+                      }}
+                    />
+                  </div>
+                  {a.reward && (
+                    <div className="text-[10px] text-amber-300/80 mt-1.5">
+                      🎁 {a.reward.zeny ? `${a.reward.zeny}z ` : ""}{a.reward.itemId ? `+${a.reward.qty ?? 1} ${a.reward.itemId}` : ""}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </GameFrame>
+      </div>
+    </div>
+  );
+}

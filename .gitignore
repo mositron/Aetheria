@@ -1,0 +1,40 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build output
+dist/
+build/
+*.tsbuildinfo
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# Editor / IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Claude Code per-user settings
+.claude/settings.local.json
+
+# Environment & secrets — DO NOT COMMIT
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+
+# SQLite dev DB (user data — keep local only)
+packages/server/prisma/dev.db
+packages/server/prisma/dev.db-journal
+
+# OS / cache
+.cache/
+.parcel-cache/
+*.tmp
