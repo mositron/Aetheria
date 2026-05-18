@@ -106,9 +106,9 @@ function Chunk({ cx, cz }: { cx: number; cz: number }) {
         <ColumnGroup key={color} color={color} cols={cols} />
       ))}
       {data.waterTiles.length > 0 && <WaterPatch tiles={data.waterTiles} />}
-      {data.decor.trees.map((t, i) => <Tree key={`t${i}`} {...t} />)}
-      {data.decor.rocks.map((r, i) => <Rock key={`r${i}`} {...r} />)}
-      {data.decor.bushes.map((b, i) => <Bush key={`b${i}`} {...b} />)}
+      {data.decor.trees.length > 0 && <TreeInstanced trees={data.decor.trees} />}
+      {data.decor.rocks.length > 0 && <RockInstanced rocks={data.decor.rocks} />}
+      {data.decor.bushes.length > 0 && <BushInstanced bushes={data.decor.bushes} />}
       {/* One signpost per chunk near origin facing back home (every 4th chunk) */}
       {((cx + cz) & 3) === 0 && <Signpost cx={cx} cz={cz} />}
     </group>
@@ -188,6 +188,118 @@ function WaterPatch({ tiles }: { tiles: Array<{ x: number; z: number }> }) {
 }
 
 // ── Decor primitives (toon-shaded simple shapes) ────────────────────────────
+// ── Instanced versions (one InstancedMesh per part, per chunk) ──────────────
+function TreeInstanced({ trees }: { trees: Array<{ x: number; z: number; scale: number; rot: number }> }) {
+  const trunk = useRef<THREE.InstancedMesh>(null);
+  const leaf1 = useRef<THREE.InstancedMesh>(null);
+  const leaf2 = useRef<THREE.InstancedMesh>(null);
+  const leaf3 = useRef<THREE.InstancedMesh>(null);
+  useEffect(() => {
+    const obj = new THREE.Object3D();
+    const fill = (mesh: THREE.InstancedMesh | null, y: number, sx: number, sy: number, sz: number) => {
+      if (!mesh) return;
+      for (let i = 0; i < trees.length; i++) {
+        const t = trees[i];
+        const baseY = getHeight(t.x, t.z);
+        obj.position.set(t.x, baseY + y * t.scale, t.z);
+        obj.scale.set(sx * t.scale, sy * t.scale, sz * t.scale);
+        obj.rotation.set(0, t.rot, 0);
+        obj.updateMatrix();
+        mesh.setMatrixAt(i, obj.matrix);
+      }
+      mesh.instanceMatrix.needsUpdate = true;
+      mesh.computeBoundingSphere();
+    };
+    fill(trunk.current, 0.6, 0.35, 1.2, 0.35);
+    fill(leaf1.current, 1.8, 1.1, 1.4, 1.1);
+    fill(leaf2.current, 2.6, 0.85, 1.1, 0.85);
+    fill(leaf3.current, 3.3, 0.55, 0.7, 0.55);
+  }, [trees]);
+  const n = trees.length;
+  return (
+    <group>
+      <instancedMesh ref={trunk} args={[undefined as any, undefined as any, n]} castShadow>
+        <boxGeometry args={[1, 1, 1]} />
+        <meshToonMaterial color="#6b3917" gradientMap={toonGradient} />
+      </instancedMesh>
+      <instancedMesh ref={leaf1} args={[undefined as any, undefined as any, n]} castShadow>
+        <coneGeometry args={[1, 1, 6, 1]} />
+        <meshToonMaterial color="#3fb555" gradientMap={toonGradient} />
+      </instancedMesh>
+      <instancedMesh ref={leaf2} args={[undefined as any, undefined as any, n]} castShadow>
+        <coneGeometry args={[1, 1, 6, 1]} />
+        <meshToonMaterial color="#6bd66e" gradientMap={toonGradient} />
+      </instancedMesh>
+      <instancedMesh ref={leaf3} args={[undefined as any, undefined as any, n]}>
+        <coneGeometry args={[1, 1, 6, 1]} />
+        <meshToonMaterial color="#3fb555" gradientMap={toonGradient} />
+      </instancedMesh>
+    </group>
+  );
+}
+
+function RockInstanced({ rocks }: { rocks: Array<{ x: number; z: number; scale: number; rot: number }> }) {
+  const ref = useRef<THREE.InstancedMesh>(null);
+  useEffect(() => {
+    if (!ref.current) return;
+    const obj = new THREE.Object3D();
+    for (let i = 0; i < rocks.length; i++) {
+      const r = rocks[i];
+      const baseY = getHeight(r.x, r.z);
+      obj.position.set(r.x, baseY + 0.3 * r.scale, r.z);
+      obj.scale.set(r.scale, r.scale, r.scale);
+      obj.rotation.set(r.rot * 0.3, r.rot, r.rot * 0.5);
+      obj.updateMatrix();
+      ref.current.setMatrixAt(i, obj.matrix);
+    }
+    ref.current.instanceMatrix.needsUpdate = true;
+    ref.current.computeBoundingSphere();
+  }, [rocks]);
+  return (
+    <instancedMesh ref={ref} args={[undefined as any, undefined as any, rocks.length]} castShadow>
+      <dodecahedronGeometry args={[0.6, 0]} />
+      <meshToonMaterial color="#c2b8aa" gradientMap={toonGradient} />
+    </instancedMesh>
+  );
+}
+
+function BushInstanced({ bushes }: { bushes: Array<{ x: number; z: number; scale: number; rot: number }> }) {
+  const a = useRef<THREE.InstancedMesh>(null);
+  const b = useRef<THREE.InstancedMesh>(null);
+  useEffect(() => {
+    const obj = new THREE.Object3D();
+    const fill = (mesh: THREE.InstancedMesh | null, ox: number, oy: number, oz: number, s: number, jitter = 0) => {
+      if (!mesh) return;
+      for (let i = 0; i < bushes.length; i++) {
+        const u = bushes[i];
+        const baseY = getHeight(u.x, u.z);
+        obj.position.set(u.x + ox * u.scale, baseY + oy * u.scale, u.z + oz * u.scale);
+        obj.scale.set(s * u.scale, s * u.scale, s * u.scale);
+        obj.rotation.set(jitter, u.rot, jitter);
+        obj.updateMatrix();
+        mesh.setMatrixAt(i, obj.matrix);
+      }
+      mesh.instanceMatrix.needsUpdate = true;
+      mesh.computeBoundingSphere();
+    };
+    fill(a.current, 0, 0.25, 0, 0.35);
+    fill(b.current, 0.22, 0.36, 0.1, 0.22);
+  }, [bushes]);
+  const n = bushes.length;
+  return (
+    <group>
+      <instancedMesh ref={a} args={[undefined as any, undefined as any, n]}>
+        <icosahedronGeometry args={[1, 0]} />
+        <meshToonMaterial color="#3fb555" gradientMap={toonGradient} />
+      </instancedMesh>
+      <instancedMesh ref={b} args={[undefined as any, undefined as any, n]}>
+        <icosahedronGeometry args={[1, 0]} />
+        <meshToonMaterial color="#6bd66e" gradientMap={toonGradient} />
+      </instancedMesh>
+    </group>
+  );
+}
+
 function Tree({ x, z, scale, rot }: { x: number; z: number; scale: number; rot: number }) {
   const baseY = getHeight(x, z);
   return (
