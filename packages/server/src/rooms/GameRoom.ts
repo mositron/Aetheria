@@ -31,6 +31,7 @@ import { Achievements } from "../services/Achievements.js";
 import { Friend } from "../services/Friend.js";
 import { Mailbox } from "../services/Mailbox.js";
 import { Auction } from "../services/Auction.js";
+import { Guild } from "../services/Guild.js";
 
 type Intent = { mx: number; mz: number; rotY: number };
 type CharRow = {
@@ -67,6 +68,8 @@ export class GameRoom extends Room<WorldState> {
   mailboxSvc = new Mailbox(prisma);
   // Auction house (list / browse / buy / cancel)
   auctionSvc = new Auction(prisma);
+  // Guild (create / join / leave / chat) with transactional integrity
+  guildSvc = new Guild(prisma);
   monsterSpawn = new Map<string, { x: number; z: number; kind: MonsterKind }>();
   sessionToCharId = new Map<string, string>(); // sid -> Character.id (for DB writes)
   chunkSpawnAcc = 0;                            // tick accumulator for chunk spawning
@@ -466,114 +469,45 @@ export class GameRoom extends Room<WorldState> {
       const me = this.state.players.get(client.sessionId);
       const charId = this.sessionToCharId.get(client.sessionId);
       if (!me || !charId) return;
-      const name = String(msg?.name ?? "").trim().slice(0, 24);
-      const tag = String(msg?.tag ?? "").trim().slice(0, 4).toUpperCase();
-      if (!name) return client.send("system", { text: "ตั้งชื่อกิลด์ก่อน" });
-      try {
-        const c = await prisma.character.findUnique({ where: { id: charId } });
-        if (!c) return;
-        if (((c as any).guildId) && (c as any).guildId !== "") {
-          return client.send("system", { text: "อยู่กิลด์อื่นแล้ว ออกก่อน" });
-        }
-        // ensure no duplicate name
-        const dup = await (prisma as any).guild.findUnique({ where: { name } }).catch(() => null);
-        if (dup) return client.send("system", { text: "ชื่อนี้ถูกใช้แล้ว" });
-        const g = await (prisma as any).guild.create({
-          data: { name, tag, leaderName: me.name, membersJson: JSON.stringify([me.name]) },
-        });
-        await prisma.character.update({ where: { id: charId }, data: { guildId: g.id } as any });
-        client.send("guild:info", { id: g.id, name: g.name, tag: g.tag, leader: g.leaderName, members: [me.name] });
-      } catch (e: any) {
-        client.send("system", { text: "สร้างกิลด์ไม่สำเร็จ: " + (e.message ?? "?") });
+      const r = await this.guildSvc.create(charId, me.name, String(msg?.name ?? ""), String(msg?.tag ?? ""));
+      if (!r.ok) {
+        const reasonMsg = r.reason === "name-empty" ? "ตั้งชื่อกิลด์ก่อน"
+          : r.reason === "already-in-guild" ? "อยู่กิลด์อื่นแล้ว ออกก่อน"
+          : r.reason === "name-taken" ? "ชื่อนี้ถูกใช้แล้ว"
+          : "สร้างกิลด์ไม่สำเร็จ";
+        return client.send("system", { text: reasonMsg });
       }
+      client.send("guild:info", r.info);
     });
 
     this.onMessage("guild:join", async (client, msg: any) => {
       const me = this.state.players.get(client.sessionId);
       const charId = this.sessionToCharId.get(client.sessionId);
       if (!me || !charId) return;
-      const guildName = String(msg?.name ?? "").trim();
-      if (!guildName) return;
-      try {
-        const c = await prisma.character.findUnique({ where: { id: charId } });
-        if (!c) return;
-        if (((c as any).guildId) && (c as any).guildId !== "") {
-          return client.send("system", { text: "อยู่กิลด์อื่นแล้ว ออกก่อน" });
-        }
-        const g = await (prisma as any).guild.findUnique({ where: { name: guildName } });
-        if (!g) return client.send("system", { text: "ไม่พบกิลด์ \"" + guildName + "\"" });
-        const members: string[] = JSON.parse(g.membersJson ?? "[]");
-        if (!members.includes(me.name)) members.push(me.name);
-        await (prisma as any).guild.update({ where: { id: g.id }, data: { membersJson: JSON.stringify(members) } });
-        await prisma.character.update({ where: { id: charId }, data: { guildId: g.id } as any });
-        client.send("guild:info", { id: g.id, name: g.name, tag: g.tag, leader: g.leaderName, members });
-      } catch {}
+      const r = await this.guildSvc.join(charId, me.name, String(msg?.name ?? ""));
+      if (!r.ok) {
+        const reasonMsg = r.reason === "not-found" ? `ไม่พบกิลด์ "${msg?.name}"`
+          : r.reason === "already-in-guild" ? "อยู่กิลด์อื่นแล้ว ออกก่อน"
+          : "";
+        if (reasonMsg) client.send("system", { text: reasonMsg });
+        return;
+      }
+      client.send("guild:info", r.info);
     });
 
     this.onMessage("guild:leave", async (client) => {
       const me = this.state.players.get(client.sessionId);
       const charId = this.sessionToCharId.get(client.sessionId);
       if (!me || !charId) return;
-      try {
-        const c = await prisma.character.findUnique({ where: { id: charId } });
-        if (!c) return;
-        const gid = (c as any).guildId;
-        if (!gid) return;
-        const g = await (prisma as any).guild.findUnique({ where: { id: gid } });
-        if (g) {
-          const members: string[] = JSON.parse(g.membersJson ?? "[]");
-          const next = members.filter((n: string) => n !== me.name);
-          // Disband entirely if alone — also clear ALL remaining members' guildId
-          if (next.length === 0) {
-            await prisma.$transaction([
-              (prisma as any).guild.delete({ where: { id: gid } }),
-              prisma.character.update({ where: { id: charId }, data: { guildId: "" } as any }),
-            ]);
-          } else {
-            // Single-member transfer + clear my guildId
-            const newLeader = g.leaderName === me.name ? next[0] : g.leaderName;
-            await prisma.$transaction([
-              (prisma as any).guild.update({
-                where: { id: gid },
-                data: { membersJson: JSON.stringify(next), leaderName: newLeader },
-              }),
-              prisma.character.update({ where: { id: charId }, data: { guildId: "" } as any }),
-            ]);
-          }
-        } else {
-          // Guild was already deleted — just clear my stale guildId
-          await prisma.character.update({ where: { id: charId }, data: { guildId: "" } as any });
-        }
-        client.send("guild:info", null as any);
-      } catch (e) {
-        console.error("[guild:leave] error", e);
-      }
+      const r = await this.guildSvc.leave(charId, me.name);
+      if (r.ok) client.send("guild:info", null as any);
     });
-
-    // ── Periodic stale-guildId reconciliation: when fetching guild:info, if
-    //    Character.guildId points to a nonexistent Guild row, clear it.
-    // (Already implicitly handled by guild:info handler — improved below.)
 
     this.onMessage("guild:info", async (client) => {
       const charId = this.sessionToCharId.get(client.sessionId);
       if (!charId) return;
-      try {
-        const c = await prisma.character.findUnique({ where: { id: charId } });
-        if (!c) return;
-        const gid = (c as any).guildId;
-        if (!gid) { client.send("guild:info", null as any); return; }
-        const g = await (prisma as any).guild.findUnique({ where: { id: gid } });
-        if (!g) {
-          // Stale guildId — guild was deleted, clear the reference
-          await prisma.character.update({ where: { id: charId }, data: { guildId: "" } as any }).catch(() => {});
-          client.send("guild:info", null as any);
-          return;
-        }
-        client.send("guild:info", {
-          id: g.id, name: g.name, tag: g.tag, leader: g.leaderName,
-          members: JSON.parse(g.membersJson ?? "[]"),
-        });
-      } catch (e) { console.error("[guild:info] error", e); }
+      const info = await this.guildSvc.infoForChar(charId);
+      client.send("guild:info", info as any); // null when not in a guild
     });
 
     this.onMessage("guild:chat", async (client, msg: any) => {
@@ -585,22 +519,15 @@ export class GameRoom extends Room<WorldState> {
       }
       const text = String(msg?.text ?? "").slice(0, 200).trim();
       if (!text) return;
-      try {
-        const c = await prisma.character.findUnique({ where: { id: charId } });
-        if (!c) return;
-        const gid = (c as any).guildId;
-        if (!gid) return;
-        const g = await (prisma as any).guild.findUnique({ where: { id: gid } });
-        if (!g) return;
-        const members: string[] = JSON.parse(g.membersJson ?? "[]");
-        // Broadcast to all online members
-        for (const cl of this.clients) {
-          const p = this.state.players.get(cl.sessionId);
-          if (p && members.includes(p.name)) {
-            cl.send("guild:chat", { from: me.name, text, ts: Date.now() });
-          }
+      const members = await this.guildSvc.membersOf(charId);
+      if (members.length === 0) return;
+      // Broadcast to all online members in this room
+      for (const cl of this.clients) {
+        const p = this.state.players.get(cl.sessionId);
+        if (p && members.includes(p.name)) {
+          cl.send("guild:chat", { from: me.name, text, ts: Date.now() });
         }
-      } catch {}
+      }
     });
 
     this.onMessage("advanceJob", async (client, msg: any) => {

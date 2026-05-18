@@ -55,7 +55,7 @@ Last updated: 2026-05-19 (commit `e1104c7`)
 ## P1 — Production polish (high value, medium effort)
 
 ### 1. GameRoom.ts full domain split *(in progress)*
-**Status:** 8 services extracted with tests (45 tests passing).
+**Status:** 10 services extracted with tests (54 tests passing).
   - ✅ `RateLimiter` — token bucket
   - ✅ `SpatialHash` — chunk-grid spatial index
   - ✅ `AntiCheat` — input validation
@@ -65,10 +65,10 @@ Last updated: 2026-05-19 (commit `e1104c7`)
   - ✅ `Friend` — DB-backed friend list w/ validation
   - ✅ `Mailbox` — race-safe claim, send/read/list
   - ✅ `Auction` — list / browse / buy (race-safe) / cancel + relist on inv-full
+  - ✅ `Guild` — create/join/leave ($transaction) / info (stale-ref clear) / chat
 
 **Remaining services to extract** (ordered by coupling difficulty — low first):
 - `Quest` (playerQuests Map + reward delivery) — medium
-- `Guild` ($transaction wrapped + chat broadcast) — medium
 - `Inventory` (addToInventory, addToInventoryOrMail, equip/unequip) — high coupling
 - `Trade` (tradeSessions + atomic swap + rollback) — high coupling
 - `Combat` (handleAttack, handleSkill, dealDamage, status ticks) — highest coupling
