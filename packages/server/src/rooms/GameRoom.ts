@@ -570,6 +570,37 @@ export class GameRoom extends Room<WorldState> {
       } catch {}
     });
 
+    this.onMessage("advanceJob", async (client, msg: any) => {
+      const me = this.state.players.get(client.sessionId);
+      const charId = this.sessionToCharId.get(client.sessionId);
+      if (!me || !charId) return;
+      if (me.level < 30) return client.send("system", { text: "ต้องถึงเลเวล 30 ก่อนเปลี่ยนอาชีพ" });
+      const newJob = String(msg?.job ?? "").trim();
+      const options = (JOB_ADVANCEMENT as any)[me.job] as string[] | undefined;
+      if (!options || !options.includes(newJob)) {
+        return client.send("system", { text: "อาชีพนี้เปลี่ยนเป็น \"" + newJob + "\" ไม่ได้" });
+      }
+      const job = (JOBS as any)[newJob];
+      if (!job) return;
+      me.job = newJob;
+      // Recalc HP/MP via the new job (keep current %)
+      const hpPct = me.hp / me.maxHp;
+      const mpPct = me.mp / me.maxMp;
+      me.maxHp = job.hpPerLevel ? job.hpPerLevel * me.level + 100 : me.maxHp;
+      me.maxMp = job.mpPerLevel ? job.mpPerLevel * me.level + (job.baseMaxMp ?? 20) : me.maxMp;
+      me.hp = Math.floor(me.maxHp * hpPct);
+      me.mp = Math.floor(me.maxMp * mpPct);
+      try { await prisma.character.update({ where: { id: charId }, data: { job: newJob, maxHp: me.maxHp, maxMp: me.maxMp } }); } catch {}
+      client.send("system", { text: `✨ เปลี่ยนอาชีพเป็น ${job.name}!` });
+    });
+
+    this.onMessage("togglePvp", (client) => {
+      const p = this.state.players.get(client.sessionId);
+      if (!p) return;
+      p.pvpFlag = !p.pvpFlag;
+      client.send("system", { text: p.pvpFlag ? "⚔ เปิด PvP — ผู้เล่นอื่นที่เปิด PvP ตีเราได้" : "🕊 ปิด PvP — ปลอดภัยจากผู้เล่นอื่น" });
+    });
+
     this.onMessage("chat", (client, msg: ChatMsg) => {
       const p = this.state.players.get(client.sessionId);
       if (!p) return;
@@ -978,6 +1009,12 @@ export class GameRoom extends Room<WorldState> {
     delete qs.active[questId];
     if (!qs.completed.includes(questId)) qs.completed.push(questId);
     client.send("questReward", { questId, ...q.reward });
+    // Quest chain: if this quest has a `next`, auto-start it.
+    const nextId = (q as any).next as string | undefined;
+    if (nextId && QUESTS[nextId] && !qs.completed.includes(nextId) && !(nextId in qs.active)) {
+      qs.active[nextId] = 0;
+      client.send("system", { text: `📜 เควสต์ใหม่: ${QUESTS[nextId].title}` });
+    }
     client.send("questUpdate", qs);
   }
 

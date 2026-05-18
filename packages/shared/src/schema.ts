@@ -47,6 +47,7 @@ export class Player extends Schema {
   @type("boolean") petRare = false; // is active pet a rare variant
   @type("string") petsJson = "[]";  // full collection [{id, kind, rare, tamedAt}]
   @type("boolean") flying = false;
+  @type("boolean") pvpFlag = false;  // opt-in PvP — can only damage other pvp-flagged players
   @type("string") decorationsJson = "[]"; // [{itemId, x, z}] — placed near owned house
   @type("string") achievementsJson = "{}";
   @type("string") title = "";
