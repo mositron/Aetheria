@@ -2097,7 +2097,8 @@ export class GameRoom extends Room<WorldState> {
   }
 
   // ── Daily challenge tracker (in-memory per session — resets on day change).
-  // Goals: kill 20 mobs → 100z + 3 HP potion. Harvest 15 nodes → 5 MP potion.
+  // Goals: kill 20 mobs → 300z + 5 HP potion. Harvest 15 nodes → 200z + 5 MP potion.
+  // (Buffed in v2 — dailies should beat passive farming, not match it.)
   bumpDailyChallenge(sid: string, kind: "kills" | "harvest", by = 1) {
     const p = this.state.players.get(sid);
     if (!p || this.botIds.has(sid)) return;
@@ -2111,16 +2112,17 @@ export class GameRoom extends Room<WorldState> {
     if (kind === "harvest") st.harvest += by;
     if (st.kills >= 20 && !st.rewards.has("kills")) {
       st.rewards.add("kills");
-      p.zeny += 100;
-      this.addToInventory(p, "hp_potion", 3);
+      p.zeny += 300;
+      this.addToInventory(p, "hp_potion", 5);
       const c = this.clients.find((cl) => cl.sessionId === sid);
-      c?.send("system", { text: "🏆 Daily: ฆ่ามอน 20 ตัวสำเร็จ! +100z +3 HP Potion" });
+      c?.send("system", { text: "🏆 Daily: ฆ่ามอน 20 ตัวสำเร็จ! +300z +5 HP Potion" });
     }
     if (st.harvest >= 15 && !st.rewards.has("harvest")) {
       st.rewards.add("harvest");
+      p.zeny += 200;
       this.addToInventory(p, "mp_potion", 5);
       const c = this.clients.find((cl) => cl.sessionId === sid);
-      c?.send("system", { text: "🏆 Daily: เก็บ 15 ทรัพยากร! +5 MP Potion" });
+      c?.send("system", { text: "🏆 Daily: เก็บ 15 ทรัพยากร! +200z +5 MP Potion" });
     }
   }
 

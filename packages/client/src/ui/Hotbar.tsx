@@ -27,7 +27,7 @@ export function Hotbar({ room }: { room: Room<WorldState> }) {
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if ((e.target as HTMLElement)?.tagName === "INPUT") return;
+      if ((e.target as HTMLElement)?.tagName === "INPUT" || (e.target as HTMLElement)?.tagName === "TEXTAREA") return;
       if (!job) return;
       // Layout-independent: derive digit from e.code ("Digit1"..."Digit9")
       const codeMatch = e.code.match(/^Digit(\d)$/);

@@ -15,7 +15,7 @@ export function Inventory({ room }: { room: Room<WorldState> }) {
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if ((e.target as HTMLElement)?.tagName === "INPUT") return;
+      if ((e.target as HTMLElement)?.tagName === "INPUT" || (e.target as HTMLElement)?.tagName === "TEXTAREA") return;
       if (keyEq(e, "i")) toggle();
       if (e.key === "Escape" && open) toggle();
     };

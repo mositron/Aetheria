@@ -293,6 +293,20 @@ html, body, #root { width: 100%; height: 100%; }
 }
 
 /* ────────────────────────────────────────────────────────────────────────── */
+/* ACCESSIBILITY: honor user's OS-level motion preference.                   */
+/* ────────────────────────────────────────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ────────────────────────────────────────────────────────────────────────── */
 /* MOBILE: shrink controls when SHORT side ≤ 540px (landscape phones too).   */
 /* ────────────────────────────────────────────────────────────────────────── */
 @media (max-width: 540px), (max-height: 540px) {

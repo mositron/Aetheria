@@ -15,7 +15,7 @@ export function MenuBar() {
   // B key shortcut
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if ((e.target as HTMLElement)?.tagName === "INPUT") return;
+      if ((e.target as HTMLElement)?.tagName === "INPUT" || (e.target as HTMLElement)?.tagName === "TEXTAREA") return;
       if (keyEq(e, "b")) useStore.setState({ botMode: !useStore.getState().botMode });
     };
     window.addEventListener("keydown", onKey);

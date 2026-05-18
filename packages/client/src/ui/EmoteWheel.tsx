@@ -23,7 +23,7 @@ export function EmoteWheel({ room }: { room: Room<WorldState> }) {
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if ((e.target as HTMLElement)?.tagName === "INPUT") return;
+      if ((e.target as HTMLElement)?.tagName === "INPUT" || (e.target as HTMLElement)?.tagName === "TEXTAREA") return;
       if (keyEq(e, "t")) setOpen((o) => !o);
       else if (e.key === "Escape" && open) setOpen(false);
     };

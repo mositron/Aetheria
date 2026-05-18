@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
 import { Sky, Stars } from "@react-three/drei";
 import * as THREE from "three";
@@ -14,7 +14,8 @@ export function DayNight({ mapId }: { mapId: MapId }) {
   const moonLightRef = useRef<THREE.PointLight>(null);
   const starsRef = useRef<THREE.Group>(null);
   const skyGroupRef = useRef<THREE.Group>(null);
-  const [isNight, setIsNight] = useState(false);
+  // Day/night transitions are tracked via lastNight ref — NOT React state.
+  // setState inside useFrame caused scene-wide stutter on transitions.
   const lastNight = useRef(false);
   const { scene } = useThree();
   // Pre-allocate sky colors to avoid per-transition GC
@@ -64,7 +65,6 @@ export function DayNight({ mapId }: { mapId: MapId }) {
     // toggle bg color via scene only on transition — cheap
     if (night !== lastNight.current) {
       lastNight.current = night;
-      setIsNight(night);
       // Brighter cheerful daytime: pastel sky-blue; night: deep navy with hint of violet
       const col = night ? nightColor : dayColor;
       scene.background = col;

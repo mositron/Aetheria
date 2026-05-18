@@ -30,7 +30,7 @@ export function CraftingPanel({ room }: { room: Room<WorldState> }) {
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if ((e.target as HTMLElement)?.tagName === "INPUT") return;
+      if ((e.target as HTMLElement)?.tagName === "INPUT" || (e.target as HTMLElement)?.tagName === "TEXTAREA") return;
       if (e.key === "Escape" && open) setOpen(false);
       if (keyEq(e, "k") && !open) setOpen(true);
     };

@@ -55,7 +55,7 @@ export function InteractionPrompt({ room }: { room: Room<WorldState> }) {
   // hotkeys
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if ((e.target as HTMLElement)?.tagName === "INPUT") return;
+      if ((e.target as HTMLElement)?.tagName === "INPUT" || (e.target as HTMLElement)?.tagName === "TEXTAREA") return;
       if (near !== "water") return;
       if (keyEq(e, "e")) room.send("drink", {});
       if (keyEq(e, "f") && fishing === "idle") room.send("startFishing", {});

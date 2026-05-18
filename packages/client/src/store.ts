@@ -76,14 +76,17 @@ export const useStore = create<S>((set, get) => ({
     return { dismissedHints: next };
   }),
   setAuth: (token, username, characters) => {
-    localStorage.setItem("token", token);
-    localStorage.setItem("username", username);
+    // Safari private-mode + quota-exceeded throw on setItem; degrade gracefully.
+    try { localStorage.setItem("token", token); } catch {}
+    try { localStorage.setItem("username", username); } catch {}
     set({ token, username, characters });
   },
   setCharacters: (characters) => set({ characters }),
   selectCharacter: (id) => {
-    if (id) localStorage.setItem("characterId", id);
-    else localStorage.removeItem("characterId");
+    try {
+      if (id) localStorage.setItem("characterId", id);
+      else localStorage.removeItem("characterId");
+    } catch {}
     set({ characterId: id });
   },
   logout: () => {

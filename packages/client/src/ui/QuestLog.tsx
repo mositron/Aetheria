@@ -12,7 +12,7 @@ export function QuestLog({ room }: { room: Room<WorldState> }) {
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if ((e.target as HTMLElement)?.tagName === "INPUT") return;
+      if ((e.target as HTMLElement)?.tagName === "INPUT" || (e.target as HTMLElement)?.tagName === "TEXTAREA") return;
       if (keyEq(e, "q")) setOpen((o) => !o);
     };
     const onToggle = () => setOpen((o) => !o);
