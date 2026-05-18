@@ -4,9 +4,21 @@ import jwt from "jsonwebtoken";
 import { prisma } from "./db.js";
 import { GAME_CONFIG, JOBS, type JobId } from "@game/shared";
 
-const SECRET = process.env.JWT_SECRET ?? "dev-secret";
-const TOKEN_TTL = "365d";
+// JWT_SECRET must be set in env. In dev only, allow a clearly-marked fallback
+// but log a loud warning so it's obvious if it's accidentally used in prod.
+const SECRET = (() => {
+  const s = process.env.JWT_SECRET;
+  if (s && s.length >= 16) return s;
+  if (process.env.NODE_ENV === "production") {
+    throw new Error("[FATAL] JWT_SECRET must be set (>= 16 chars) in production");
+  }
+  console.warn("[auth] ⚠ JWT_SECRET not set or too short — using insecure dev fallback");
+  return "dev-only-insecure-fallback-DO-NOT-USE-IN-PROD";
+})();
+const TOKEN_TTL: any = process.env.JWT_TTL ?? "30d";
 const MAX_CHARACTERS_PER_USER = 3;
+// Dummy bcrypt hash to equalize login timing for non-existent users (prevent username enumeration)
+const DUMMY_HASH = "$2a$10$abcdefghijklmnopqrstuv1234567890abcdefghijklmnopqrstuv";
 
 export const authRouter = Router();
 
@@ -30,7 +42,8 @@ authRouter.post("/register", async (req, res) => {
   const exists = await prisma.user.findUnique({ where: { username } });
   if (exists) return res.status(409).json({ error: "username taken" });
 
-  const passwordHash = await bcrypt.hash(password, 10);
+  // 12 rounds — ~250ms on modern CPUs; balances UX vs offline brute-force cost.
+  const passwordHash = await bcrypt.hash(password, 12);
   const user = await prisma.user.create({ data: { username, passwordHash } });
   const token = jwt.sign({ uid: user.id, username }, SECRET, { expiresIn: TOKEN_TTL });
   res.json({ token, username, characters: [] });
@@ -45,9 +58,14 @@ authRouter.post("/login", async (req, res) => {
     where: { username },
     include: { characters: { orderBy: { createdAt: "asc" } } },
   });
-  if (!user) return res.status(401).json({ error: "bad credentials" });
-  const ok = await bcrypt.compare(password, user.passwordHash);
-  if (!ok) return res.status(401).json({ error: "bad credentials" });
+  // Always run bcrypt to equalize response time (prevents username enumeration)
+  const ok = user
+    ? await bcrypt.compare(password, user.passwordHash)
+    : (await bcrypt.compare(password, DUMMY_HASH), false);
+  if (!user || !ok) {
+    console.warn("[auth] failed login", { username: username.slice(0, 24), ip: req.ip, ts: Date.now() });
+    return res.status(401).json({ error: "bad credentials" });
+  }
   const token = jwt.sign({ uid: user.id, username }, SECRET, { expiresIn: TOKEN_TTL });
   res.json({ token, username, characters: user.characters.map(summarizeCharacter) });
 });
@@ -115,7 +133,10 @@ authRouter.post("/characters", authMiddleware, async (req: any, res) => {
     });
     res.json({ character: summarizeCharacter(c) });
   } catch (e: any) {
-    res.status(500).json({ error: e.message ?? "failed to create" });
+    console.error("[auth] character create failed", e?.message);
+    // Don't leak DB schema details to client
+    const friendly = String(e?.code) === "P2002" ? "name already taken" : "failed to create character";
+    res.status(500).json({ error: friendly });
   }
 });
 

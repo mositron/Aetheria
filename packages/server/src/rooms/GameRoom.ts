@@ -638,12 +638,16 @@ export class GameRoom extends Room<WorldState> {
       const p = this.state.players.get(client.sessionId);
       if (!p) return;
       const invIndex = msg?.invIndex | 0;
-      const qty = Math.max(1, msg?.qty | 0);
+      const qty = Math.max(1, Math.min(99, msg?.qty | 0));
       const pricePer = Math.max(1, Math.min(10_000_000, msg?.pricePer | 0));
+      if (!Number.isInteger(invIndex) || invIndex < 0 || invIndex >= p.inventory.length) return;
       const stack = p.inventory[invIndex];
       if (!stack || stack.qty < qty) return client.send("system", { text: "ของไม่พอ" });
+      // Cap total transaction at safe integer range
+      const total = pricePer * qty;
+      if (total > 999_999_999) return client.send("system", { text: "ราคารวมสูงเกิน (เกินขีดสูงสุด 999M zeny)" });
       // Charge a small listing fee (1%) — anti-spam
-      const fee = Math.max(1, Math.floor(pricePer * qty * 0.01));
+      const fee = Math.max(1, Math.floor(total * 0.01));
       if (p.zeny < fee) return client.send("system", { text: `ต้องมีเงิน ${fee}z สำหรับค่าธรรมเนียมประกาศ` });
       try {
         await (prisma as any).auctionListing.create({
@@ -653,7 +657,10 @@ export class GameRoom extends Room<WorldState> {
         stack.qty -= qty;
         if (stack.qty <= 0) p.inventory.splice(invIndex, 1);
         client.send("system", { text: `📢 ลงประกาศ ${qty} ชิ้น @${pricePer}z` });
-      } catch {}
+      } catch (e) {
+        console.error("[auction:list] create failed", e);
+        client.send("system", { text: "⚠ ลงประกาศไม่สำเร็จ" });
+      }
     });
 
     this.onMessage("auction:browse", async (client, msg: any) => {
@@ -875,8 +882,13 @@ export class GameRoom extends Room<WorldState> {
           a.zeny = aZenyPre; b.zeny = bZenyPre;
           const c1 = this.clients.find((c) => c.sessionId === client.sessionId);
           const c2 = this.clients.find((c) => c.sessionId === sess.partnerSid);
-          c1?.send("system", { text: `⚠ เทรดล้มเหลว: ${err.message}` });
-          c2?.send("system", { text: `⚠ เทรดล้มเหลว: ${err.message}` });
+          // Don't leak internal error codes — translate to user-safe message
+          const safeMsg = err?.message === "inv-full-a" || err?.message === "inv-full-b"
+            ? "กระเป๋าของฝ่ายใดฝั่งหนึ่งเต็ม"
+            : "ของไม่พอ หรือสถานะเปลี่ยน";
+          console.error("[trade] failed", err);
+          c1?.send("system", { text: `⚠ เทรดล้มเหลว: ${safeMsg}` });
+          c2?.send("system", { text: `⚠ เทรดล้มเหลว: ${safeMsg}` });
         } finally {
           this.tradeSessions.delete(client.sessionId);
           this.tradeSessions.delete(sess.partnerSid);
@@ -1542,6 +1554,10 @@ export class GameRoom extends Room<WorldState> {
   handleAllocStat(sid: string, stat: StatKey) {
     const p = this.state.players.get(sid);
     if (!p || p.statPoints <= 0) return;
+    // Explicit allowlist — prevents prototype pollution via crafted message
+    // (e.g., stat="__proto__" or stat="constructor")
+    const ALLOWED: ReadonlyArray<StatKey> = ["str", "agi", "vit", "int", "dex", "luk"];
+    if (!ALLOWED.includes(stat)) return;
     if ((p as any)[stat] >= 99) return;
     (p as any)[stat] = (p as any)[stat] + 1;
     p.statPoints -= 1;
@@ -1928,6 +1944,10 @@ export class GameRoom extends Room<WorldState> {
       }
       m.dead = true;
       this.state.monsters.delete(monsterId);
+      this.lastAttack.delete(monsterId);
+      this.monsterSpawn.delete(monsterId);
+      for (const k of this.statusTickAcc.keys()) if (k.endsWith(":" + monsterId)) this.statusTickAcc.delete(k);
+      for (const k of this.tameProgress.keys()) if (k.endsWith(":" + monsterId)) this.tameProgress.delete(k);
       const rareText = isRare ? "✨ พิเศษ ✨ " : "";
       client.send("system", { text: `🎉 จับ ${rareText}${cfg.name} เป็นสัตว์เลี้ยงสำเร็จ!` });
       this.bumpAchievement(sid, "tames");
@@ -2299,6 +2319,7 @@ export class GameRoom extends Room<WorldState> {
   handleEquip(sid: string, invIndex: number) {
     const p = this.state.players.get(sid);
     if (!p) return;
+    if (!Number.isInteger(invIndex) || invIndex < 0 || invIndex >= p.inventory.length) return;
     const stack = p.inventory[invIndex];
     if (!stack) return;
     const def = ITEMS[stack.itemId];
@@ -2329,6 +2350,7 @@ export class GameRoom extends Room<WorldState> {
   handleUseItem(sid: string, invIndex: number) {
     const p = this.state.players.get(sid);
     if (!p || p.dead) return;
+    if (!Number.isInteger(invIndex) || invIndex < 0 || invIndex >= p.inventory.length) return;
     const stack = p.inventory[invIndex];
     if (!stack) return;
     const def = ITEMS[stack.itemId];
@@ -2374,6 +2396,7 @@ export class GameRoom extends Room<WorldState> {
   handleDrop(sid: string, invIndex: number, qty?: number) {
     const p = this.state.players.get(sid);
     if (!p) return;
+    if (!Number.isInteger(invIndex) || invIndex < 0 || invIndex >= p.inventory.length) return;
     const stack = p.inventory[invIndex];
     if (!stack) return;
     const dropQty = Math.max(1, Math.min(stack.qty, qty ?? stack.qty));
@@ -2517,7 +2540,14 @@ export class GameRoom extends Room<WorldState> {
       if (!cfg || cfg.aggroRange === -2) continue;
       let nearest = Infinity;
       for (const a of anchors) nearest = Math.min(nearest, Math.hypot(m.pos.x - a.x, m.pos.z - a.z));
-      if (nearest > DESPAWN_RADIUS) this.state.monsters.delete(id);
+      if (nearest > DESPAWN_RADIUS) {
+        this.state.monsters.delete(id);
+        // Clean up per-monster session state to prevent leaks
+        this.lastAttack.delete(id);
+        this.monsterSpawn.delete(id);
+        for (const k of this.statusTickAcc.keys()) if (k.endsWith(":" + id)) this.statusTickAcc.delete(k);
+        for (const k of this.tameProgress.keys()) if (k.endsWith(":" + id)) this.tameProgress.delete(k);
+      }
     }
 
     // Count mobs per chunk

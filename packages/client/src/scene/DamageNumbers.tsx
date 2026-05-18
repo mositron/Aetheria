@@ -72,6 +72,9 @@ export function DamageNumbers({ room }: { room: Room<WorldState> }) {
 function Pop({ p }: { p: Popup }) {
   const ref = useRef<THREE.Sprite>(null);
   const tex = useMemo(() => makeText(p.text, p.color, p.kind === "crit"), [p.text, p.color, p.kind]);
+  // Dispose the canvas texture when this popup unmounts — otherwise each unique
+  // damage number leaks a GPU texture for the whole session.
+  useEffect(() => () => { tex.dispose(); }, [tex]);
   useFrame(() => {
     if (!ref.current) return;
     const age = (performance.now() - p.born) / LIFE;
