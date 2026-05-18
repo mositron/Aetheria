@@ -16,6 +16,7 @@ import { DamageNumbers } from "./DamageNumbers";
 import { SkillEffects } from "./SkillEffects";
 import { Environment } from "./Environment";
 import { AmbientParticles } from "./AmbientParticles";
+import { LandDust } from "./LandDust";
 import { Weather } from "./Weather";
 import { getHeight as terrainHeight, isWater as terrainIsWater, SPAWN_RADIUS, STEP as TERRAIN_STEP } from "./chunkWorld";
 import { isBlocked as isObstacle } from "./obstacles";
@@ -455,9 +456,18 @@ export function Scene({ room }: { room: Room<WorldState> }) {
     //    Falling: if player Y > terrain Y at current position, gravity pulls
     //    jumpY back toward 0 (i.e., the player falls onto the ground below).
     if (jumpY.current > 0.01 || jumpVy.current !== 0) {
+      const wasFalling = jumpVy.current < 0;
       jumpVy.current -= 22 * dt;
       jumpY.current += jumpVy.current * dt;
-      if (jumpY.current <= 0) { jumpY.current = 0; jumpVy.current = 0; }
+      if (jumpY.current <= 0) {
+        // Landing — emit a dust puff event for VFX
+        if (wasFalling && jumpVy.current < -3) {
+          window.dispatchEvent(new CustomEvent("player-land", {
+            detail: { x: me.pos.x, z: me.pos.z, intensity: Math.min(1, -jumpVy.current / 10) },
+          }));
+        }
+        jumpY.current = 0; jumpVy.current = 0;
+      }
     } else {
       // Step-down: if we walked off a ledge (terrain dropped), feel gravity.
       // Compare last frame's terrainY vs now; if dropped, give us a gentle fall.
@@ -509,6 +519,7 @@ export function Scene({ room }: { room: Room<WorldState> }) {
     <group>
       <Environment mapId={mapDef.id} room={room} />
       <AmbientParticles room={room} />
+      <LandDust />
       <Weather room={room} />
       {/* invisible click-catcher slightly above textured ground */}
       <mesh
