@@ -192,6 +192,47 @@ export const RECIPES: Recipe[] = [
     minLevel: 7,
     desc: "ตีโลหะเป็นชุดเกราะ — +8 DEF",
   },
+  // ── MP POTION (brewed from berry + crystal) ──
+  {
+    id: "recipe_mp_potion",
+    name: "ยา MP",
+    icon: "💙",
+    category: "potion",
+    inputs: [
+      { itemId: "berry", qty: 3 },
+      { itemId: "crystal", qty: 1 },
+    ],
+    output: { itemId: "mp_potion", qty: 2 },
+    desc: "เบอร์รี่ + คริสตัล → ยาเติม MP",
+    minLevel: 5,
+  },
+  // ── ENERGY TONIC (from cooked meat + berry) ──
+  {
+    id: "recipe_energy_tonic",
+    name: "Energy Tonic",
+    icon: "⚡",
+    category: "potion",
+    inputs: [
+      { itemId: "cooked_meat", qty: 1 },
+      { itemId: "berry", qty: 2 },
+    ],
+    output: { itemId: "energy_tonic", qty: 1 },
+    desc: "เนื้อย่าง + เบอร์รี่ → ฟื้น stamina ทั้งหมด",
+  },
+  // ── HP POTION (cooked fish + crystal) ──
+  {
+    id: "recipe_hp_potion",
+    name: "ยา HP",
+    icon: "🧪",
+    category: "potion",
+    inputs: [
+      { itemId: "cooked_fish", qty: 1 },
+      { itemId: "crystal", qty: 1 },
+    ],
+    output: { itemId: "hp_potion", qty: 2 },
+    desc: "ปลาย่าง + คริสตัล → ยาเติม HP",
+    minLevel: 5,
+  },
 ];
 
 export const RECIPES_BY_ID: Record<string, Recipe> = Object.fromEntries(RECIPES.map((r) => [r.id, r]));

@@ -22,6 +22,13 @@ export const MONSTERS = {
   darklord: { name: "Dark Lord", hp: 400, atk: 18, exp: 800, speed: 1.8, aggroRange: 7 },
   scorpion: { name: "Scorpion",  hp: 80,  atk: 11, exp: 35, speed: 3.0, aggroRange: 6 },
   yeti:     { name: "Yeti",      hp: 200, atk: 16, exp: 110, speed: 2.0, aggroRange: 6 },
+  // — more biome mobs —
+  boar:     { name: "Wild Boar",  hp: 110, atk: 12, exp: 55, speed: 3.2, aggroRange: 6 },
+  spider:   { name: "Spider",     hp: 50,  atk: 9,  exp: 22, speed: 3.0, aggroRange: 7 },
+  ghost:    { name: "Ghost",      hp: 80,  atk: 13, exp: 45, speed: 2.4, aggroRange: 9 },
+  bat:      { name: "Bat",        hp: 35,  atk: 6,  exp: 14, speed: 4.0, aggroRange: 8 },
+  golem:    { name: "Stone Golem",hp: 320, atk: 20, exp: 240, speed: 1.5, aggroRange: 5 },
+  fox:      { name: "Fox",        hp: 55,  atk: 7,  exp: 18, speed: 4.5, aggroRange: 7 },
   // resource nodes — static, no aggro, no damage; broken on click
   tree_node: { name: "Tree", hp: 40, atk: 0, exp: 2, speed: 0, aggroRange: 0 },
   rock_node: { name: "Rock", hp: 60, atk: 0, exp: 3, speed: 0, aggroRange: 0 },

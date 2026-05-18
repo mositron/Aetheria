@@ -55,6 +55,7 @@ export const JOBS: Record<JobId, JobDef> = {
     skills: [
       { id: "bash",        name: "Bash",        manaCost: 5,  cooldownMs: 1500, range: 2.5, damageMult: 1.8, hotkey: 1, icon: "💥", desc: "Heavy single hit (×1.8)" },
       { id: "whirlwind",   name: "Whirlwind",   manaCost: 12, cooldownMs: 4000, range: 3,   damageMult: 1.2, aoeRadius: 3, hotkey: 2, icon: "🌀", desc: "AoE around target (×1.2)" },
+      { id: "provoke",     name: "Provoke",     manaCost: 8,  cooldownMs: 6000, range: 4,   damageMult: 1.5, hotkey: 3, icon: "😡", desc: "Heavy taunt hit (×1.5)" },
     ],
   },
   mage: {
@@ -69,6 +70,8 @@ export const JOBS: Record<JobId, JobDef> = {
         status: { kind: "burn", durationMs: 3000 } },
       { id: "frost_nova",  name: "Frost Nova",  manaCost: 18, cooldownMs: 5000, range: 6, damageMult: 1.6, aoeRadius: 3.5, hotkey: 2, icon: "❄️", desc: "AoE + Freeze 1.5s",
         status: { kind: "freeze", durationMs: 1500 } },
+      { id: "thunder_bolt", name: "Thunder Bolt", manaCost: 14, cooldownMs: 2200, range: 7, damageMult: 2.6, hotkey: 3, icon: "⚡", desc: "Stun chance 25%",
+        status: { kind: "stun", durationMs: 1200, chance: 0.25 } },
     ],
   },
   archer: {
@@ -81,6 +84,8 @@ export const JOBS: Record<JobId, JobDef> = {
     skills: [
       { id: "arrow_shot",  name: "Arrow Shot",  manaCost: 4,  cooldownMs: 800,  range: 12, damageMult: 1.5, hotkey: 1, icon: "🏹", desc: "Ranged shot (×1.5)" },
       { id: "double_strafe", name: "Double Strafe", manaCost: 10, cooldownMs: 2500, range: 10, damageMult: 2.4, hotkey: 2, icon: "💢", desc: "Heavy shot (×2.4)" },
+      { id: "ankle_snare",  name: "Ankle Snare",  manaCost: 8, cooldownMs: 4000, range: 9, damageMult: 1.2, hotkey: 3, icon: "🪢", desc: "Slow target (3s)",
+        status: { kind: "freeze", durationMs: 3000 } },
     ],
   },
   acolyte: {
@@ -95,6 +100,8 @@ export const JOBS: Record<JobId, JobDef> = {
         healMult: 2.0, selfStatus: { kind: "regen", durationMs: 5000 } },
       { id: "holy_smite",  name: "Holy Smite",  manaCost: 10, cooldownMs: 2000, range: 6, damageMult: 1.8, hotkey: 2, icon: "🌟", desc: "Holy dmg + Stun 1s",
         status: { kind: "stun", durationMs: 1000, chance: 0.5 } },
+      { id: "blessing",    name: "Blessing",    manaCost: 16, cooldownMs: 15000, range: 0, damageMult: 0, healMult: 0, hotkey: 3, icon: "🕊", desc: "Regen 15s",
+        selfStatus: { kind: "regen", durationMs: 15000 } },
     ],
   },
   thief: {
@@ -108,6 +115,8 @@ export const JOBS: Record<JobId, JobDef> = {
       { id: "envenom",     name: "Envenom",     manaCost: 5,  cooldownMs: 1200, range: 2.5, damageMult: 1.4, hotkey: 1, icon: "🐍", desc: "Hit + Poison 5s",
         status: { kind: "poison", durationMs: 5000 } },
       { id: "back_slide",  name: "Back Slide",  manaCost: 0,  cooldownMs: 800,  range: 2.5, damageMult: 2.5, hotkey: 2, icon: "🗡", desc: "Burst attack (×2.5)" },
+      { id: "smoke_blast", name: "Smoke Blast", manaCost: 10, cooldownMs: 6000, range: 3, damageMult: 1.8, aoeRadius: 2.5, hotkey: 3, icon: "💨", desc: "AoE strike + brief blind",
+        status: { kind: "stun", durationMs: 800 } },
     ],
   },
   // ── 2ND-CLASS JOBS (Lv30+) ──
