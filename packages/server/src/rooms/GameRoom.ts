@@ -45,6 +45,7 @@ export class GameRoom extends Room<WorldState> {
   partyInvites = new Map<string, string>();  // toSid -> fromSid (last invite)
   monsterSpawn = new Map<string, { x: number; z: number; kind: MonsterKind }>();
   sessionToCharId = new Map<string, string>(); // sid -> Character.id (for DB writes)
+  chunkSpawnAcc = 0;                            // tick accumulator for chunk spawning
   mpRegenAcc = 0;
   autoSaveAcc = 0;
   bossEventAcc = 0;
@@ -2069,6 +2070,84 @@ export class GameRoom extends Room<WorldState> {
     return mult;
   }
 
+  // Periodic chunk-aware spawner: every 8 seconds, look at chunks around all
+  // active (non-bot) players. If a chunk has fewer than CHUNK_MOB_CAP mobs,
+  // try to spawn 1 mob inside it. Mobs far from any player are despawned.
+  // Also: night doubles spawn pressure; spawn area (origin) stays mob-free.
+  tickChunkSpawns(dt: number) {
+    if (this.state.mapId !== "field") return;
+    this.chunkSpawnAcc += dt;
+    if (this.chunkSpawnAcc < 8) return;
+    this.chunkSpawnAcc = 0;
+
+    const CHUNK_SIZE = 32;
+    const SPAWN_RADIUS = 18;
+    const PLAYER_RADIUS = 60;          // spawn within this distance of any player
+    const DESPAWN_RADIUS = 120;        // mobs further than this from all players despawn
+    const CHUNK_MOB_CAP = 3;           // max mobs per chunk
+    const isNight = this.state.isNight;
+
+    // Live player positions (real humans only — bots don't anchor spawns)
+    const anchors: Array<{ x: number; z: number }> = [];
+    for (const [sid, p] of this.state.players) {
+      if (this.botIds.has(sid)) continue;
+      anchors.push({ x: p.pos.x, z: p.pos.z });
+    }
+    if (anchors.length === 0) return;
+
+    // Despawn distant mobs
+    for (const [id, m] of this.state.monsters) {
+      if (m.dead) continue;
+      // Resource nodes are persistent — never despawn
+      const cfg = (MONSTERS as any)[m.kind];
+      if (!cfg || cfg.aggroRange === -2) continue;
+      let nearest = Infinity;
+      for (const a of anchors) nearest = Math.min(nearest, Math.hypot(m.pos.x - a.x, m.pos.z - a.z));
+      if (nearest > DESPAWN_RADIUS) this.state.monsters.delete(id);
+    }
+
+    // Count mobs per chunk
+    const chunkMobs = new Map<string, number>();
+    for (const [, m] of this.state.monsters) {
+      if (m.dead) continue;
+      const cx = Math.floor(m.pos.x / CHUNK_SIZE);
+      const cz = Math.floor(m.pos.z / CHUNK_SIZE);
+      const k = `${cx},${cz}`;
+      chunkMobs.set(k, (chunkMobs.get(k) ?? 0) + 1);
+    }
+
+    const candidates = new Set<string>();
+    const cellsR = Math.ceil(PLAYER_RADIUS / CHUNK_SIZE);
+    for (const a of anchors) {
+      const pcx = Math.floor(a.x / CHUNK_SIZE);
+      const pcz = Math.floor(a.z / CHUNK_SIZE);
+      for (let dx = -cellsR; dx <= cellsR; dx++) {
+        for (let dz = -cellsR; dz <= cellsR; dz++) {
+          candidates.add(`${pcx + dx},${pcz + dz}`);
+        }
+      }
+    }
+
+    // Biome-aware spawn picks based on distance from origin & noise
+    const SPAWN_TABLE_DAY = ["slime", "slime", "wolf", "berry_bush"];
+    const SPAWN_TABLE_NIGHT = ["wolf", "wolf", "orc", "slime"];
+    const table = isNight ? SPAWN_TABLE_NIGHT : SPAWN_TABLE_DAY;
+
+    for (const k of candidates) {
+      const have = chunkMobs.get(k) ?? 0;
+      if (have >= CHUNK_MOB_CAP) continue;
+      const [cx, cz] = k.split(",").map(Number);
+      // Random point inside the chunk
+      const sx = (cx + Math.random()) * CHUNK_SIZE;
+      const sz = (cz + Math.random()) * CHUNK_SIZE;
+      // Keep spawn area clear
+      if (Math.hypot(sx, sz) < SPAWN_RADIUS + 4) continue;
+      const kind = table[Math.floor(Math.random() * table.length)] as MonsterKind;
+      // Only spawn occasionally — keeps density low and feels natural
+      if (Math.random() < 0.35) this.spawnMonster(kind, sx, sz);
+    }
+  }
+
   spawnMonster(kind: MonsterKind, x: number, z: number) {
     const def = MONSTERS[kind];
     const id = `m_${Math.random().toString(36).slice(2, 9)}`;
@@ -2100,6 +2179,7 @@ export class GameRoom extends Room<WorldState> {
     this.tickStatuses();
     this.tickBots(Date.now());
     this.resolveFishingForAll();
+    this.tickChunkSpawns(dt);
 
     // Periodic autosave — every 20s, save all real players. Prevents data loss on crash.
     this.autoSaveAcc += dt;
