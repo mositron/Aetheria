@@ -48,6 +48,8 @@ export class GameRoom extends Room<WorldState> {
   chunkSpawnAcc = 0;                            // tick accumulator for chunk spawning
   spawnedChestChunks = new Set<string>();       // chunks that have already had a chest roll
   spawnedResourceChunks = new Set<string>();    // chunks that already have resource nodes
+  dailyState = new Map<string, { date: string; kills: number; harvest: number; rewards: Set<string> }>();
+  tradeSessions = new Map<string, { partnerSid: string; items: Array<{ invIndex: number; qty: number }>; zeny: number; confirmed: boolean }>();
   mpRegenAcc = 0;
   autoSaveAcc = 0;
   bossEventAcc = 0;
@@ -685,6 +687,122 @@ export class GameRoom extends Room<WorldState> {
       } catch {}
     });
 
+    // ── P2P Trading: A → B request, both add items/zeny, confirm, transfer ──
+    this.onMessage("trade:request", (client, msg: any) => {
+      const a = this.state.players.get(client.sessionId);
+      if (!a) return;
+      const targetSid = String(msg?.toSid ?? "");
+      const b = this.state.players.get(targetSid);
+      if (!b || a === b) return;
+      if (this.tradeSessions.has(client.sessionId) || this.tradeSessions.has(targetSid)) {
+        return client.send("system", { text: "ฝั่งใดฝั่งหนึ่งกำลังเทรดอยู่" });
+      }
+      const targetClient = this.clients.find((c) => c.sessionId === targetSid);
+      if (!targetClient) return;
+      targetClient.send("trade:invite" as any, { fromSid: client.sessionId, fromName: a.name });
+      client.send("system", { text: `📩 ส่งคำขอเทรดให้ ${b.name}` });
+    });
+
+    this.onMessage("trade:accept", (client, msg: any) => {
+      const b = this.state.players.get(client.sessionId);
+      if (!b) return;
+      const fromSid = String(msg?.fromSid ?? "");
+      const a = this.state.players.get(fromSid);
+      if (!a) return;
+      // Open the session
+      this.tradeSessions.set(client.sessionId, { partnerSid: fromSid, items: [], zeny: 0, confirmed: false });
+      this.tradeSessions.set(fromSid,            { partnerSid: client.sessionId, items: [], zeny: 0, confirmed: false });
+      const sendBoth = () => {
+        const s1 = this.tradeSessions.get(fromSid); const s2 = this.tradeSessions.get(client.sessionId);
+        if (!s1 || !s2) return;
+        const c1 = this.clients.find((c) => c.sessionId === fromSid);
+        const c2 = client;
+        c1?.send("trade:state" as any, { meItems: s1.items, meZeny: s1.zeny, meConfirmed: s1.confirmed, themItems: s2.items, themZeny: s2.zeny, themConfirmed: s2.confirmed, partner: b.name });
+        c2.send("trade:state" as any, { meItems: s2.items, meZeny: s2.zeny, meConfirmed: s2.confirmed, themItems: s1.items, themZeny: s1.zeny, themConfirmed: s1.confirmed, partner: a.name });
+      };
+      sendBoth();
+    });
+
+    this.onMessage("trade:offer", (client, msg: any) => {
+      const me = this.state.players.get(client.sessionId);
+      const sess = this.tradeSessions.get(client.sessionId);
+      if (!me || !sess) return;
+      // Validate items belong to me (not already offered double)
+      const items: Array<{ invIndex: number; qty: number }> = Array.isArray(msg?.items) ? msg.items : [];
+      const zeny = Math.max(0, Math.min(me.zeny, msg?.zeny | 0));
+      const cleaned: typeof items = [];
+      for (const it of items) {
+        const stack = me.inventory[it.invIndex];
+        if (!stack) continue;
+        const qty = Math.max(1, Math.min(stack.qty, it.qty));
+        cleaned.push({ invIndex: it.invIndex, qty });
+      }
+      sess.items = cleaned;
+      sess.zeny = zeny;
+      sess.confirmed = false; // any change unlocks
+      const partner = this.tradeSessions.get(sess.partnerSid);
+      if (partner) partner.confirmed = false;
+      // Re-broadcast both sides
+      const me2 = me; const partnerSid = sess.partnerSid;
+      const partnerPlayer = this.state.players.get(partnerSid);
+      const c1 = client;
+      const c2 = this.clients.find((c) => c.sessionId === partnerSid);
+      c1.send("trade:state" as any, { meItems: sess.items, meZeny: sess.zeny, meConfirmed: sess.confirmed, themItems: partner?.items ?? [], themZeny: partner?.zeny ?? 0, themConfirmed: partner?.confirmed ?? false, partner: partnerPlayer?.name ?? "?" });
+      if (c2 && partner) c2.send("trade:state" as any, { meItems: partner.items, meZeny: partner.zeny, meConfirmed: partner.confirmed, themItems: sess.items, themZeny: sess.zeny, themConfirmed: sess.confirmed, partner: me2.name });
+    });
+
+    this.onMessage("trade:confirm", (client) => {
+      const sess = this.tradeSessions.get(client.sessionId);
+      if (!sess) return;
+      sess.confirmed = true;
+      const partner = this.tradeSessions.get(sess.partnerSid);
+      if (!partner) return;
+      // Both confirmed → execute trade atomically
+      if (sess.confirmed && partner.confirmed) {
+        const a = this.state.players.get(client.sessionId);
+        const b = this.state.players.get(sess.partnerSid);
+        if (!a || !b) { this.cancelTrade(client.sessionId); return; }
+        // Validate balances + inventory
+        if (a.zeny < sess.zeny || b.zeny < partner.zeny) { this.cancelTrade(client.sessionId); return; }
+        // Collect items to transfer (process from highest index)
+        function takeFrom(p: Player, list: Array<{ invIndex: number; qty: number }>) {
+          const taken: Array<{ itemId: string; qty: number }> = [];
+          const sorted = list.slice().sort((x, y) => y.invIndex - x.invIndex);
+          for (const it of sorted) {
+            const stack = p.inventory[it.invIndex];
+            if (!stack || stack.qty < it.qty) throw new Error("invalid");
+            taken.push({ itemId: stack.itemId, qty: it.qty });
+            stack.qty -= it.qty;
+            if (stack.qty <= 0) p.inventory.splice(it.invIndex, 1);
+          }
+          return taken;
+        }
+        try {
+          const aGives = takeFrom(a, sess.items);
+          const bGives = takeFrom(b, partner.items);
+          a.zeny -= sess.zeny; b.zeny -= partner.zeny;
+          for (const it of bGives) this.addToInventory(a, it.itemId, it.qty);
+          for (const it of aGives) this.addToInventory(b, it.itemId, it.qty);
+          a.zeny += partner.zeny; b.zeny += sess.zeny;
+          const c1 = this.clients.find((c) => c.sessionId === client.sessionId);
+          const c2 = this.clients.find((c) => c.sessionId === sess.partnerSid);
+          c1?.send("trade:done" as any, {}); c1?.send("system", { text: "✅ เทรดสำเร็จ" });
+          c2?.send("trade:done" as any, {}); c2?.send("system", { text: "✅ เทรดสำเร็จ" });
+        } catch {
+          client.send("system", { text: "⚠ เทรดล้มเหลว — ของไม่พอ" });
+        } finally {
+          this.tradeSessions.delete(client.sessionId);
+          this.tradeSessions.delete(sess.partnerSid);
+        }
+      } else {
+        // Only one side confirmed — notify
+        const c2 = this.clients.find((c) => c.sessionId === sess.partnerSid);
+        c2?.send("trade:partner-confirmed" as any, {});
+      }
+    });
+
+    this.onMessage("trade:cancel", (client) => this.cancelTrade(client.sessionId));
+
     this.onMessage("togglePvp", (client) => {
       const p = this.state.players.get(client.sessionId);
       if (!p) return;
@@ -1299,6 +1417,18 @@ export class GameRoom extends Room<WorldState> {
   }
 
   // ---------- combat ----------
+  cancelTrade(sid: string) {
+    const sess = this.tradeSessions.get(sid);
+    if (!sess) return;
+    const partnerSid = sess.partnerSid;
+    this.tradeSessions.delete(sid);
+    this.tradeSessions.delete(partnerSid);
+    const c1 = this.clients.find((c) => c.sessionId === sid);
+    const c2 = this.clients.find((c) => c.sessionId === partnerSid);
+    c1?.send("trade:cancelled" as any, {}); c1?.send("system", { text: "🚫 ยกเลิกเทรด" });
+    c2?.send("trade:cancelled" as any, {}); c2?.send("system", { text: "🚫 ยกเลิกเทรด" });
+  }
+
   /** True if a player with this name is currently connected to the room. */
   isOnline(name: string): boolean {
     for (const [, p] of this.state.players) if (p.name === name) return true;
@@ -1536,9 +1666,12 @@ export class GameRoom extends Room<WorldState> {
       // Achievement tracking
       const sid = attacker.id;
       const tcfg = (MONSTERS as any)[target.kind];
-      if (tcfg?.aggroRange > 0) this.bumpAchievement(sid, "kills");
-      if (target.kind === "tree_node") this.bumpAchievement(sid, "trees");
-      if (target.kind === "rock_node" || target.kind === "ore_node" || target.kind === "crystal_node") this.bumpAchievement(sid, "rocks");
+      if (tcfg?.aggroRange > 0) {
+        this.bumpAchievement(sid, "kills");
+        this.bumpDailyChallenge(sid, "kills");
+      }
+      if (target.kind === "tree_node") { this.bumpAchievement(sid, "trees"); this.bumpDailyChallenge(sid, "harvest"); }
+      if (target.kind === "rock_node" || target.kind === "ore_node" || target.kind === "crystal_node") { this.bumpAchievement(sid, "rocks"); this.bumpDailyChallenge(sid, "harvest"); }
       if (target.kind === "darklord") this.bumpAchievement(sid, "darklord");
       this.dropLoot(target);
       const spawn = this.monsterSpawn.get(target.id);
@@ -1801,6 +1934,34 @@ export class GameRoom extends Room<WorldState> {
         client.send("fishing", { state: "cancelled" });
         client.send("system", { text: "กระเป๋าเต็ม ปลาหลุด" });
       }
+    }
+  }
+
+  // ── Daily challenge tracker (in-memory per session — resets on day change).
+  // Goals: kill 20 mobs → 100z + 3 HP potion. Harvest 15 nodes → 5 MP potion.
+  bumpDailyChallenge(sid: string, kind: "kills" | "harvest", by = 1) {
+    const p = this.state.players.get(sid);
+    if (!p || this.botIds.has(sid)) return;
+    const today = new Date().toISOString().slice(0, 10);
+    let st = this.dailyState.get(sid);
+    if (!st || st.date !== today) {
+      st = { date: today, kills: 0, harvest: 0, rewards: new Set() };
+      this.dailyState.set(sid, st);
+    }
+    if (kind === "kills") st.kills += by;
+    if (kind === "harvest") st.harvest += by;
+    if (st.kills >= 20 && !st.rewards.has("kills")) {
+      st.rewards.add("kills");
+      p.zeny += 100;
+      this.addToInventory(p, "hp_potion", 3);
+      const c = this.clients.find((cl) => cl.sessionId === sid);
+      c?.send("system", { text: "🏆 Daily: ฆ่ามอน 20 ตัวสำเร็จ! +100z +3 HP Potion" });
+    }
+    if (st.harvest >= 15 && !st.rewards.has("harvest")) {
+      st.rewards.add("harvest");
+      this.addToInventory(p, "mp_potion", 5);
+      const c = this.clients.find((cl) => cl.sessionId === sid);
+      c?.send("system", { text: "🏆 Daily: เก็บ 15 ทรัพยากร! +5 MP Potion" });
     }
   }
 
@@ -2126,6 +2287,25 @@ export class GameRoom extends Room<WorldState> {
         r.statPoints += STAT_POINTS_PER_LEVEL;
         this.recalcStats(r, true);
         this.broadcast("levelup", { playerId: r.id, level: r.level, name: r.name });
+      }
+      // Active pet shares XP at 30% rate
+      if (r.petKind) {
+        try {
+          const pets = JSON.parse(r.petsJson || "[]") as Array<any>;
+          const active = pets.find((p) => p.kind === r.petKind);
+          if (active) {
+            active.xp = (active.xp ?? 0) + Math.ceil(share * 0.3);
+            active.level = active.level ?? 1;
+            const need = 50 + active.level * 25;
+            while (active.xp >= need) {
+              active.xp -= need;
+              active.level += 1;
+              const client = this.clients.find((c) => c.sessionId === r.id);
+              if (client) client.send("system", { text: `🐾 ${r.petKind} Lv ${active.level}!` });
+            }
+            r.petsJson = JSON.stringify(pets);
+          }
+        } catch {}
       }
     }
     // refresh party HP for live displays

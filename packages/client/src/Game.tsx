@@ -48,6 +48,8 @@ import { GuildPanel } from "./ui/GuildPanel";
 import { AuctionHouse } from "./ui/AuctionHouse";
 import { JobAdvancement } from "./ui/JobAdvancement";
 import { Onboarding } from "./ui/Onboarding";
+import { WaypointsPanel } from "./ui/WaypointsPanel";
+import { TradeWindow } from "./ui/TradeWindow";
 import { useSettings } from "./ui/SettingsPanel";
 import { DayNight } from "./scene/DayNight";
 import { useSfx } from "./hooks/useSfx";
@@ -185,6 +187,8 @@ export function Game() {
       <AuctionHouse room={room} />
       <JobAdvancement room={room} />
       <Onboarding room={room} />
+      <WaypointsPanel />
+      <TradeWindow room={room} />
       <Chat room={room} />
       <Inventory room={room} />
       <Hotbar room={room} />

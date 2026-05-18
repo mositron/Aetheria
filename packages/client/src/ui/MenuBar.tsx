@@ -55,6 +55,7 @@ export function MenuBar() {
         <IconBtn label="🤝" name="เพื่อน" title="Friends" onClick={() => window.dispatchEvent(new Event("toggle-friends"))} />
         <IconBtn label="⚔" name="กิลด์" title="Guild" onClick={() => window.dispatchEvent(new Event("toggle-guild"))} />
         <IconBtn label="🏛" name="ตลาด" title="Auction House" onClick={() => window.dispatchEvent(new Event("toggle-auction"))} />
+        <IconBtn label="📍" name="หมุด" title="Waypoints" onClick={() => window.dispatchEvent(new Event("toggle-waypoints"))} />
         <IconBtn label="💬" name="แชต" title="Chat (Enter)" onClick={() => window.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" }))} />
         <IconBtn label="😊" name="อิโมท" title="Emote (T)" onClick={() => window.dispatchEvent(new Event("toggle-emote"))} />
         <IconBtn label="📸" name="ถ่ายภาพ" title="Photo (P)" onClick={() => window.dispatchEvent(new Event("toggle-photo"))} />
