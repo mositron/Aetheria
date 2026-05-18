@@ -54,19 +54,26 @@ Last updated: 2026-05-19 (commit `e1104c7`)
 
 ## P1 — Production polish (high value, medium effort)
 
-### 1. GameRoom.ts full domain split *(scaffolding only)*
-**Status:** `RateLimiter`, `SpatialHash` extracted. GameRoom still ~3000 lines.
-**Remaining services to extract:**
-- `CombatService` (handleAttack, handleSkill, dealDamage, recalcStats, status ticks)
-- `InventoryService` (addToInventory, addToInventoryOrMail, equip/unequip, useItem, drop)
-- `TradeService` (whole trade:* flow incl. snapshot/rollback)
-- `AuctionService` (list / browse / buy / cancel + mail-to-seller)
-- `GuildService` (create/join/leave/chat with transactional integrity)
-- `QuestService` (track/turnin/progress/chain)
-- `SpawnService` (chunk monster + resource respawn)
-- `PartyService` (invite / accept / share)
-- `AntiCheatService` (movement validation)
-**Blocked by:** P0.A (need tests first).
+### 1. GameRoom.ts full domain split *(in progress)*
+**Status:** 6 services extracted with tests (38 tests passing).
+  - ✅ `RateLimiter` — token bucket
+  - ✅ `SpatialHash` — chunk-grid spatial index
+  - ✅ `AntiCheat` — input validation
+  - ✅ `DailyChallenge` — progress + reward
+  - ✅ `Party` — state machine + invite tracking
+  - ✅ `Achievements` — unlock detection + leaderboard pts
+
+**Remaining services to extract** (ordered by coupling difficulty — low first):
+- `Friend` (DB-only, no in-memory state) — easy
+- `Mailbox` (DB-only) — easy
+- `Quest` (playerQuests Map + reward delivery) — medium
+- `Auction` (DB-backed + inventory mutation) — medium
+- `Guild` ($transaction wrapped + chat broadcast) — medium
+- `Inventory` (addToInventory, addToInventoryOrMail, equip/unequip) — high coupling
+- `Trade` (tradeSessions + atomic swap + rollback) — high coupling
+- `Combat` (handleAttack, handleSkill, dealDamage, status ticks) — highest coupling
+- `Spawn` (chunk monster + resource respawn) — high coupling
+**Blocked by:** P0.A only for Combat/Inventory/Trade — others are safe to extract now.
 
 ### 2. Real-time observability
 **TODO:**

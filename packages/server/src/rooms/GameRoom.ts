@@ -24,6 +24,10 @@ import { verifyToken } from "../auth.js";
 import { recordContribution } from "../leaderboard.js";
 import { SpatialHash } from "../services/SpatialHash.js";
 import { RateLimiter } from "../services/RateLimiter.js";
+import { AntiCheat } from "../services/AntiCheat.js";
+import { DailyChallenge } from "../services/DailyChallenge.js";
+import { Party } from "../services/Party.js";
+import { Achievements } from "../services/Achievements.js";
 
 type Intent = { mx: number; mz: number; rotY: number };
 type CharRow = {
@@ -41,20 +45,24 @@ export class GameRoom extends Room<WorldState> {
   lastSkill = new Map<string, number>(); // key = sid+":"+skillId
   // Anti-spam rate limiter (token bucket per sid×key).
   rateLimiter = new RateLimiter();
+  // Input validation / anti-cheat
+  antiCheat = new AntiCheat();
+  // Daily challenge progress + reward tracking
+  daily = new DailyChallenge();
   // Spatial index for fast monster→player AI lookups. Rebuilt each tick.
   playerSpatialHash = new SpatialHash<{ id: string; x: number; z: number; sid: string; dead: boolean }>();
   playerUserId = new Map<string, string>();
   playerCharId = new Map<string, string>();
   playerQuests = new Map<string, PlayerQuestState>();
-  parties = new Map<string, Set<string>>(); // partyId -> sids
-  playerParty = new Map<string, string>();   // sid -> partyId
-  partyInvites = new Map<string, string>();  // toSid -> fromSid (last invite)
+  // Party state machine (invites, formation, disband)
+  partySvc = new Party();
+  // Achievement progress + unlock detection
+  achievementsSvc = new Achievements();
   monsterSpawn = new Map<string, { x: number; z: number; kind: MonsterKind }>();
   sessionToCharId = new Map<string, string>(); // sid -> Character.id (for DB writes)
   chunkSpawnAcc = 0;                            // tick accumulator for chunk spawning
   spawnedChestChunks = new Set<string>();       // chunks that have already had a chest roll
   spawnedResourceChunks = new Set<string>();    // chunks that already have resource nodes
-  dailyState = new Map<string, { date: string; kills: number; harvest: number; rewards: Set<string> }>();
   tradeSessions = new Map<string, { partnerSid: string; items: Array<{ invIndex: number; qty: number }>; zeny: number; confirmed: boolean }>();
   mpRegenAcc = 0;
   autoSaveAcc = 0;
@@ -135,23 +143,14 @@ export class GameRoom extends Room<WorldState> {
     this.onMessage("input", (client, msg: InputMsg) => {
       const p = this.state.players.get(client.sessionId);
       if (!p || p.dead) return;
-      // Anti-cheat: any input value > 100 is suspicious (legitimate joystick is [-1,1])
-      const abnormal = Math.abs(msg.mx) > 100 || Math.abs(msg.mz) > 100 || !Number.isFinite(msg.mx) || !Number.isFinite(msg.mz);
-      if (abnormal) {
-        // Throttle the alerts so a single bad client can't flood logs
+      const v = this.antiCheat.validateInput(msg);
+      if (!v.ok) {
         if (this.checkRateLimit(client.sessionId, "anticheat-log", 1, 5000)) {
-          console.warn("[anticheat] suspicious input", { sid: client.sessionId, name: p.name, mx: msg.mx, mz: msg.mz });
+          console.warn("[anticheat] suspicious input", { sid: client.sessionId, name: p.name, reason: v.reason, mx: msg.mx, mz: msg.mz });
         }
-        return; // drop the message — don't update intent
+        return;
       }
-      const mag = Math.hypot(msg.mx, msg.mz);
-      const mx = mag > 1 ? msg.mx / mag : msg.mx;
-      const mz = mag > 1 ? msg.mz / mag : msg.mz;
-      this.intents.set(client.sessionId, {
-        mx: Number.isFinite(mx) ? mx : 0,
-        mz: Number.isFinite(mz) ? mz : 0,
-        rotY: Number.isFinite(msg.rotY) ? msg.rotY : 0,
-      });
+      this.intents.set(client.sessionId, { mx: v.mx, mz: v.mz, rotY: v.rotY });
     });
 
     this.onMessage("attack", (client, msg: AttackMsg) => this.handleAttack(client.sessionId, msg.targetId));
@@ -1072,19 +1071,8 @@ export class GameRoom extends Room<WorldState> {
     p.appearance = (c as any).appearance ?? "{}";
     p.achievementsJson = (c as any).achievementsJson ?? "{}";
     p.pvpFlag = !!(c as any).pvpFlag;
-    // Restore daily challenge state (only if today's date matches)
-    try {
-      const daily = JSON.parse((c as any).dailyJson || "{}");
-      const today = new Date().toISOString().slice(0, 10);
-      if (daily.date === today) {
-        this.dailyState.set(client.sessionId, {
-          date: daily.date,
-          kills: daily.kills | 0,
-          harvest: daily.harvest | 0,
-          rewards: new Set(daily.rewards ?? []),
-        });
-      }
-    } catch {}
+    // Restore daily challenge state (service handles stale-date + corrupt-JSON cases)
+    this.daily.restore(client.sessionId, (c as any).dailyJson);
     p.title = (c as any).title ?? "";
 
     // Daily login reward — check if first login today
@@ -1173,10 +1161,9 @@ export class GameRoom extends Room<WorldState> {
     this.playerUserId.delete(sid);
     this.playerCharId.delete(sid);
     this.playerQuests.delete(sid);
-    this.partyInvites.delete(sid);
     // Additional session-keyed maps (memory leak prevention)
     this.sessionToCharId.delete(sid);
-    this.dailyState.delete(sid);
+    this.daily.forget(sid);
     this.fishingState.delete(sid);
     this.tradeSessions.delete(sid);
     this.botIds.delete(sid);
@@ -1185,13 +1172,11 @@ export class GameRoom extends Room<WorldState> {
     // Prune compound-keyed maps that include this session
     for (const k of this.tameProgress.keys()) if (k.startsWith(sid + ":")) this.tameProgress.delete(k);
     for (const k of this.statusTickAcc.keys()) if (k.startsWith(sid + ":")) this.statusTickAcc.delete(k);
-    // Remove party invites SENT BY this player to others
-    for (const [toSid, fromSid] of this.partyInvites.entries()) {
-      if (fromSid === sid) this.partyInvites.delete(toSid);
-    }
+    // Party service handles both its own invites and any sent BY this sid.
+    this.partySvc.forget(sid);
   }
 
-  // ---------- party ----------
+  // ---------- party (delegates to Party service) ----------
   handlePartyInvite(client: Client, targetName: string) {
     const inviter = this.state.players.get(client.sessionId);
     if (!inviter) return;
@@ -1202,68 +1187,48 @@ export class GameRoom extends Room<WorldState> {
       if (p?.name === targetName && p.id !== inviter.id) { target = c; targetPlayer = p; break; }
     }
     if (!target || !targetPlayer) return;
-    if (this.playerParty.get(target.sessionId)) return; // already in party
-    this.partyInvites.set(target.sessionId, client.sessionId);
+    if (!this.partySvc.invite(client.sessionId, target.sessionId)) return;
     target.send("partyInvite", { fromId: inviter.id, fromName: inviter.name });
   }
 
   handlePartyAccept(client: Client, fromId: string) {
     const sid = client.sessionId;
-    const invFrom = this.partyInvites.get(sid);
-    if (!invFrom) return;
     // resolve inviter sid from fromId (id == sessionId in our schema)
     let inviterSid = "";
     for (const c of this.clients) {
       const p = this.state.players.get(c.sessionId);
       if (p?.id === fromId) { inviterSid = c.sessionId; break; }
     }
-    if (!inviterSid || inviterSid !== invFrom) return;
-    this.partyInvites.delete(sid);
-    // get or create party for inviter
-    let pid = this.playerParty.get(inviterSid);
-    if (!pid) {
-      pid = `party_${Math.random().toString(36).slice(2, 8)}`;
-      this.parties.set(pid, new Set([inviterSid]));
-      this.playerParty.set(inviterSid, pid);
-    }
-    const party = this.parties.get(pid)!;
-    if (party.size >= 4) return; // max 4
-    party.add(sid);
-    this.playerParty.set(sid, pid);
-    this.broadcastPartyUpdate(pid);
+    if (!inviterSid) return;
+    const change = this.partySvc.accept(sid, inviterSid);
+    if (change.kind === "joined") this.broadcastPartyUpdate(change.pid);
   }
 
   handlePartyLeave(sid: string) {
-    const pid = this.playerParty.get(sid);
-    if (!pid) return;
-    const party = this.parties.get(pid);
-    party?.delete(sid);
-    this.playerParty.delete(sid);
-    const leaver = this.clients.find((c) => c.sessionId === sid);
-    leaver?.send("partyUpdate", { leaderId: "", members: [] });
-    if (!party || party.size <= 1) {
-      // disband
-      if (party) for (const m of party) {
-        this.playerParty.delete(m);
+    const change = this.partySvc.leave(sid);
+    if (change.kind === "noop") return;
+    if (change.kind === "disbanded") {
+      for (const m of change.formerMembers) {
         const c = this.clients.find((c) => c.sessionId === m);
         c?.send("partyUpdate", { leaderId: "", members: [] });
       }
-      this.parties.delete(pid);
-    } else {
-      this.broadcastPartyUpdate(pid);
+    } else if (change.kind === "left") {
+      // Notify the leaver
+      const leaver = this.clients.find((c) => c.sessionId === sid);
+      leaver?.send("partyUpdate", { leaderId: "", members: [] });
+      this.broadcastPartyUpdate(change.pid);
     }
   }
 
   broadcastPartyUpdate(pid: string) {
-    const party = this.parties.get(pid);
-    if (!party) return;
-    const leaderSid = party.values().next().value as string;
-    const leader = this.state.players.get(leaderSid);
-    const members = Array.from(party).map((sid) => {
+    const memberSids = this.partySvc.members(pid);
+    if (memberSids.length === 0) return;
+    const leader = this.state.players.get(memberSids[0]);
+    const members = memberSids.map((sid) => {
       const p = this.state.players.get(sid);
       return p ? { id: p.id, name: p.name, hp: p.hp, maxHp: p.maxHp, level: p.level } : null;
     }).filter(Boolean);
-    for (const sid of party) {
+    for (const sid of memberSids) {
       const c = this.clients.find((c) => c.sessionId === sid);
       c?.send("partyUpdate", { leaderId: leader?.id ?? "", members });
     }
@@ -1394,7 +1359,7 @@ export class GameRoom extends Room<WorldState> {
       petsJson: p.petsJson, petRare: p.petRare ? 1 : 0,
       decorationsJson: p.decorationsJson,
       pvpFlag: p.pvpFlag ? 1 : 0,
-      dailyJson: JSON.stringify(this.serializedDailyState(p.id)),
+      dailyJson: this.daily.serialize(p.id),
     };
     if (newLoginDate) withExtras.lastLoginDate = newLoginDate;
     if (newLoginStreak) withExtras.loginStreak = newLoginStreak;
@@ -1603,12 +1568,6 @@ export class GameRoom extends Room<WorldState> {
     c2?.send("trade:cancelled" as any, {}); c2?.send("system", { text: "🚫 ยกเลิกเทรด" });
   }
 
-  /** Serialize daily state to a plain JSON-safe object (Sets become arrays). */
-  serializedDailyState(sid: string) {
-    const st = this.dailyState.get(sid);
-    if (!st) return {};
-    return { date: st.date, kills: st.kills, harvest: st.harvest, rewards: Array.from(st.rewards) };
-  }
 
   /** True if a player with this name is currently connected to the room. */
   isOnline(name: string): boolean {
@@ -2122,34 +2081,18 @@ export class GameRoom extends Room<WorldState> {
     }
   }
 
-  // ── Daily challenge tracker (in-memory per session — resets on day change).
-  // Goals: kill 20 mobs → 300z + 5 HP potion. Harvest 15 nodes → 200z + 5 MP potion.
-  // (Buffed in v2 — dailies should beat passive farming, not match it.)
+  // ── Daily challenge tracker — delegates to DailyChallenge service.
+  // Service handles goal thresholds + reward definitions. This wrapper
+  // adapts the reward by depositing zeny + items + sending the toast.
   bumpDailyChallenge(sid: string, kind: "kills" | "harvest", by = 1) {
     const p = this.state.players.get(sid);
     if (!p || this.botIds.has(sid)) return;
-    const today = new Date().toISOString().slice(0, 10);
-    let st = this.dailyState.get(sid);
-    if (!st || st.date !== today) {
-      st = { date: today, kills: 0, harvest: 0, rewards: new Set() };
-      this.dailyState.set(sid, st);
-    }
-    if (kind === "kills") st.kills += by;
-    if (kind === "harvest") st.harvest += by;
-    if (st.kills >= 20 && !st.rewards.has("kills")) {
-      st.rewards.add("kills");
-      p.zeny += 300;
-      this.addToInventory(p, "hp_potion", 5);
-      const c = this.clients.find((cl) => cl.sessionId === sid);
-      c?.send("system", { text: "🏆 Daily: ฆ่ามอน 20 ตัวสำเร็จ! +300z +5 HP Potion" });
-    }
-    if (st.harvest >= 15 && !st.rewards.has("harvest")) {
-      st.rewards.add("harvest");
-      p.zeny += 200;
-      this.addToInventory(p, "mp_potion", 5);
-      const c = this.clients.find((cl) => cl.sessionId === sid);
-      c?.send("system", { text: "🏆 Daily: เก็บ 15 ทรัพยากร! +200z +5 MP Potion" });
-    }
+    const reward = this.daily.bump(sid, kind, by);
+    if (!reward) return;
+    p.zeny += reward.zeny;
+    this.addToInventory(p, reward.itemId, reward.itemQty);
+    const c = this.clients.find((cl) => cl.sessionId === sid);
+    c?.send("system", { text: reward.message });
   }
 
   bumpAchievement(sid: string, counter: string, by = 1) {
@@ -2157,29 +2100,18 @@ export class GameRoom extends Room<WorldState> {
     if (!p) return;
     // Weekly leaderboard contribution (skip bots)
     if (!this.botIds.has(sid)) {
-      const pts = counter === "kills" ? 3 : counter === "darklord" ? 100 : 1;
+      const pts = this.achievementsSvc.contributionPoints(counter);
       recordContribution(p.name, pts * by, counter === "kills" ? by : 0, p.level);
     }
-    let prog: AchievementProgress;
-    try { prog = JSON.parse(p.achievementsJson || "{}"); } catch { prog = emptyAchievementProgress(); }
-    if (!prog.counters) prog.counters = {};
-    if (!prog.unlocked) prog.unlocked = [];
-    prog.counters[counter] = (prog.counters[counter] ?? 0) + by;
-    // Check for newly unlocked
-    for (const def of ACHIEVEMENTS) {
-      if (def.counter !== counter) continue;
-      if (prog.unlocked.includes(def.id)) continue;
-      if ((prog.counters[counter] ?? 0) >= def.goal) {
-        prog.unlocked.push(def.id);
-        const client = this.clients.find((c) => c.sessionId === sid);
-        client?.send("system", { text: `🏅 ปลดล็อก: ${def.icon} ${def.name}` });
-        if (def.reward) {
-          if (def.reward.zeny) p.zeny += def.reward.zeny;
-          if (def.reward.itemId) this.addToInventory(p, def.reward.itemId, def.reward.qty ?? 1);
-        }
-      }
+    const { unlocked, progress } = this.achievementsSvc.bump(p.achievementsJson, counter, by);
+    p.achievementsJson = JSON.stringify(progress);
+    if (unlocked.length === 0) return;
+    const client = this.clients.find((c) => c.sessionId === sid);
+    for (const u of unlocked) {
+      client?.send("system", { text: `🏅 ปลดล็อก: ${u.icon} ${u.name}` });
+      if (u.reward?.zeny) p.zeny += u.reward.zeny;
+      if (u.reward?.itemId) this.addToInventory(p, u.reward.itemId, u.reward.qty ?? 1);
     }
-    p.achievementsJson = JSON.stringify(prog);
   }
 
   handleCraft(client: Client, recipeId: string) {
@@ -2483,17 +2415,14 @@ export class GameRoom extends Room<WorldState> {
   // ---------- progression ----------
   grantExp(p: Player, amount: number) {
     // share with nearby party members (within 30m)
-    const pid = this.playerParty.get(p.id);
+    const pid = this.partySvc.partyOf(p.id);
     const recipients: Player[] = [p];
     if (pid) {
-      const party = this.parties.get(pid);
-      if (party) {
-        for (const sid of party) {
-          if (sid === p.id) continue;
-          const m = this.state.players.get(sid);
-          if (!m || m.dead) continue;
-          if (Math.hypot(m.pos.x - p.pos.x, m.pos.z - p.pos.z) < 30) recipients.push(m);
-        }
+      for (const sid of this.partySvc.members(pid)) {
+        if (sid === p.id) continue;
+        const m = this.state.players.get(sid);
+        if (!m || m.dead) continue;
+        if (Math.hypot(m.pos.x - p.pos.x, m.pos.z - p.pos.z) < 30) recipients.push(m);
       }
     }
     const share = Math.ceil(amount / recipients.length);
