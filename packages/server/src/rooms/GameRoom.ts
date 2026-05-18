@@ -594,6 +594,94 @@ export class GameRoom extends Room<WorldState> {
       client.send("system", { text: `✨ เปลี่ยนอาชีพเป็น ${job.name}!` });
     });
 
+    // ── Auction house: persistent player-to-player marketplace ──────────────
+    this.onMessage("auction:list", async (client, msg: any) => {
+      // List my own item for sale. Removes it from inventory immediately.
+      const p = this.state.players.get(client.sessionId);
+      if (!p) return;
+      const invIndex = msg?.invIndex | 0;
+      const qty = Math.max(1, msg?.qty | 0);
+      const pricePer = Math.max(1, Math.min(10_000_000, msg?.pricePer | 0));
+      const stack = p.inventory[invIndex];
+      if (!stack || stack.qty < qty) return client.send("system", { text: "ของไม่พอ" });
+      // Charge a small listing fee (1%) — anti-spam
+      const fee = Math.max(1, Math.floor(pricePer * qty * 0.01));
+      if (p.zeny < fee) return client.send("system", { text: `ต้องมีเงิน ${fee}z สำหรับค่าธรรมเนียมประกาศ` });
+      try {
+        await (prisma as any).auctionListing.create({
+          data: { sellerName: p.name, itemId: stack.itemId, qty, pricePer },
+        });
+        p.zeny -= fee;
+        stack.qty -= qty;
+        if (stack.qty <= 0) p.inventory.splice(invIndex, 1);
+        client.send("system", { text: `📢 ลงประกาศ ${qty} ชิ้น @${pricePer}z` });
+      } catch {}
+    });
+
+    this.onMessage("auction:browse", async (client, msg: any) => {
+      const search = String(msg?.search ?? "").trim().toLowerCase();
+      try {
+        const listings = await (prisma as any).auctionListing.findMany({
+          where: search ? { itemId: { contains: search } } : undefined,
+          orderBy: { pricePer: "asc" },
+          take: 100,
+        });
+        client.send("auction:browse", { listings });
+      } catch {}
+    });
+
+    this.onMessage("auction:buy", async (client, msg: any) => {
+      const p = this.state.players.get(client.sessionId);
+      if (!p) return;
+      const id = String(msg?.id ?? "");
+      try {
+        const listing = await (prisma as any).auctionListing.findUnique({ where: { id } });
+        if (!listing) return client.send("system", { text: "ของถูกซื้อหรือลบไปแล้ว" });
+        if (listing.sellerName === p.name) return client.send("system", { text: "ซื้อของตัวเองไม่ได้" });
+        const total = listing.pricePer * listing.qty;
+        if (p.zeny < total) return client.send("system", { text: `เงินไม่พอ (ต้อง ${total}z)` });
+        // Transfer: deduct from buyer, mail proceeds to seller, give buyer item
+        const ok = this.addToInventory(p, listing.itemId, listing.qty);
+        if (!ok) return client.send("system", { text: "กระเป๋าเต็ม" });
+        p.zeny -= total;
+        await (prisma as any).auctionListing.delete({ where: { id } });
+        // Mail proceeds to seller (offline-friendly)
+        try {
+          await prisma.mail.create({
+            data: {
+              toName: listing.sellerName,
+              fromName: "AUCTION",
+              subject: `ขายแล้ว: ${listing.itemId} ×${listing.qty}`,
+              body: `ขาย ${listing.itemId} ${listing.qty} ชิ้น ราคารวม ${total}z`,
+              zeny: total, itemId: "", itemQty: 0,
+            },
+          });
+        } catch {}
+        client.send("system", { text: `✅ ซื้อ ${listing.itemId} ×${listing.qty} (-${total}z)` });
+      } catch {}
+    });
+
+    this.onMessage("auction:cancel", async (client, msg: any) => {
+      const p = this.state.players.get(client.sessionId);
+      if (!p) return;
+      const id = String(msg?.id ?? "");
+      try {
+        const listing = await (prisma as any).auctionListing.findUnique({ where: { id } });
+        if (!listing || listing.sellerName !== p.name) return;
+        // Return item via mail (avoids inventory-full edge case)
+        await prisma.mail.create({
+          data: {
+            toName: p.name, fromName: "AUCTION",
+            subject: `ยกเลิก: ${listing.itemId} ×${listing.qty}`,
+            body: "คุณยกเลิกการประกาศ",
+            zeny: 0, itemId: listing.itemId, itemQty: listing.qty,
+          },
+        });
+        await (prisma as any).auctionListing.delete({ where: { id } });
+        client.send("system", { text: "ยกเลิกประกาศแล้ว" });
+      } catch {}
+    });
+
     this.onMessage("togglePvp", (client) => {
       const p = this.state.players.get(client.sessionId);
       if (!p) return;

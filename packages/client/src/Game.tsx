@@ -45,6 +45,7 @@ import { QuestTracker } from "./ui/QuestTracker";
 import { TargetDisplay } from "./ui/TargetDisplay";
 import { FriendList } from "./ui/FriendList";
 import { GuildPanel } from "./ui/GuildPanel";
+import { AuctionHouse } from "./ui/AuctionHouse";
 import { useSettings } from "./ui/SettingsPanel";
 import { DayNight } from "./scene/DayNight";
 import { useSfx } from "./hooks/useSfx";
@@ -179,6 +180,7 @@ export function Game() {
       <TargetDisplay room={room} />
       <FriendList room={room} />
       <GuildPanel room={room} />
+      <AuctionHouse room={room} />
       <Chat room={room} />
       <Inventory room={room} />
       <Hotbar room={room} />

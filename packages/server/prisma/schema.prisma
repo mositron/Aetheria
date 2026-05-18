@@ -15,6 +15,18 @@ model User {
   characters   Character[]
 }
 
+model AuctionListing {
+  id          String   @id @default(cuid())
+  sellerName  String
+  itemId      String
+  qty         Int      @default(1)
+  pricePer    Int                              // zeny per unit
+  createdAt   DateTime @default(now())
+
+  @@index([itemId])
+  @@index([sellerName])
+}
+
 model Guild {
   id          String   @id @default(cuid())
   name        String   @unique
