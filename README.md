@@ -43,13 +43,15 @@ Open world · Survival · Crafting · Pets · Farming · Fishing · Flying · Ho
 
 ## 🌈 What is Aetheria?
 
-A solo-built MMORPG playable in the browser — built using **TypeScript everywhere**, **Three.js** procedural geometry, and a **Colyseus** server.
-Designed cute / anime-style with pastel UI, chibi characters with blinking eyes, and angel-wing flight.
+A solo-built **infinite-world MMORPG** playable in the browser — built using **TypeScript everywhere**, **Three.js** procedural geometry, and a **Colyseus** server.
+Cute / anime-style: pastel UI, chibi characters with blinking eyes, toon-shaded mountains, angel-wing flight.
 
 ```
-✨ Open world  ·  ⚔ Combat  ·  🌾 Survival
-🐾 Pets       ·  🏡 Housing ·  🎣 Fishing
-🪽 Flying     ·  🔨 Craft   ·  🏆 Achievements
+🌍 Infinite chunk-based world  ·  5 biomes (plains/forest/desert/snow/swamp)
+⚔ Combat       🪽 Flying        🌾 Survival     🐾 Pets & mounts
+🏡 Housing      🎣 Fishing       🔨 Crafting     🏆 Achievements
+🤝 Friends      ⚔ Guilds         🏛 Auction      ⚔ PvP (opt-in)
+✨ 2nd-class job advancement at Lv30   🧪 Auto-Potion config
 ```
 
 > Built solo from scratch in a focused sprint with [Claude Code](https://claude.com/claude-code).
