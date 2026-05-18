@@ -12,3 +12,4 @@ export * from "./appearance.js";
 export * from "./biomes.js";
 export * from "./recipes.js";
 export * from "./achievements.js";
+export * from "./events.js";

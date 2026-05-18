@@ -1,6 +1,24 @@
 import { useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import { MAPS, biomeAt, BIOMES, type MapId } from "@game/shared";
+// 5-band gradient texture for built-in toon material (Pagonia-look)
+const toonGradient = (() => {
+  const steps = [60, 130, 195, 230, 255];
+  const data = new Uint8Array(steps.length * 4);
+  for (let i = 0; i < steps.length; i++) {
+    const v = steps[i];
+    data[i * 4 + 0] = v;
+    data[i * 4 + 1] = v;
+    data[i * 4 + 2] = v;
+    data[i * 4 + 3] = 255;
+  }
+  const tex = new THREE.DataTexture(data, steps.length, 1, THREE.RGBAFormat);
+  tex.minFilter = THREE.NearestFilter;
+  tex.magFilter = THREE.NearestFilter;
+  tex.generateMipmaps = false;
+  tex.needsUpdate = true;
+  return tex;
+})();
 
 // Deterministic PRNG so layout is the same every load
 function mulberry32(seed: number) {
@@ -23,11 +41,12 @@ type Palette = {
 
 const PALETTES: Record<MapId, Palette> = {
   field: {
-    groundA: "#86d96d", groundB: "#a3e635", groundC: "#65a30d",
-    rock: "#a8a29e", rockDark: "#78716c",
-    trunk: "#92400e", leavesA: "#4ade80", leavesB: "#86efac",
-    river: "#7dd3fc", riverDeep: "#38bdf8",
-    flowerA: "#f472b6", flowerB: "#fde047",
+    // Pagonia-style saturated palette
+    groundA: "#7ed957", groundB: "#9fea4e", groundC: "#4f9e2e",
+    rock: "#c2b8aa", rockDark: "#7c6f5d",
+    trunk: "#6b3917", leavesA: "#3fb555", leavesB: "#6bd66e",
+    river: "#7dd3fc", riverDeep: "#0c7eb8",
+    flowerA: "#ec4899", flowerB: "#fde047",
   },
   dungeon: {
     groundA: "#4a3568", groundB: "#5b4286", groundC: "#3a2854",
@@ -202,10 +221,10 @@ export function Environment({ mapId }: { mapId: MapId }) {
 
   return (
     <group>
-      {/* flat solid-color ground (walkable surface) */}
+      {/* Toon-shaded ground plane (Pagonia-look, no custom shader = safe) */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow position={[0, 0, 0]}>
         <planeGeometry args={[mapDef.size, mapDef.size, 1, 1]} />
-        <meshStandardMaterial color={pal.groundC} />
+        <meshToonMaterial color={pal.groundC} gradientMap={toonGradient} />
       </mesh>
 
       {/* ground patches: thousands of tiny boxes batched (no shadows for perf) */}
@@ -323,21 +342,22 @@ function Decor({ type, x, z, s, r, seed, pal }: { type: "tree" | "rock" | "bush"
     const { trunkH, leafSize, ox1, oz1, ox2, oz2 } = shape as any;
     return (
       <group position={[x, 0, z]} rotation={[0, r, 0]} scale={s}>
-        <mesh position={[0, trunkH / 2, 0]}>
+        <mesh position={[0, trunkH / 2, 0]} castShadow>
           <boxGeometry args={[0.35, trunkH, 0.35]} />
-          <meshStandardMaterial color={pal.trunk} flatShading />
+          <meshToonMaterial color={pal.trunk} gradientMap={toonGradient} />
         </mesh>
-        <mesh position={[0, trunkH + leafSize * 0.4, 0]}>
-          <boxGeometry args={[leafSize * 1.4, leafSize * 0.9, leafSize * 1.4]} />
-          <meshStandardMaterial color={pal.leavesA} flatShading />
+        {/* Faceted conical canopy (cone gives proper Pagonia-style) */}
+        <mesh position={[0, trunkH + leafSize * 0.6, 0]} castShadow>
+          <coneGeometry args={[leafSize * 1.1, leafSize * 1.4, 6, 1]} />
+          <meshToonMaterial color={pal.leavesA} gradientMap={toonGradient} />
         </mesh>
-        <mesh position={[ox1, trunkH + leafSize * 1.1, oz1]}>
-          <boxGeometry args={[leafSize * 1.1, leafSize * 0.8, leafSize * 1.1]} />
-          <meshStandardMaterial color={pal.leavesB} flatShading />
+        <mesh position={[ox1, trunkH + leafSize * 1.4, oz1]} castShadow>
+          <coneGeometry args={[leafSize * 0.85, leafSize * 1.1, 6, 1]} />
+          <meshToonMaterial color={pal.leavesB} gradientMap={toonGradient} />
         </mesh>
-        <mesh position={[ox2, trunkH + leafSize * 1.7, oz2]}>
-          <boxGeometry args={[leafSize * 0.7, leafSize * 0.6, leafSize * 0.7]} />
-          <meshStandardMaterial color={pal.leavesA} flatShading />
+        <mesh position={[ox2, trunkH + leafSize * 2.0, oz2]}>
+          <coneGeometry args={[leafSize * 0.55, leafSize * 0.7, 6, 1]} />
+          <meshToonMaterial color={pal.leavesA} gradientMap={toonGradient} />
         </mesh>
       </group>
     );
@@ -348,9 +368,9 @@ function Decor({ type, x, z, s, r, seed, pal }: { type: "tree" | "rock" | "bush"
     return (
       <group position={[x, 0, z]} rotation={[0, r, 0]} scale={s}>
         {items.map((it: { sz: number; y: number; ox: number; oz: number }, i: number) => (
-          <mesh key={i} position={[it.ox, it.y, it.oz]}>
-            <boxGeometry args={[it.sz, it.sz, it.sz]} />
-            <meshStandardMaterial color={i % 2 === 0 ? pal.rock : pal.rockDark} flatShading />
+          <mesh key={i} position={[it.ox, it.y, it.oz]} rotation={[i * 0.3, i * 0.7, i * 0.5]} castShadow>
+            <dodecahedronGeometry args={[it.sz * 0.6, 0]} />
+            <meshToonMaterial color={i % 2 === 0 ? pal.rock : pal.rockDark} gradientMap={toonGradient} />
           </mesh>
         ))}
       </group>
@@ -360,13 +380,17 @@ function Decor({ type, x, z, s, r, seed, pal }: { type: "tree" | "rock" | "bush"
   if (type === "bush") {
     return (
       <group position={[x, 0, z]} rotation={[0, r, 0]} scale={s}>
-        <mesh position={[0, 0.22, 0]}>
-          <boxGeometry args={[0.6, 0.45, 0.6]} />
-          <meshStandardMaterial color={pal.leavesA} flatShading />
+        <mesh position={[0, 0.25, 0]}>
+          <icosahedronGeometry args={[0.35, 0]} />
+          <meshToonMaterial color={pal.leavesA} gradientMap={toonGradient} />
         </mesh>
-        <mesh position={[0.18, 0.32, 0.1]}>
-          <boxGeometry args={[0.35, 0.3, 0.35]} />
-          <meshStandardMaterial color={pal.leavesB} flatShading />
+        <mesh position={[0.22, 0.36, 0.1]}>
+          <icosahedronGeometry args={[0.22, 0]} />
+          <meshToonMaterial color={pal.leavesB} gradientMap={toonGradient} />
+        </mesh>
+        <mesh position={[-0.18, 0.3, -0.12]}>
+          <icosahedronGeometry args={[0.2, 0]} />
+          <meshToonMaterial color={pal.leavesA} gradientMap={toonGradient} />
         </mesh>
       </group>
     );
@@ -378,11 +402,11 @@ function Decor({ type, x, z, s, r, seed, pal }: { type: "tree" | "rock" | "bush"
     <group position={[x, 0, z]} rotation={[0, r, 0]} scale={s}>
       <mesh position={[0, 0.18, 0]}>
         <boxGeometry args={[0.06, 0.36, 0.06]} />
-        <meshStandardMaterial color="#2f6b35" flatShading />
+        <meshToonMaterial color="#2f6b35" gradientMap={toonGradient} />
       </mesh>
       <mesh position={[0, 0.42, 0]}>
-        <boxGeometry args={[0.18, 0.1, 0.18]} />
-        <meshStandardMaterial color={petalColor} flatShading />
+        <icosahedronGeometry args={[0.12, 0]} />
+        <meshToonMaterial color={petalColor} gradientMap={toonGradient} />
       </mesh>
     </group>
   );

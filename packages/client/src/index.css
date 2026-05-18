@@ -292,3 +292,38 @@ html, body, #root { width: 100%; height: 100%; }
   }
 }
 
+/* ────────────────────────────────────────────────────────────────────────── */
+/* MOBILE: shrink controls when SHORT side ≤ 540px (landscape phones too).   */
+/* ────────────────────────────────────────────────────────────────────────── */
+@media (max-width: 540px), (max-height: 540px) {
+  /* Action buttons (TouchControls / FAB-style circles) — was w-20 h-20 */
+  .mobile-btn-lg {
+    width: 3.25rem !important;
+    height: 3.25rem !important;
+    font-size: 0.75rem !important;
+  }
+  /* MenuBar icon buttons (when expanded) — was w-12 h-12 */
+  .mobile-icon-btn {
+    width: 2.5rem !important;
+    height: 2.5rem !important;
+  }
+  /* Hotbar slots — was ~3rem */
+  .mobile-slot {
+    width: 2.25rem !important;
+    height: 2.25rem !important;
+    font-size: 0.8rem !important;
+  }
+  /* Skill hotbar slots — was 4rem */
+  .mobile-skill {
+    width: 3rem !important;
+    height: 3rem !important;
+  }
+  /* HUD bar widths — was ~12rem */
+  .mobile-hud-bar {
+    max-width: 10rem !important;
+  }
+  /* Panel padding tighter */
+  .panel { padding: 6px 8px !important; }
+}
+
+

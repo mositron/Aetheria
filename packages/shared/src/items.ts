@@ -23,6 +23,7 @@ export const ITEMS: Record<string, ItemDef> = {
   leather_armor:{ id: "leather_armor",name: "Leather Armor",  slot: "armor",  def: 3,  icon: "🥋", color: "#a16207" },
   iron_armor:   { id: "iron_armor",   name: "Iron Armor",     slot: "armor",  def: 8,  icon: "🛡", color: "#94a3b8" },
   hp_potion:    { id: "hp_potion",    name: "HP Potion",      slot: "consumable", hpRestore: 40, stack: 99, icon: "🧪", color: "#ef4444" },
+  mp_potion:    { id: "mp_potion",    name: "MP Potion",      slot: "consumable", mpRestore: 30, stack: 99, icon: "💙", color: "#3b82f6" },
   slime_jelly:  { id: "slime_jelly",  name: "Slime Jelly",    slot: "material", stack: 99, icon: "🟢", color: "#84cc16" },
   wolf_fang:    { id: "wolf_fang",    name: "Wolf Fang",      slot: "material", stack: 99, icon: "🦷", color: "#e5e7eb" },
   orc_tusk:     { id: "orc_tusk",     name: "Orc Tusk",       slot: "material", stack: 99, icon: "🦴", color: "#fef3c7" },

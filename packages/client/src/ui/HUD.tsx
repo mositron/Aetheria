@@ -10,6 +10,8 @@ import { Minimap } from "./Minimap";
  */
 export function HUD({ room }: { room: Room<WorldState> }) {
   const [, setTick] = useState(0);
+  // Mobile: shrink HUD card (still show all bars + pills — user expects to see them)
+  const isMobile = true; // mobile sizing used on all screens
 
   useEffect(() => {
     const id = setInterval(() => setTick((t) => t + 1), 300);
@@ -24,89 +26,95 @@ export function HUD({ room }: { room: Room<WorldState> }) {
 
   return (
     <>
-      {/* ── TOP-LEFT: HP / SP card ── */}
-      <div className="absolute top-2 left-2 w-[15rem] max-w-[44vw] pointer-events-none select-none">
-        <div className="bg-black/55 backdrop-blur-md border border-cyan-400/30 rounded p-2 space-y-1.5 shadow-[0_4px_20px_rgba(0,0,0,0.5)]">
-          <div className="flex items-baseline justify-between text-[11px]">
-            <span className="text-white font-bold truncate">{me.name}</span>
-            <span className="text-cyan-200 text-[10px]">
-              Lv{me.level} · <span className="text-amber-300">{me.job}</span>
-            </span>
+      {/* ── TOP-LEFT: HP / SP card (full info, smaller on mobile) ── */}
+      <div className="absolute top-2 left-2 pointer-events-none select-none" style={{ width: isMobile ? "10rem" : "15rem", maxWidth: "44vw" }}>
+        <div
+          className="bg-black/55 backdrop-blur-md border border-cyan-400/30 rounded shadow-[0_4px_20px_rgba(0,0,0,0.5)]"
+          style={{ padding: isMobile ? "5px 6px" : "8px" }}
+        >
+          <div className="space-y-1">
+            <div className="flex items-baseline justify-between" style={{ fontSize: isMobile ? 10 : 11 }}>
+              <span className="text-white font-bold truncate">{me.name}</span>
+              <span className="text-cyan-200" style={{ fontSize: isMobile ? 9 : 10 }}>
+                Lv{me.level} · <span className="text-amber-300">{me.job}</span>
+              </span>
+            </div>
+            <Bar icon="❤" value={me.hp} max={me.maxHp} color="#ef4444" />
+            <Bar icon="✦" value={me.mp} max={me.maxMp} color="#0ea5e9" />
           </div>
-          <Bar icon="❤" value={me.hp} max={me.maxHp} color="#ef4444" />
-          <Bar icon="✦" value={me.mp} max={me.maxMp} color="#0ea5e9" />
         </div>
-        {/* Tiny survival pills below the card */}
-        <div className="mt-1.5 flex gap-1">
+        <div className="mt-1 flex gap-1">
           <Pill icon="🍗" value={me.hunger} warn={hungerWarn} color="#a3e635" warnColor="#fb923c" />
           <Pill icon="💧" value={me.thirst} warn={thirstWarn} color="#38bdf8" warnColor="#fb923c" />
           <Pill icon="⚡" value={me.stamina} max={me.maxStamina} color="#fde047" />
         </div>
+        {/* Gold + unspent stat points — sit directly under the HUD card */}
+        <div className="mt-1 flex items-center gap-1">
+          <div className="bg-black/55 backdrop-blur-md border border-amber-400/30 rounded px-1.5 py-0.5 flex items-center" style={{ fontSize: 9 }}>
+            <span className="text-yellow-300 font-bold">💰{me.zeny}</span>
+          </div>
+          {(me.statPoints > 0) && (
+            <div className="bg-amber-500/20 border border-amber-400 rounded px-1.5 py-0.5 text-amber-200 animate-pulse" style={{ fontSize: 9 }}>
+              ⚡{me.statPoints} stat
+            </div>
+          )}
+        </div>
       </div>
 
-      {/* ── TOP-RIGHT: Minimap → gold/zeny → status badges (all in one column, no overlap) ── */}
-      <div className="absolute top-2 right-2 pointer-events-none select-none flex flex-col items-end gap-1">
+      {/* ── TOP-RIGHT: Minimap + icon-only status chips (tooltip on hover) ── */}
+      <div className="absolute top-2 right-2 pointer-events-auto select-none flex flex-col items-end gap-1">
         <Minimap room={room} mapId={room.state.mapId as MapId} />
-        <div className="bg-black/55 backdrop-blur-md border border-amber-400/30 rounded px-2 py-1 text-[11px] flex items-center gap-2">
-          <span className="text-yellow-300 font-bold">💰{me.zeny}</span>
+        <div className="flex gap-1 flex-wrap justify-end max-w-[8rem]">
+          {room.state.isNight && (
+            <StatusChip icon="🌙" color="#a855f7" title="กลางคืน · มอนแรง" pulse />
+          )}
+          {room.state.season && room.state.season !== "none" && (
+            <StatusChip
+              icon={room.state.season === "christmas" ? "🎄" : room.state.season === "halloween" ? "🎃" : "💦"}
+              color="#ec4899"
+              title={room.state.season === "christmas" ? "เทศกาลคริสต์มาส" : room.state.season === "halloween" ? "ฮาโลวีน" : "สงกรานต์"}
+              pulse
+            />
+          )}
+          {room.state.weather === "rainy" && <StatusChip icon="🌧" color="#38bdf8" title="ฝนตก · stamina ฟื้นเร็ว" />}
+          {hungerWarn && <StatusChip icon="🍗" color="#fb923c" title="หิวจัด!" pulse />}
+          {thirstWarn && <StatusChip icon="💧" color="#60a5fa" title="กระหายน้ำ!" pulse />}
         </div>
-        {room.state.isNight && (
-          <div className="bg-violet-900/60 border border-violet-400/60 rounded px-2 py-0.5 text-[10px] text-violet-200 flex items-center gap-1">
-            <span className="animate-pulse">🌙</span>
-            <span>กลางคืน · มอนแรง</span>
-          </div>
-        )}
-        {room.state.season && room.state.season !== "none" && (
-          <div className="bg-pink-900/60 border border-pink-400/60 rounded px-2 py-0.5 text-[10px] text-pink-100 flex items-center gap-1">
-            <span className="animate-pulse">
-              {room.state.season === "christmas" ? "🎄" : room.state.season === "halloween" ? "🎃" : "💦"}
-            </span>
-            <span>
-              {room.state.season === "christmas" ? "เทศกาลคริสต์มาส" :
-               room.state.season === "halloween" ? "ฮาโลวีน" : "สงกรานต์"}
-            </span>
-          </div>
-        )}
-        {room.state.weather === "rainy" && (
-          <div className="bg-sky-900/60 border border-sky-400/60 rounded px-2 py-0.5 text-[10px] text-sky-100 flex items-center gap-1">
-            <span>🌧</span>
-            <span>ฝนตก · stamina ฟื้นเร็ว</span>
-          </div>
-        )}
-        {(me.statPoints > 0) && (
-          <div className="bg-amber-500/20 border border-amber-400 rounded px-2 py-0.5 text-[10px] text-amber-200 animate-pulse">
-            ⚡ {me.statPoints} stat
-          </div>
-        )}
-        {hungerWarn && (
-          <div className="bg-orange-900/60 border border-orange-400/60 rounded px-2 py-0.5 text-[10px] text-orange-200">
-            🍗 หิวจัด!
-          </div>
-        )}
-        {thirstWarn && (
-          <div className="bg-blue-900/60 border border-blue-400/60 rounded px-2 py-0.5 text-[10px] text-blue-200">
-            💧 กระหายน้ำ!
-          </div>
-        )}
       </div>
     </>
   );
 }
 
+function StatusChip({ icon, color, title, pulse }: { icon: string; color: string; title: string; pulse?: boolean }) {
+  return (
+    <div
+      title={title}
+      className={`flex items-center justify-center rounded-full backdrop-blur-md ${pulse ? "animate-pulse" : ""}`}
+      style={{
+        width: 22, height: 22, fontSize: 12,
+        background: `${color}20`,
+        border: `1px solid ${color}80`,
+        boxShadow: `0 0 6px ${color}40`,
+      }}
+    >{icon}</div>
+  );
+}
+
 function Bar({ icon, value, max, color }: { icon: string; value: number; max: number; color: string }) {
   const pct = Math.max(0, Math.min(1, value / max)) * 100;
+  // Compact full-width bar: 9px tall, 7px text overlaid.
   return (
-    <div className="flex items-center gap-1.5">
-      <span className="text-[12px] w-4 text-center">{icon}</span>
-      <div className="flex-1 h-2 bg-black/60 rounded-sm overflow-hidden border border-black/40">
-        <div
-          className="h-full transition-all"
-          style={{ width: `${pct}%`, background: color, boxShadow: `0 0 8px ${color}99` }}
-        />
+    <div className="relative w-full h-[9px] bg-black/65 rounded-sm overflow-hidden border border-black">
+      <div
+        className="absolute inset-y-0 left-0 transition-all"
+        style={{ width: `${pct}%`, background: color, boxShadow: `0 0 6px ${color}99` }}
+      />
+      <div className="absolute inset-0 flex items-center justify-between px-1 pointer-events-none leading-none">
+        <span style={{ fontSize: 7 }} className="drop-shadow-[0_1px_1px_rgba(0,0,0,0.9)]">{icon}</span>
+        <span style={{ fontSize: 7 }} className="font-bold text-white tabular-nums drop-shadow-[0_1px_1px_rgba(0,0,0,0.9)]">
+          {Math.floor(value)}/{max}
+        </span>
       </div>
-      <span className="text-[10px] text-slate-300 tabular-nums w-14 text-right">
-        {Math.floor(value)}/{max}
-      </span>
     </div>
   );
 }
@@ -114,16 +122,17 @@ function Bar({ icon, value, max, color }: { icon: string; value: number; max: nu
 function Pill({ icon, value, max = 100, color, warn, warnColor }: { icon: string; value: number; max?: number; color: string; warn?: boolean; warnColor?: string }) {
   const pct = Math.max(0, Math.min(1, value / max)) * 100;
   const fill = warn && warnColor ? warnColor : color;
+  // Compact pill: 8px tall, 7px text overlaid.
   return (
     <div
-      className={`flex-1 flex items-center gap-1 bg-black/55 backdrop-blur-md border border-white/10 rounded px-1.5 py-0.5 ${warn ? "animate-pulse" : ""}`}
-      style={{ borderColor: warn ? `${warnColor}80` : undefined }}
+      className={`relative flex-1 h-[8px] bg-black/65 border border-black rounded overflow-hidden ${warn ? "animate-pulse" : ""}`}
+      style={{ borderColor: warn && warnColor ? `${warnColor}80` : undefined }}
     >
-      <span className="text-[10px]">{icon}</span>
-      <div className="flex-1 h-1 bg-black/60 overflow-hidden rounded-sm">
-        <div className="h-full" style={{ width: `${pct}%`, background: fill }} />
+      <div className="absolute inset-y-0 left-0" style={{ width: `${pct}%`, background: fill }} />
+      <div className="absolute inset-0 flex items-center justify-between px-1 pointer-events-none leading-none">
+        <span style={{ fontSize: 6 }} className="drop-shadow-[0_1px_1px_rgba(0,0,0,0.9)]">{icon}</span>
+        <span style={{ fontSize: 7 }} className="font-bold text-white tabular-nums drop-shadow-[0_1px_1px_rgba(0,0,0,0.9)]">{Math.floor(value)}</span>
       </div>
-      <span className="text-[9px] text-slate-300 tabular-nums">{Math.floor(value)}</span>
     </div>
   );
 }

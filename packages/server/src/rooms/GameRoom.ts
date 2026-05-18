@@ -31,7 +31,7 @@ type CharRow = {
   posX: number; posY: number; posZ: number; inventoryJson: string;
 };
 
-const INVENTORY_SIZE = 36;
+const INVENTORY_SIZE = 200;
 
 export class GameRoom extends Room<WorldState> {
   intents = new Map<string, Intent>();
@@ -144,6 +144,8 @@ export class GameRoom extends Room<WorldState> {
     this.onMessage("allocStat", (client, msg: AllocStatMsg) => this.handleAllocStat(client.sessionId, msg.stat));
     this.onMessage("shopBuy", (client, msg: ShopBuyMsg) => this.handleShopBuy(client, msg));
     this.onMessage("shopSell", (client, msg: ShopSellMsg) => this.handleShopSell(client, msg));
+    // Bulk sell: { npcId, items: [{invIndex, qty}] }  OR  { npcId, sellAllMaterials: true }
+    this.onMessage("shopSellMany", (client, msg: any) => this.handleShopSellMany(client, msg));
     this.onMessage("questAccept", (client, msg: QuestAcceptMsg) => this.handleQuestAccept(client, msg.questId));
     this.onMessage("questTurnIn", (client, msg: QuestTurnInMsg) => this.handleQuestTurnIn(client, msg.questId));
     this.onMessage("partyInvite", (client, msg: any) => this.handlePartyInvite(client, msg.targetName));
@@ -867,6 +869,61 @@ export class GameRoom extends Room<WorldState> {
     p.zeny += earned;
   }
 
+  // ── Bulk sell: array of stacks OR "sell all materials" convenience flag ────
+  // msg = { npcId, items?: [{invIndex, qty}], sellAllMaterials?: bool, sellAllJunk?: bool }
+  // sellAllMaterials: sells every stack whose item slot is "material"
+  // sellAllJunk:      sells materials + low-value consumables (berry/apple)
+  handleShopSellMany(client: Client, msg: any) {
+    const p = this.state.players.get(client.sessionId);
+    if (!p) return;
+    const npc = NPCS.find((n) => n.id === msg.npcId);
+    if (!npc || npc.kind !== "shop" || npc.mapId !== this.state.mapId) return;
+    if (Math.hypot(p.pos.x - npc.x, p.pos.z - npc.z) > 4) return;
+
+    // Build list of indices to sell (descending so splice is safe)
+    let entries: Array<{ invIndex: number; qty: number }> = [];
+    if (Array.isArray(msg.items) && msg.items.length > 0) {
+      entries = msg.items.map((it: any) => ({
+        invIndex: it.invIndex | 0,
+        qty: Math.max(1, it.qty | 0),
+      }));
+    } else if (msg.sellAllMaterials || msg.sellAllJunk) {
+      const junkIds = new Set(["berry", "apple", "wood", "stone", "raw_meat", "feather"]);
+      for (let i = 0; i < p.inventory.length; i++) {
+        const stack = p.inventory[i];
+        const def = ITEMS[stack.itemId];
+        if (!def) continue;
+        const isMaterial = def.slot === "material";
+        const isJunk = msg.sellAllJunk && (isMaterial || junkIds.has(stack.itemId));
+        if (msg.sellAllMaterials ? isMaterial : isJunk) {
+          entries.push({ invIndex: i, qty: stack.qty });
+        }
+      }
+    }
+
+    // Process from highest index down so splice doesn't shift later targets
+    entries.sort((a, b) => b.invIndex - a.invIndex);
+    let totalEarned = 0;
+    let totalCount = 0;
+    for (const e of entries) {
+      const stack = p.inventory[e.invIndex];
+      if (!stack) continue;
+      const sellQty = Math.min(stack.qty, e.qty);
+      if (sellQty <= 0) continue;
+      const shopEntry = npc.shop?.find((sh) => sh.itemId === stack.itemId);
+      const basePrice = shopEntry?.price ?? defaultSellPrice(stack.itemId);
+      totalEarned += Math.floor(basePrice * SELL_RATIO) * sellQty;
+      totalCount += sellQty;
+      stack.qty -= sellQty;
+      if (stack.qty <= 0) p.inventory.splice(e.invIndex, 1);
+    }
+    p.zeny += totalEarned;
+    // Optional confirmation to client
+    if (totalCount > 0) {
+      client.send("toast", { text: `ขายไป ${totalCount} ชิ้น ได้ ${totalEarned}z`, tone: "good" });
+    }
+  }
+
   handleAllocStat(sid: string, stat: StatKey) {
     const p = this.state.players.get(sid);
     if (!p || p.statPoints <= 0) return;
@@ -895,7 +952,12 @@ export class GameRoom extends Room<WorldState> {
     }
     const dx = target.pos.x - attacker.pos.x;
     const dz = target.pos.z - attacker.pos.z;
-    if (Math.hypot(dx, dz) > GAME_CONFIG.ATTACK_RANGE + 0.5) return;
+    // Ranged jobs (mage, archer, sniper, wizard) use a longer auto-attack
+    // range — basic shot/bolt is free (no MP), just slower than skills.
+    const RANGED_JOBS = new Set(["mage", "archer", "sniper", "wizard"]);
+    const isRangedJob = RANGED_JOBS.has(attacker.job);
+    const attackReach = isRangedJob ? 8 : GAME_CONFIG.ATTACK_RANGE + 0.5;
+    if (Math.hypot(dx, dz) > attackReach) return;
 
     this.lastAttack.set(attackerId, now);
     // hit roll vs flee — thirsty/hungry players have worse accuracy

@@ -58,14 +58,66 @@ export function Hotbar({ room }: { room: Room<WorldState> }) {
     room.send("skill", { skillId, targetId });
   }
 
+  // Mobile (landscape too — min(w,h) < 540): skills sit as a vertical column
+  // immediately left of the attack button so the thumb can reach without moving.
+  // Desktop: keep them centered at the bottom.
+  const isMobile = true; // mobile arc layout used on all screen sizes
+  // Mobile arc around Attack button (no overlap — Attack at right-6 bottom-6, 64px).
+  // Skill 54px positions chosen so distance between centers ≥ 4rem (clear gap).
+  //   0 → directly LEFT of Attack
+  //   1 → UPPER-LEFT (diagonal)
+  //   2 → directly ABOVE Attack
+  //   3 → far UPPER-LEFT (outer ring)
+  // 3 slots equidistant from Attack AND from each other (≈4.6rem center spacing).
+  // Angles 190°/130°/70° at radius 4.6 → equilateral triangle through Attack center.
+  // Slot 0 nudged lower per user feedback.
+  // Symmetric L around Attack (Attack @ right:2.5 bottom:2.5, size 76):
+  //   • Skill 1 — same BOTTOM edge as Attack/utility  (bottom row)
+  //   • Skill 3 — same RIGHT edge as Attack           (right column)
+  //   • Skill 2 — diagonal at 135°, equidistant from Attack as 1 & 3
+  // All 3 skills are equidistant from Attack (≈4.56rem).
+  const arcPos = [
+    { right: "7.68rem", bottom: "2.50rem" }, // 0 → bottom-aligned with Attack
+    { right: "6.40rem", bottom: "6.40rem" }, // 1 → diagonal upper-left
+    { right: "2.50rem", bottom: "7.68rem" }, // 2 → right-aligned with Attack
+  ];
+  const btnSize = isMobile ? 54 : 56;
+  const SLOTS = 3; // always render 3 mobile slots — empty ones are dim placeholders
+
   return (
-    <div className="absolute bottom-[4.5rem] left-1/2 -translate-x-1/2 flex gap-2 select-none touch-none">
-      {job.skills.map((s) => {
+    <div
+      className={isMobile ? "" : "absolute bottom-[4.5rem] left-1/2 -translate-x-1/2 flex gap-2 select-none touch-none"}
+      data-no-screen-joy
+    >
+      {(isMobile ? Array.from({ length: SLOTS }) : job.skills).map((_, idx) => {
+        const s = job.skills[idx];
+        const pos = arcPos[idx];
+        // Empty placeholder for future skills (job hasn't unlocked this slot yet).
+        if (isMobile && !s) {
+          return (
+            <div
+              key={`empty-${idx}`}
+              className="absolute pointer-events-none"
+              style={{
+                right: pos.right, bottom: pos.bottom,
+                width: btnSize, height: btnSize,
+                borderRadius: "50%",
+                background: "radial-gradient(circle at 30% 30%, rgba(30,41,59,0.5) 0%, rgba(15,23,42,0.6) 60%, rgba(2,6,23,0.7) 100%)",
+                border: "1px dashed rgba(148,163,184,0.35)",
+                boxShadow: "inset 0 2px 6px rgba(0,0,0,0.45)",
+                opacity: 0.55,
+              }}
+            >
+              <div className="absolute inset-0 flex items-center justify-center text-slate-500 text-xl">·</div>
+            </div>
+          );
+        }
+        if (!s) return null;
         const canAfford = me.mp >= s.manaCost;
         const last = lastCastRef.current.get(s.id) ?? 0;
         const remaining = Math.max(0, s.cooldownMs - (performance.now() - last));
         const onCooldown = remaining > 0;
-        const cdPct = onCooldown ? remaining / s.cooldownMs : 0; // 1 = full overlay
+        const cdPct = onCooldown ? remaining / s.cooldownMs : 0;
         const disabled = !canAfford || !targetId || onCooldown;
         return (
           <button
@@ -74,28 +126,38 @@ export function Hotbar({ room }: { room: Room<WorldState> }) {
             onClick={() => cast(s.id)}
             onTouchStart={(e) => { e.preventDefault(); cast(s.id); }}
             disabled={disabled}
-            className="relative active:scale-95 transition-transform overflow-hidden"
+            className={`active:scale-95 transition-transform overflow-hidden touch-none ${isMobile ? "absolute" : "relative"}`}
             style={{
-              width: 56, height: 56,
-              borderRadius: 12,
+              ...(isMobile && pos ? { right: pos.right, bottom: pos.bottom } : null),
+              width: btnSize, height: btnSize,
+              borderRadius: isMobile ? "50%" : 12,
               background: canAfford
-                ? "radial-gradient(circle at 30% 30%, #fde68a 0%, #fbbf24 60%, #b45309 100%)"
-                : "radial-gradient(circle at 30% 30%, #94a3b8 0%, #475569 60%, #1e293b 100%)",
-              border: "2px solid #ffffff",
+                ? (isMobile
+                    ? "radial-gradient(circle at 30% 30%, rgba(254,243,199,0.75) 0%, rgba(245,158,11,0.75) 50%, rgba(146,64,14,0.75) 100%)"
+                    : "radial-gradient(circle at 30% 30%, #fde68a 0%, #fbbf24 60%, #b45309 100%)")
+                : "radial-gradient(circle at 30% 30%, rgba(148,163,184,0.55) 0%, rgba(71,85,105,0.55) 60%, rgba(30,41,59,0.55) 100%)",
+              border: canAfford ? "2px solid #fcd34d" : "2px solid #475569",
               boxShadow: canAfford
-                ? "0 0 0 2px rgba(251,191,36,0.4), 0 4px 0 rgba(180,83,9,0.5), inset 0 1px 0 rgba(255,255,255,0.45)"
-                : "0 4px 0 rgba(30,41,59,0.5)",
+                ? "0 0 12px rgba(251,191,36,0.5), inset 0 1px 0 rgba(255,255,255,0.2), 0 3px 6px rgba(0,0,0,0.35)"
+                : "inset 0 1px 0 rgba(255,255,255,0.1), 0 3px 6px rgba(0,0,0,0.35)",
               opacity: disabled ? 0.7 : 1,
               color: "#fff",
-              textShadow: "0 1px 2px rgba(0,0,0,0.6)",
+              textShadow: "0 1px 2px rgba(0,0,0,0.7)",
             }}
           >
             <div className="text-2xl leading-none">{s.icon}</div>
-            <div className="absolute top-0.5 left-1.5 text-[10px] font-bold text-white">{s.hotkey}</div>
-            <div className="absolute bottom-0.5 right-1.5 text-[10px] text-sky-100 font-semibold">{s.manaCost}</div>
+            {/* Hotkey: top-left corner inside circle's safe arc (~12px from edges) */}
+            <div
+              className="absolute text-[9px] font-bold text-white drop-shadow-[0_1px_1px_rgba(0,0,0,0.9)]"
+              style={{ top: 6, left: 12 }}
+            >{s.hotkey}</div>
+            {/* Mana cost: bottom-right corner inside circle's safe arc */}
+            <div
+              className="absolute text-[9px] text-sky-100 font-semibold drop-shadow-[0_1px_1px_rgba(0,0,0,0.9)]"
+              style={{ bottom: 6, right: 12 }}
+            >{s.manaCost}</div>
             {onCooldown && (
               <>
-                {/* sweep overlay — pie slice that decreases as cooldown ticks down */}
                 <div
                   className="absolute inset-0 pointer-events-none"
                   style={{

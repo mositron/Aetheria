@@ -84,8 +84,8 @@ export function Inventory({ room }: { room: Room<WorldState> }) {
               ))}
             </div>
 
-            <div className="grid grid-cols-6 gap-1.5 bg-black/40 p-2 rounded">
-              {(filter === "all" ? Array.from({ length: 36 }).map((_, i) => itemsWithIdx[i]) : filtered).map((entry, gridIdx) => {
+            <div className="grid grid-cols-6 gap-1.5 bg-black/40 p-2 rounded max-h-[70vh] overflow-y-auto game-scroll">
+              {(filter === "all" ? Array.from({ length: 200 }).map((_, i) => itemsWithIdx[i]) : filtered).map((entry, gridIdx) => {
                 const stack = entry?.s;
                 const realIdx = entry?.idx ?? -1;
                 return (

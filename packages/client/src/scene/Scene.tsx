@@ -47,6 +47,10 @@ export function Scene({ room }: { room: Room<WorldState> }) {
   const tmpVec = useRef(new THREE.Vector3());
   const tmpVec2 = useRef(new THREE.Vector3());
   const walkTarget = useRef<{ x: number; z: number } | null>(null);
+  // Y-physics: jump velocity + altitude. Y is purely client-side visual.
+  const jumpVy = useRef(0);
+  const jumpY = useRef(0);
+  const flyAlt = useRef(5);   // current fly altitude when flying
   const pickupTarget = useRef<string | null>(null);
   const botWanderTarget = useRef<{ x: number; z: number } | null>(null);
   const lastAutoPickupAt = useRef(0);
@@ -254,10 +258,18 @@ export function Scene({ room }: { room: Room<WorldState> }) {
       const monTarget = targetId ? room.state.monsters.get(targetId) : null;
       const pickup = pickupTarget.current ? room.state.drops.get(pickupTarget.current) : null;
 
-      // ranged players use their primary skill instead of melee
+      // Auto-cast: pick the best ready offensive skill (highest hotkey first =
+      // usually the strongest/specialty skill). Fall back to primary or basic attack.
       const job = JOBS[me.job as JobId];
-      const primary = job?.skills.find((s) => s.hotkey === 1 && s.range > 2.5 && (s.damageMult > 0));
-      const engageRange = primary ? primary.range - 0.5 : (GAME_CONFIG.ATTACK_RANGE - ATTACK_RANGE_BUFFER);
+      const offensive = (job?.skills ?? []).filter((s) => s.damageMult > 0);
+      const primary = offensive.find((s) => s.hotkey === 1 && s.range > 2.5);
+      const hasMpForPrimary = primary ? me.mp >= primary.manaCost : false;
+      // Ranged jobs have 8m basic-attack reach; melee uses ATTACK_RANGE.
+      const RANGED_JOBS_CLIENT = new Set(["mage", "archer", "sniper", "wizard"]);
+      const basicReach = RANGED_JOBS_CLIENT.has(me.job) ? 7.5 : (GAME_CONFIG.ATTACK_RANGE - ATTACK_RANGE_BUFFER);
+      const engageRange = (primary && hasMpForPrimary)
+        ? primary.range - 0.5
+        : basicReach;
 
       if (!usingKeys && pickup) {
         const dx = pickup.pos.x - me.pos.x;
@@ -278,17 +290,24 @@ export function Scene({ room }: { room: Room<WorldState> }) {
           mx = dx / dist;
           mz = dz / dist;
         } else {
-          // in range: prefer ranged skill (if MP), else basic attack
+          // In range: cycle through ALL ready skills (highest hotkey first),
+          // fall back to basic attack if nothing is ready / not enough MP.
           const now = Date.now();
-          if (primary && me.mp >= primary.manaCost) {
-            const key = primary.id;
-            const last = lastAutoSkill.current.get(key) ?? 0;
-            if (now - last >= primary.cooldownMs) {
-              lastAutoSkill.current.set(key, now);
-              // optimistic cast pulse so animation starts immediately
-              castPulses.current.set(sessionId, performance.now());
-              room.send("skill", { skillId: primary.id, targetId });
-            }
+          const ready = offensive
+            .slice()
+            .sort((a, b) => b.hotkey - a.hotkey)
+            .find((s) => {
+              if (me.mp < s.manaCost) return false;
+              if (dist > s.range) return false;
+              const last = lastAutoSkill.current.get(s.id) ?? 0;
+              return now - last >= s.cooldownMs;
+            });
+          if (ready) {
+            lastAutoSkill.current.set(ready.id, now);
+            castPulses.current.set(sessionId, performance.now());
+            // Dispatch local-cast so the Hotbar UI starts the cooldown sweep immediately
+            window.dispatchEvent(new CustomEvent("local-cast", { detail: { skillId: ready.id } }));
+            room.send("skill", { skillId: ready.id, targetId });
           } else if (now - lastAutoAttack.current >= GAME_CONFIG.ATTACK_COOLDOWN_MS) {
             lastAutoAttack.current = now;
             room.send("attack", { targetId });
@@ -329,11 +348,31 @@ export function Scene({ room }: { room: Room<WorldState> }) {
     return () => clearInterval(id);
   }, [room, keys, targetId, sessionId]);
 
-  // attack on space; pickup on F
+  // jump on Space; pickup on F; fly altitude on R/F (only while flying)
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if ((e.target as HTMLElement)?.tagName === "INPUT") return;
-      if (keyEq(e, " ") && targetId) room.send("attack", { targetId });
+      // SPACE: jump (when grounded) — also still triggers attack if has target
+      if (keyEq(e, " ")) {
+        const me = room.state.players.get(sessionId);
+        if (me?.flying) {
+          // While flying, Space = ascend burst
+          flyAlt.current = Math.min(30, flyAlt.current + 1.5);
+        } else if (jumpY.current <= 0.01) {
+          jumpVy.current = 9; // initial jump velocity (~1.6m peak)
+        }
+        if (targetId) room.send("attack", { targetId });
+      }
+      // R: ascend while flying (hold-friendly: re-fires on keydown repeat)
+      if (keyEq(e, "r")) {
+        const me = room.state.players.get(sessionId);
+        if (me?.flying) flyAlt.current = Math.min(30, flyAlt.current + 1.0);
+      }
+      // C: descend while flying
+      if (keyEq(e, "c")) {
+        const me = room.state.players.get(sessionId);
+        if (me?.flying) flyAlt.current = Math.max(2, flyAlt.current - 1.0);
+      }
       if (keyEq(e, "f")) {
         const me = room.state.players.get(sessionId);
         if (!me) return;
@@ -366,9 +405,24 @@ export function Scene({ room }: { room: Room<WorldState> }) {
     if (!me) return;
     // frame-rate-independent smoothing: ~75% catch-up over 100ms
     const alpha = 1 - Math.exp(-dt * 18);
+
+    // ── Y-physics (client-side only, server is XZ-authoritative) ───────────
+    // Jump: integrate velocity + gravity each frame
+    if (jumpY.current > 0.01 || jumpVy.current !== 0) {
+      jumpVy.current -= 22 * dt;             // gravity
+      jumpY.current += jumpVy.current * dt;
+      if (jumpY.current <= 0) { jumpY.current = 0; jumpVy.current = 0; }
+    }
+    // Fly altitude: smoothly settle when flying, reset when grounded
+    if (!me.flying) {
+      flyAlt.current = 5; // default for next takeoff
+    }
+
     if (selfRef.current) {
-      // smoothly lerp self position toward server-authoritative pos
-      tmpVec.current.set(me.pos.x, 0, me.pos.z);
+      // Y composition: jump (when grounded) OR flyAlt (when flying)
+      const yVis = me.flying ? flyAlt.current : jumpY.current;
+      // smoothly lerp self position toward server-authoritative pos + custom Y
+      tmpVec.current.set(me.pos.x, yVis, me.pos.z);
       selfRef.current.position.lerp(tmpVec.current, alpha);
       // rotation: shortest-path lerp
       const cur = selfRef.current.rotation.y;
@@ -380,7 +434,7 @@ export function Scene({ room }: { room: Room<WorldState> }) {
     // camera follows the *visual* (smoothed) position, not the raw server pos
     const visualX = selfRef.current?.position.x ?? me.pos.x;
     const visualZ = selfRef.current?.position.z ?? me.pos.z;
-    const flyOffset = me.flying ? 5.0 : 0; // match new altitude
+    const flyOffset = me.flying ? flyAlt.current : jumpY.current * 0.6;
     const { yaw, pitch, dist } = cam.current;
     const target = tmpVec.current.set(visualX, 1 + flyOffset, visualZ);
     const desired = tmpVec2.current.set(

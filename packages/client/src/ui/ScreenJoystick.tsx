@@ -72,16 +72,17 @@ export function ScreenJoystick() {
     };
     window.addEventListener("blur", onBlur);
 
-    // Use capture so we catch the gesture even if Scene's pointerdown stopped propagation
-    window.addEventListener("pointerdown", onDown);
-    window.addEventListener("pointermove", onMove);
-    window.addEventListener("pointerup", onUp);
-    window.addEventListener("pointercancel", onUp);
+    // Capture phase so we receive the gesture BEFORE any element calls
+    // stopPropagation (e.g. JoystickHint blocks bubble to prevent canvas click).
+    window.addEventListener("pointerdown", onDown, true);
+    window.addEventListener("pointermove", onMove, true);
+    window.addEventListener("pointerup", onUp, true);
+    window.addEventListener("pointercancel", onUp, true);
     return () => {
-      window.removeEventListener("pointerdown", onDown);
-      window.removeEventListener("pointermove", onMove);
-      window.removeEventListener("pointerup", onUp);
-      window.removeEventListener("pointercancel", onUp);
+      window.removeEventListener("pointerdown", onDown, true);
+      window.removeEventListener("pointermove", onMove, true);
+      window.removeEventListener("pointerup", onUp, true);
+      window.removeEventListener("pointercancel", onUp, true);
       window.removeEventListener("blur", onBlur);
     };
   }, []);

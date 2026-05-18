@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useStore } from "../store";
 import { keyEq } from "../utils/keyMatch";
 
@@ -8,6 +8,9 @@ export function MenuBar() {
   const exitToSelect = useStore((s) => s.exitToSelect);
   const logout = useStore((s) => s.logout);
   const botMode = useStore((s) => s.botMode);
+
+  // Mobile-style layout always (per user request — desktop uses same UI).
+  const collapsed = true;
 
   // B key shortcut
   useEffect(() => {
@@ -19,13 +22,49 @@ export function MenuBar() {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
+  const [open, setOpen] = useState(false);
+
+  // ── Mobile: burger stays at SAME anchor (right:8rem top:0.5rem) for both
+  //    collapsed (☰) AND expanded (✕). Map (110px) sits to its right.
+  //    Open: grid uses direction:rtl so ✕ lands at TOP-RIGHT (same spot as ☰).
+  const ANCHOR = { top: "0.5rem", right: "8rem" };
+  if (collapsed) {
+    if (!open) {
+      return (
+        <div className="absolute select-none touch-none z-30" style={ANCHOR} data-no-screen-joy>
+          <IconBtn label="☰" title="เมนู" onClick={() => setOpen(true)} />
+        </div>
+      );
+    }
+    return (
+      <div
+        className="absolute select-none touch-none grid grid-cols-5 gap-1 z-30"
+        style={{ ...ANCHOR, direction: "rtl" }}
+        data-no-screen-joy
+      >
+        <IconBtn label="✕" title="ปิด" onClick={() => setOpen(false)} variant="rose" />
+        <IconBtn label="📦" name="กระเป๋า" title="Inventory (I)" onClick={toggleInv} />
+        <IconBtn label="🔨" name="คราฟต์" title="Crafting (K)" onClick={() => window.dispatchEvent(new Event("toggle-craft"))} />
+        <IconBtn label="📊" name="สเตตัส" title="Stats (C)" onClick={() => window.dispatchEvent(new Event("toggle-stats"))} />
+        <IconBtn label="📜" name="เควสต์" title="Quest (Q)" onClick={() => window.dispatchEvent(new Event("toggle-quest"))} />
+        <IconBtn label="🏅" name="เหรียญ" title="Achievements" onClick={() => window.dispatchEvent(new Event("toggle-achievements"))} />
+        <IconBtn label="🏆" name="อันดับ" title="Leaderboard" onClick={() => window.dispatchEvent(new Event("toggle-leaderboard"))} />
+        <IconBtn label="📬" name="จดหมาย" title="Mailbox" onClick={() => window.dispatchEvent(new Event("toggle-mail"))} />
+        <IconBtn label="🐾" name="สัตว์" title="Pets" onClick={() => window.dispatchEvent(new Event("toggle-pets"))} />
+        <IconBtn label="👥" name="ปาร์ตี้" title="Party" onClick={() => window.dispatchEvent(new Event("toggle-party"))} />
+        <IconBtn label="💬" name="แชต" title="Chat (Enter)" onClick={() => window.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" }))} />
+        <IconBtn label="😊" name="อิโมท" title="Emote (T)" onClick={() => window.dispatchEvent(new Event("toggle-emote"))} />
+        <IconBtn label="📸" name="ถ่ายภาพ" title="Photo (P)" onClick={() => window.dispatchEvent(new Event("toggle-photo"))} />
+        <IconBtn label="⚙" name="ตั้งค่า" title="Settings" onClick={() => window.dispatchEvent(new Event("toggle-settings"))} />
+        <IconBtn label="👤" name="ตัวละคร" title="เลือกตัวละคร" onClick={exitToSelect} variant="violet" />
+        <IconBtn label="⏻" name="ออก" title="ออกจากระบบ" onClick={logout} variant="rose" />
+      </div>
+    );
+  }
+
+  // Desktop: always-shown grid on the right (original layout)
   return (
-    /**
-     * Right thumb zone — sits ABOVE the action buttons (attack/pickup/etc).
-     * 2-column compact grid so all icons reach your thumb without scrolling.
-     * Bottom offset = ~190px = above the ~90+80px action stack at bottom-6.
-     */
-    <div className="absolute right-3 grid grid-cols-3 gap-1 select-none touch-none" style={{ bottom: "12rem" }}>
+    <div className="absolute right-3 grid grid-cols-3 gap-1 select-none touch-none" style={{ bottom: "12rem" }} data-no-screen-joy>
       <IconBtn label="📦" name="กระเป๋า" title="Inventory (I)" onClick={toggleInv} />
       <IconBtn label="🔨" name="คราฟต์" title="Crafting (K)" onClick={() => window.dispatchEvent(new Event("toggle-craft"))} />
       <IconBtn label="📊" name="สเตตัส" title="Stats (C)" onClick={() => window.dispatchEvent(new Event("toggle-stats"))} />
@@ -46,11 +85,13 @@ export function MenuBar() {
 }
 
 function IconBtn({ label, name, title, onClick, variant, active }: { label: string; name?: string; title: string; onClick: () => void; variant?: "violet" | "rose" | "emerald"; active?: boolean }) {
-  const palette: Record<string, { border: string; glow: string; bg: string }> = {
-    rose:     { border: "border-rose-400/60",    glow: "rgba(248,113,113,0.4)",   bg: "linear-gradient(180deg, rgba(225, 29, 72, 0.55), rgba(159, 18, 57, 0.7))" },
-    violet:   { border: "border-violet-400/60",  glow: "rgba(168,85,247,0.4)",    bg: "linear-gradient(180deg, rgba(124, 58, 237, 0.55), rgba(76, 29, 149, 0.7))" },
-    emerald:  { border: "border-emerald-400/80", glow: "rgba(52,211,153,0.6)",    bg: "rgba(16, 185, 129, 0.25)" },
-    default:  { border: "border-cyan-400/40",    glow: "rgba(34,211,238,0.3)",    bg: "linear-gradient(180deg, rgba(15, 23, 42, 0.7), rgba(2, 6, 23, 0.85))" },
+  // More-transparent background (text stays opaque because we lower the bg alpha
+  // rather than setting opacity on the whole button).
+  const palette: Record<string, { bg: string }> = {
+    rose:     { bg: "linear-gradient(180deg, rgba(225, 29, 72, 0.28), rgba(159, 18, 57, 0.38))" },
+    violet:   { bg: "linear-gradient(180deg, rgba(124, 58, 237, 0.28), rgba(76, 29, 149, 0.38))" },
+    emerald:  { bg: "rgba(16, 185, 129, 0.15)" },
+    default:  { bg: "linear-gradient(180deg, rgba(15, 23, 42, 0.32), rgba(2, 6, 23, 0.42))" },
   };
   const p = palette[variant ?? "default"];
   return (
@@ -58,10 +99,12 @@ function IconBtn({ label, name, title, onClick, variant, active }: { label: stri
       onClick={onClick}
       onTouchStart={(e) => { e.preventDefault(); onClick(); }}
       title={title}
-      className={`relative w-12 h-12 flex flex-col items-center justify-center rounded-xl backdrop-blur-md border-2 ${p.border} active:scale-90 transition ${active ? "ring-2 ring-emerald-400/60" : ""}`}
+      className={`mobile-icon-btn relative w-12 h-12 flex flex-col items-center justify-center backdrop-blur-md active:scale-90 transition ${active ? "ring-2 ring-emerald-400/60" : ""}`}
       style={{
-        background: active ? "rgba(16, 185, 129, 0.3)" : p.bg,
-        boxShadow: `0 0 ${active ? 16 : 10}px ${p.glow}, inset 0 1px 0 rgba(255,255,255,0.18)`,
+        background: active ? "rgba(16, 185, 129, 0.2)" : p.bg,
+        border: "none",
+        borderRadius: 7,
+        boxShadow: "0 1px 3px rgba(0,0,0,0.28), 0 1px 1px rgba(0,0,0,0.32)",
       }}
     >
       <span className={`text-base leading-none ${active ? "animate-pulse" : ""}`}>{label}</span>

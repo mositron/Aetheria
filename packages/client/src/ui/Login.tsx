@@ -6,8 +6,17 @@ import { GameFrame } from "./GameFrame";
 
 export function Login() {
   const setAuth = useStore((s) => s.setAuth);
-  const [username, setU] = useState("");
-  const [password, setP] = useState("");
+  // Pre-fill from saved credentials if "remember me" was previously checked.
+  const saved = (() => {
+    try {
+      const raw = localStorage.getItem("savedCreds");
+      if (!raw) return null;
+      return JSON.parse(raw) as { u: string; p: string };
+    } catch { return null; }
+  })();
+  const [username, setU] = useState(saved?.u ?? "");
+  const [password, setP] = useState(saved?.p ?? "");
+  const [remember, setRemember] = useState(saved !== null);
   const [mode, setMode] = useState<"login" | "register">("login");
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -24,6 +33,12 @@ export function Login() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "failed");
+      // Persist or wipe credentials depending on the checkbox state.
+      if (remember) {
+        localStorage.setItem("savedCreds", JSON.stringify({ u: username, p: password }));
+      } else {
+        localStorage.removeItem("savedCreds");
+      }
       setAuth(data.token, data.username, data.characters ?? []);
     } catch (e: any) {
       setErr(e.message);
@@ -46,9 +61,9 @@ export function Login() {
 
       {/* title */}
       <div className="absolute top-10 left-0 right-0 text-center pointer-events-none">
-        <div className="text-xs text-cyan-300/70 uppercase tracking-[0.4em] mb-2">A blocky MMORPG · survival</div>
-        <h1 className="text-6xl font-black tracking-wider bg-gradient-to-b from-white via-cyan-200 to-indigo-400 text-transparent bg-clip-text drop-shadow-[0_0_18px_rgba(34,211,238,0.5)]">
-          GAME-V1
+        <div className="text-xs text-cyan-300/70 uppercase tracking-[0.4em] mb-2">A cute MMORPG · survival</div>
+        <h1 className="text-7xl font-black tracking-[0.15em] bg-gradient-to-b from-white via-cyan-200 to-indigo-400 text-transparent bg-clip-text drop-shadow-[0_0_18px_rgba(34,211,238,0.5)]">
+          AETHERIA
         </h1>
         <div className="mt-2 text-amber-200/80 text-sm italic">
           ผจญภัย · ล่าสัตว์ · เพาะปลูก · เอาตัวรอด
@@ -84,6 +99,14 @@ export function Login() {
                 <div className="game-label">⚿ รหัสผ่าน</div>
                 <input className="game-input" placeholder="••••••" type="password" value={password} onChange={(e) => setP(e.target.value)} />
               </div>
+              <label className="flex items-center gap-2 text-xs text-cyan-200 cursor-pointer select-none">
+                <input
+                  type="checkbox" checked={remember}
+                  onChange={(e) => setRemember(e.target.checked)}
+                  className="w-4 h-4 accent-cyan-400"
+                />
+                จดจำชื่อ/รหัสผ่านในเครื่องนี้
+              </label>
               {err && (
                 <div className="text-rose-300 text-sm border-l-2 border-rose-400 pl-2 bg-rose-900/20 py-1">
                   ⚠ {err}

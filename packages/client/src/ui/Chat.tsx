@@ -53,16 +53,33 @@ export function Chat({ room }: { room: Room<WorldState> }) {
     <div
       ref={drag.elRef}
       className="absolute z-20 pointer-events-none select-none"
-      style={{ left: 12, bottom: 14 * 16, width: 240, ...drag.style }} // bottom: 14rem
+      style={{
+        left: "50%",
+        transform: "translateX(-50%)",
+        bottom: 11 * 16,   // 11rem — above utility row (auto/บิน/เก็บ/โพชั่น)
+        width: 280,
+        ...drag.style,
+      }}
     >
       <div className="pointer-events-auto">
-        {recent.length > 0 && (
-          <div className="bg-black/55 backdrop-blur-md border border-cyan-400/30 rounded-xl px-2 py-1.5 mb-1 text-[11px] space-y-0.5 max-h-32 overflow-y-auto game-scroll">
-            {recent.map((m, i) => (
-              <div key={i} className="truncate"><span className="text-amber-300 font-semibold">{m.from}:</span> {m.text}</div>
-            ))}
-          </div>
-        )}
+        {/* Always-visible translucent chat panel — shows recent msgs or a hint. */}
+        <div
+          className="rounded-xl px-2 py-1.5 mb-1 text-[11px] space-y-0.5 max-h-32 overflow-y-auto game-scroll backdrop-blur-sm"
+          style={{
+            background: "rgba(0, 0, 0, 0.22)",
+            border: "1px solid rgba(255, 255, 255, 0.08)",
+            minHeight: 28,
+          }}
+          onClick={() => { if (!open) { setOpen(true); setTimeout(() => inputRef.current?.focus(), 0); } }}
+        >
+          {recent.length > 0 ? (
+            recent.map((m, i) => (
+              <div key={i} className="truncate"><span className="text-amber-300 font-semibold">{m.from}:</span> <span className="text-white/90">{m.text}</span></div>
+            ))
+          ) : (
+            <div className="text-white/45 italic text-[10px]">💬 ยังไม่มีข้อความ — แตะที่นี่เพื่อพิมพ์</div>
+          )}
+        </div>
         {open ? (
           <form onSubmit={send}>
             <input
@@ -71,16 +88,22 @@ export function Chat({ room }: { room: Room<WorldState> }) {
               onChange={(e) => setText(e.target.value)}
               maxLength={200}
               placeholder="พิมพ์... (Esc=ปิด · /w ชื่อ ข้อความ=กระซิบ)"
-              className="w-full bg-slate-900/80 backdrop-blur-md border border-cyan-400/40 rounded-full px-3 py-1 text-xs outline-none text-white"
+              className="w-full bg-slate-900/70 backdrop-blur-md border border-cyan-400/40 rounded-full px-3 py-1 text-xs outline-none text-white"
+              autoFocus
+              onBlur={() => { if (!text.trim()) setOpen(false); }}
             />
           </form>
         ) : (
           <button
             onClick={() => { setOpen(true); setTimeout(() => inputRef.current?.focus(), 0); }}
             onTouchStart={(e) => { e.preventDefault(); setOpen(true); setTimeout(() => inputRef.current?.focus(), 0); }}
-            className="text-[10px] text-cyan-300/70 bg-black/40 backdrop-blur-md border border-cyan-400/20 rounded-full px-3 py-1"
+            className="block w-full text-center text-[10px] text-cyan-300/80 rounded-full px-3 py-1 backdrop-blur-sm"
+            style={{
+              background: "rgba(0, 0, 0, 0.22)",
+              border: "1px solid rgba(34, 211, 238, 0.18)",
+            }}
           >
-            💬 พิมพ์แชต (Enter)
+            💬 คลิกเพื่อพิมพ์ (Enter)
           </button>
         )}
       </div>

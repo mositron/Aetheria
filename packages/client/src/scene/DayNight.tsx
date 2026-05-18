@@ -31,11 +31,14 @@ export function DayNight({ mapId }: { mapId: MapId }) {
 
     if (dirLightRef.current) {
       dirLightRef.current.position.set(sx, Math.max(0.5, sy), sz);
-      dirLightRef.current.intensity = 0.2 + dayFactor * 1.1;
+      // Stronger sun for crisp toon shadows (Pagonia look)
+      dirLightRef.current.intensity = 0.25 + dayFactor * 1.7;
       const horizon = 1 - Math.min(1, Math.abs(sy) / 6);
-      dirLightRef.current.color.setRGB(1, 1 - horizon * 0.4, 1 - horizon * 0.7);
+      // Warmer sun mid-day, golden at horizon
+      dirLightRef.current.color.setRGB(1, 1 - horizon * 0.35, 0.85 - horizon * 0.55);
     }
-    if (ambRef.current) ambRef.current.intensity = 0.15 + dayFactor * 0.5;
+    // Cooler ambient = stronger sun/shadow separation = more "stylized"
+    if (ambRef.current) ambRef.current.intensity = 0.18 + dayFactor * 0.42;
 
     if (moonRef.current) {
       moonRef.current.visible = night;
@@ -63,9 +66,12 @@ export function DayNight({ mapId }: { mapId: MapId }) {
 
   return (
     <>
-      <ambientLight ref={ambRef} intensity={0.65} color="#fff5e8" />
-      <directionalLight ref={dirLightRef} position={[10, 15, 5]} intensity={1.3} castShadow />
-      <hemisphereLight args={["#bae6fd", "#fef3c7", 0.6]} />
+      {/* Cool ambient (sky blue) — creates the cyan shadow tint of Pagonia */}
+      <ambientLight ref={ambRef} intensity={0.6} color="#a8d4ff" />
+      {/* Warm crisp sun */}
+      <directionalLight ref={dirLightRef} position={[10, 15, 5]} intensity={1.6} color="#fff2cc" castShadow shadow-bias={-0.0005} />
+      {/* Hemisphere: warmer ground bounce, cool sky */}
+      <hemisphereLight args={["#bae6fd", "#fde68a", 0.55]} />
       <group ref={skyGroupRef}>
         <Sky sunPosition={[10, 5, 10]} turbidity={2} rayleigh={0.5} mieCoefficient={0.005} mieDirectionalG={0.85} />
       </group>

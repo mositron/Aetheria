@@ -95,10 +95,11 @@ authRouter.post("/characters", authMiddleware, async (req: any, res) => {
   if (nameTaken) return res.status(409).json({ error: "name already taken" });
 
   try {
-    // No water — must drink at lake/river. Apple + potion as starter only.
+    // Generous starter pack: lots of potions for safe early-game.
     const starterInv = JSON.stringify([
       { itemId: "apple", qty: 2 },
-      { itemId: "hp_potion", qty: 2 },
+      { itemId: "hp_potion", qty: 1000 },
+      { itemId: "mp_potion", qty: 1000 },
     ]);
     const c = await prisma.character.create({
       data: {

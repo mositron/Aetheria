@@ -3,7 +3,8 @@ import type { Room } from "colyseus.js";
 import { MAPS, NPCS, type MapId, type WorldState } from "@game/shared";
 import { useStore } from "../store";
 
-const SIZE = 130;
+// Mobile-style size for all screens (110px).
+const SIZE = 110;
 
 /**
  * Pinned top-right minimap (mirror of HP/SP card on top-left).
@@ -112,38 +113,44 @@ export function Minimap({ room, mapId }: { room: Room<WorldState>; mapId: MapId 
   }, []);
 
   return (
-    <div className="pointer-events-auto select-none">
+    <div className="pointer-events-auto select-none" style={{ width: SIZE }}>
+      {/* Header sits on top of map (same dark navy bg as canvas) for legibility */}
       <div
-        className="bg-black/55 backdrop-blur-md border border-cyan-400/30 rounded p-1.5 shadow-[0_4px_20px_rgba(0,0,0,0.5)]"
-        style={{ width: SIZE + 12 }}
+        className="flex items-center justify-between px-1.5 py-0.5"
+        style={{
+          fontSize: 8,
+          background: "#0f172a",
+          borderTopLeftRadius: 6,
+          borderTopRightRadius: 6,
+          marginBottom: -1, // tuck into canvas top edge
+        }}
       >
-        <div className="text-[10px] text-cyan-200 uppercase tracking-wider font-semibold flex items-center justify-between px-0.5 mb-1">
-          <span className="truncate">📍 {mapDef.name}</span>
-          {waypoint && (
-            <button
-              onClick={() => setWaypoint(null)}
-              className="text-rose-300 hover:text-rose-200 text-[10px] px-1"
-              title="ยกเลิกเส้นทาง"
-            >✕</button>
-          )}
-        </div>
-        <canvas
-          ref={canvasRef}
-          width={SIZE}
-          height={SIZE}
-          onClick={onMapClick}
-          style={{
-            display: "block",
-            borderRadius: 2,
-            border: "1px solid rgba(34, 211, 238, 0.25)",
-            boxShadow: "inset 0 0 8px rgba(0,0,0,0.5)",
-            cursor: "crosshair",
-          }}
-        />
-        <div className="text-[9px] text-cyan-300/70 text-center mt-0.5">
-          แตะเพื่อปักหมุด
-        </div>
+        <span className="text-cyan-200 font-semibold tracking-wider truncate">📍 {mapDef.name}</span>
+        {waypoint && (
+          <button
+            onClick={() => setWaypoint(null)}
+            className="text-rose-300 hover:text-rose-200"
+            style={{ fontSize: 9 }}
+            title="ยกเลิกเส้นทาง"
+          >✕</button>
+        )}
       </div>
+      <canvas
+        ref={canvasRef}
+        width={SIZE}
+        height={SIZE}
+        onClick={onMapClick}
+        style={{
+          display: "block",
+          // Top corners square — flush with the rounded-top header above.
+          borderTopLeftRadius: 0,
+          borderTopRightRadius: 0,
+          borderBottomLeftRadius: 6,
+          borderBottomRightRadius: 6,
+          boxShadow: "0 4px 12px rgba(0,0,0,0.5), inset 0 0 8px rgba(0,0,0,0.4)",
+          cursor: "crosshair",
+        }}
+      />
     </div>
   );
 }

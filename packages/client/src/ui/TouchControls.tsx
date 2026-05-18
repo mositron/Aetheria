@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import type { Room } from "colyseus.js";
 import { MONSTERS, MAPS, biomeAt, type Player, type WorldState, type MapId } from "@game/shared";
 import { useStore } from "../store";
+import { AutoPotionPoller, useAutoPotionDialog, loadAutoPotion } from "./AutoPotion";
 
 /** Virtual joystick + radial action buttons. Works for touch AND mouse. */
 export function TouchControls({ room }: { room: Room<WorldState> }) {
@@ -14,9 +15,121 @@ export function TouchControls({ room }: { room: Room<WorldState> }) {
 
   return (
     <>
+      <JoystickHint />
       {isTouch && <VirtualJoystick />}
       <ActionButtons room={room} />
+      <AutoPotionPoller room={room} />
     </>
+  );
+}
+
+/**
+ * Subtle bottom-left circle hint that the player can drag finger there to move.
+ * Doesn't intercept input (pointer-events: none) — purely visual indicator.
+ * The actual whole-screen drag is handled by <ScreenJoystick/>.
+ */
+function JoystickHint() {
+  const knobRef = useRef<HTMLDivElement>(null);
+  // Knob follows BOTH (a) finger drag via "virtual-stick" events from
+  // ScreenJoystick, AND (b) WASD / arrow keys via local keydown tracking.
+  useEffect(() => {
+    const KNOB_TRAVEL = 30;
+    const stick = { x: 0, y: 0 };          // last drag value (from screen joystick)
+    const keys: Record<string, boolean> = {};
+
+    function applyVisual() {
+      if (!knobRef.current) return;
+      // Derive WASD vector
+      let kx = 0, ky = 0;
+      if (keys.left)  kx -= 1;
+      if (keys.right) kx += 1;
+      if (keys.up)    ky -= 1;
+      if (keys.down)  ky += 1;
+      if (kx || ky) {
+        const m = Math.hypot(kx, ky) || 1;
+        kx /= m; ky /= m;
+      }
+      // Combine drag + keys (drag wins if non-zero)
+      const x = (stick.x || stick.y) ? stick.x : kx;
+      const y = (stick.x || stick.y) ? stick.y : ky;
+      knobRef.current.style.transform = `translate(calc(-50% + ${x * KNOB_TRAVEL}px), calc(-50% + ${y * KNOB_TRAVEL}px))`;
+    }
+
+    const onStick = (e: Event) => {
+      const d = (e as CustomEvent<{ x: number; y: number }>).detail;
+      stick.x = d.x; stick.y = d.y;
+      applyVisual();
+    };
+
+    function keyForCode(code: string): keyof typeof keys | null {
+      if (code === "KeyW" || code === "ArrowUp")    return "up";
+      if (code === "KeyS" || code === "ArrowDown")  return "down";
+      if (code === "KeyA" || code === "ArrowLeft")  return "left";
+      if (code === "KeyD" || code === "ArrowRight") return "right";
+      return null;
+    }
+    const onDown = (e: KeyboardEvent) => {
+      const t = e.target as HTMLElement | null;
+      if (t?.tagName === "INPUT" || t?.tagName === "TEXTAREA") return;
+      const k = keyForCode(e.code);
+      if (!k) return;
+      keys[k] = true;
+      applyVisual();
+    };
+    const onUp = (e: KeyboardEvent) => {
+      const k = keyForCode(e.code);
+      if (!k) return;
+      keys[k] = false;
+      applyVisual();
+    };
+    const onBlur = () => {
+      keys.up = keys.down = keys.left = keys.right = false;
+      applyVisual();
+    };
+
+    window.addEventListener("virtual-stick", onStick);
+    window.addEventListener("keydown", onDown);
+    window.addEventListener("keyup", onUp);
+    window.addEventListener("blur", onBlur);
+    return () => {
+      window.removeEventListener("virtual-stick", onStick);
+      window.removeEventListener("keydown", onDown);
+      window.removeEventListener("keyup", onUp);
+      window.removeEventListener("blur", onBlur);
+    };
+  }, []);
+  const stop = (e: React.PointerEvent | React.MouseEvent) => { e.stopPropagation(); };
+  return (
+    <div
+      className="absolute select-none"
+      onPointerDown={stop}
+      onClick={stop}
+      style={{
+        // Mirror Attack button: same insets from corner (2.5rem from left + bottom)
+        left: "2.5rem",
+        bottom: "2.5rem",
+        width: 110,
+        height: 110,
+        borderRadius: "50%",
+        background: "radial-gradient(circle, rgba(255,255,255,0.06) 0%, rgba(0,0,0,0.18) 70%, transparent 100%)",
+        border: "1px dashed rgba(255,255,255,0.18)",
+        boxShadow: "inset 0 0 24px rgba(0,0,0,0.3)",
+        touchAction: "none",
+      }}
+    >
+      <div
+        ref={knobRef}
+        className="absolute top-1/2 left-1/2 pointer-events-none"
+        style={{
+          width: 40, height: 40,
+          transform: "translate(-50%, -50%)",
+          borderRadius: "50%",
+          border: "1px dashed rgba(255,255,255,0.35)",
+          background: "rgba(255,255,255,0.08)",
+          transition: "transform 60ms linear",
+        }}
+      />
+    </div>
   );
 }
 
@@ -113,6 +226,13 @@ function ActionButtons({ room }: { room: Room<WorldState> }) {
   const botMode = useStore((s) => s.botMode);
   const sessionId = room.sessionId;
   const [, setTick] = useState(0);
+  const potionDialog = useAutoPotionDialog();
+  const [, forceRerender] = useState(0);
+  useEffect(() => {
+    const on = () => forceRerender((n) => n + 1);
+    window.addEventListener("autopotion-changed", on);
+    return () => window.removeEventListener("autopotion-changed", on);
+  }, []);
 
   useEffect(() => {
     const id = setInterval(() => setTick((t) => t + 1), 300);
@@ -186,55 +306,74 @@ function ActionButtons({ room }: { room: Room<WorldState> }) {
     }
   }
 
+  // 3-zone right-side layout (no overlap):
+  //   • bottom-[13rem]: utility row (Auto + บิน/เก็บ/โพชั่น) — far above Attack
+  //   • arc around Attack (skills from Hotbar.tsx)
+  //   • bottom-6 right-6: Attack alone
   return (
-    <div className="absolute bottom-6 right-6 flex flex-col items-end gap-2 select-none touch-none">
-      <div className="flex gap-2">
-        {biomeSpellIcon && targetId && (
-          <ActionBtn
-            label={biomeSpellIcon} name="เวท" hint="Biome spell (12 MP)"
-            size="md" variant="bot-on"
-            onClick={() => room.send("biomeSpell", { targetId })}
-          />
-        )}
-        {nearAnimalId && (
-          <ActionBtn
-            label="🌾" name="ป้อน" hint="ให้อาหาร (จับเป็นสัตว์เลี้ยง)"
-            size="md" variant="bot-on"
-            onClick={() => room.send("feedAnimal", { monsterId: nearAnimalId })}
-          />
-        )}
+    <>
+      {/* ── Utility row: bottom + shifted left (follows the Attack cluster shift) ── */}
+      <div className="absolute flex flex-wrap gap-1.5 justify-end select-none touch-none max-w-[14rem] opacity-70" style={{ bottom: "2.5rem", right: "12rem" }} data-no-screen-joy>
+        <ActionBtn
+          label="🤖" name={botMode ? "ON" : "Auto"}
+          hint={`Auto-Bot (B) ${botMode ? "ON" : "OFF"}`}
+          size="sm" variant={botMode ? "bot-on" : "bot-off"}
+          onClick={() => useStore.setState({ botMode: !useStore.getState().botMode })}
+        />
+        <ActionBtn
+          label={me?.flying ? "🪂" : "🪽"} name={me?.flying ? "ลง" : "บิน"}
+          hint={me?.flying ? "ลงพื้น" : "บิน"}
+          size="sm" variant={me?.flying ? "bot-on" : undefined}
+          onClick={() => room.send("toggleFly", {})}
+        />
+        <ActionBtn label="🤚" name="เก็บ" hint="หยิบ" size="sm" onClick={() => send("pickup")} />
+        <ActionBtn
+          label={loadAutoPotion().enabled ? "🧪" : "🚫"}
+          name="auto-pot"
+          hint="ตั้งค่ากินยาอัตโนมัติ"
+          size="sm"
+          variant={loadAutoPotion().enabled ? "bot-on" : undefined}
+          onClick={potionDialog.open}
+        />
+        {potionDialog.render}
         {me?.petKind && (
           <ActionBtn
             label={me.mounted ? "🚶" : "🐎"} name={me.mounted ? "ลง" : "ขี่"}
             hint={me.mounted ? "ลงจากสัตว์" : "ขึ้นขี่"}
-            size="md" variant={me.mounted ? "bot-on" : undefined}
+            size="sm" variant={me.mounted ? "bot-on" : undefined}
             onClick={() => room.send("mount", {})}
           />
         )}
-        <ActionBtn
-          label={me?.flying ? "🪂" : "🪽"} name={me?.flying ? "ลง" : "บิน"}
-          hint={me?.flying ? "ลงพื้น" : "บิน (Lv10+ หรือชนะ Dark Lord)"}
-          size="md" variant={me?.flying ? "bot-on" : undefined}
-          onClick={() => room.send("toggleFly", {})}
-        />
-        <ActionBtn label="🤚" name="เก็บ" hint="หยิบ" size="md" onClick={() => send("pickup")} />
-        <ActionBtn label="🧪" name="โพชั่น" hint="พอชั่น" size="md" onClick={() => send("potion")} />
+        {nearAnimalId && (
+          <ActionBtn
+            label="🌾" name="ป้อน" hint="ให้อาหาร"
+            size="sm" variant="bot-on"
+            onClick={() => room.send("feedAnimal", { monsterId: nearAnimalId })}
+          />
+        )}
+        {biomeSpellIcon && targetId && (
+          <ActionBtn
+            label={biomeSpellIcon} name="เวท" hint="Biome spell (12 MP)"
+            size="sm" variant="bot-on"
+            onClick={() => room.send("biomeSpell", { targetId })}
+          />
+        )}
       </div>
-      <div className="flex items-end gap-2">
-        <ActionBtn
-          label="🤖" name={botMode ? "ON" : "Auto"}
-          hint={`Auto-Bot (B) ${botMode ? "ON" : "OFF"}`}
-          size="md" variant={botMode ? "bot-on" : "bot-off"}
-          onClick={() => useStore.setState({ botMode: !useStore.getState().botMode })}
-        />
+
+      {/* ── Attack: shifted up-left from corner so thumb can reach comfortably ── */}
+      <div className="absolute select-none touch-none" style={{ bottom: "2.5rem", right: "2.5rem" }} data-no-screen-joy>
         <ActionBtn label="⚔" name="โจมตี" hint="โจมตี (เลือก mob ใกล้สุดอัตโนมัติ)" size="lg" primary onClick={() => send("attack")} />
       </div>
-    </div>
+    </>
   );
 }
 
-function ActionBtn({ label, name, hint, size, primary, variant, disabled, onClick }: { label: string; name?: string; hint?: string; size?: "md" | "lg"; primary?: boolean; variant?: "bot-on" | "bot-off"; disabled?: boolean; onClick: () => void }) {
-  const dim = size === "lg" ? 80 : 56;
+function ActionBtn({ label, name, hint, size, primary, variant, disabled, onClick }: { label: string; name?: string; hint?: string; size?: "sm" | "md" | "lg"; primary?: boolean; variant?: "bot-on" | "bot-off"; disabled?: boolean; onClick: () => void }) {
+  // Shrink on mobile (landscape OR portrait) — uses MIN of w/h
+  const isMobile = true; // unified compact sizing across screen sizes
+  const dim = isMobile
+    ? (size === "lg" ? 76 : size === "sm" ? 36 : 44)   // Attack 76px (was 64)
+    : (size === "lg" ? 80 : size === "sm" ? 44 : 56);
 
   let bg: string;
   let border: string;
@@ -242,7 +381,8 @@ function ActionBtn({ label, name, hint, size, primary, variant, disabled, onClic
   let pulse = false;
 
   if (primary) {
-    bg = "radial-gradient(circle at 30% 30%, #fb923c 0%, #c2410c 60%, #7c2d12 100%)";
+    // Translucent orange gradient (Attack) so the scene behind shows through
+    bg = "radial-gradient(circle at 30% 30%, rgba(251,146,60,0.78) 0%, rgba(194,65,12,0.78) 60%, rgba(124,45,18,0.78) 100%)";
     border = "#fb923c";
     glow = "rgba(251,146,60,0.5)";
   } else if (variant === "bot-on") {
@@ -270,24 +410,24 @@ function ActionBtn({ label, name, hint, size, primary, variant, disabled, onClic
         width: dim, height: dim,
         borderRadius: "50%",
         background: bg,
-        border: `2px solid ${border}`,
+        border: primary ? `2px solid ${border}` : "1px solid #000",
         boxShadow: disabled
           ? "0 0 0 rgba(0,0,0,0)"
-          : `0 0 18px ${glow}, inset 0 2px 4px rgba(255,255,255,0.2), 0 4px 12px rgba(0,0,0,0.4)`,
+          : `0 0 12px ${glow}, inset 0 1px 0 rgba(255,255,255,0.15), 0 3px 8px rgba(0,0,0,0.5)`,
         color: "#fff",
         opacity: disabled ? 0.35 : 1,
-        fontSize: size === "lg" ? 36 : 24,
+        fontSize: isMobile ? (size === "lg" ? 26 : 18) : (size === "lg" ? 36 : 24),
         textShadow: "0 2px 4px rgba(0,0,0,0.6)",
       }}
       title={hint}
     >
       {label}
-      {name && (
+      {name && !primary && (
         <span
-          className="absolute -bottom-2 left-1/2 -translate-x-1/2 text-[10px] font-bold text-white bg-black/70 px-1.5 rounded-full whitespace-nowrap pointer-events-none"
+          className="absolute -bottom-2 left-1/2 -translate-x-1/2 text-[8px] text-white/50 bg-black/20 px-1 rounded-full whitespace-nowrap pointer-events-none"
           style={{
-            border: "1px solid rgba(255,255,255,0.3)",
-            textShadow: "0 1px 1px rgba(0,0,0,0.8)",
+            border: "1px solid rgba(255,255,255,0.1)",
+            textShadow: "0 1px 1px rgba(0,0,0,0.6)",
           }}
         >
           {name}

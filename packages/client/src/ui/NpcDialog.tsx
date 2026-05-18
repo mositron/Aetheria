@@ -96,6 +96,21 @@ export function NpcDialog({ room }: { room: Room<WorldState> }) {
 
           {tab === "sell" && me && (
             <div className="max-h-64 overflow-y-auto space-y-1">
+              {/* Bulk-sell shortcuts (sit at top of the sell list) */}
+              <div className="flex gap-1.5 mb-1.5 sticky top-0 bg-slate-900/90 backdrop-blur-sm py-1 z-10">
+                <button
+                  onClick={() => { setErr(null); room.send("shopSellMany", { npcId: npc.id, sellAllMaterials: true }); }}
+                  className="flex-1 bg-amber-700/70 hover:bg-amber-600 border border-amber-400/40 rounded px-2 py-1.5 text-[11px] font-bold text-white"
+                >
+                  💼 ขาย material ทั้งหมด
+                </button>
+                <button
+                  onClick={() => { setErr(null); room.send("shopSellMany", { npcId: npc.id, sellAllJunk: true }); }}
+                  className="flex-1 bg-rose-700/70 hover:bg-rose-600 border border-rose-400/40 rounded px-2 py-1.5 text-[11px] font-bold text-white"
+                >
+                  🗑 ขายของรกๆ
+                </button>
+              </div>
               {Array.from(me.inventory.values()).length === 0 && <div className="text-slate-500 text-sm">Inventory is empty.</div>}
               {Array.from(me.inventory.values()).map((stack, i) => {
                 const def = ITEMS[stack.itemId];
@@ -105,8 +120,14 @@ export function NpcDialog({ room }: { room: Room<WorldState> }) {
                     <div className="flex-1">{def?.name} <span className="text-slate-500">x{stack.qty}</span></div>
                     <button
                       onClick={() => { setErr(null); room.send("shopSell", { npcId: npc.id, invIndex: i, qty: 1 }); }}
-                      className="bg-rose-600 hover:bg-rose-500 px-3 py-1 rounded text-xs"
-                    >Sell 1</button>
+                      className="bg-rose-600 hover:bg-rose-500 px-3 py-1 rounded text-[11px]"
+                    >×1</button>
+                    {stack.qty > 1 && (
+                      <button
+                        onClick={() => { setErr(null); room.send("shopSell", { npcId: npc.id, invIndex: i, qty: stack.qty }); }}
+                        className="bg-rose-700 hover:bg-rose-600 px-2 py-1 rounded text-[11px]"
+                      >×{stack.qty}</button>
+                    )}
                   </div>
                 );
               })}

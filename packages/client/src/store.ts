@@ -44,8 +44,10 @@ type S = {
 };
 
 export const useStore = create<S>((set, get) => ({
-  token: localStorage.getItem("token"),
-  username: localStorage.getItem("username"),
+  // Token NEVER auto-loaded — user always sees login on refresh.
+  // (Saved credentials pre-fill the form if "remember me" was checked.)
+  token: null,
+  username: null,
   characters: null,
   characterId: localStorage.getItem("characterId"),
   room: null,

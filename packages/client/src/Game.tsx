@@ -56,6 +56,8 @@ export function Game() {
   const [mapId, setMapId] = useState<MapId>("field");
   const [error, setError] = useState<string | null>(null);
   const clientRef = useRef<Client | null>(null);
+  const settings = useSettings();
+  const isTouch = typeof window !== "undefined" && matchMedia("(hover: none) and (pointer: coarse)").matches;
 
   useEffect(() => {
     if (!clientRef.current) clientRef.current = new Client(SERVER_WS);
@@ -126,8 +128,6 @@ export function Game() {
   }
 
   const isDungeon = mapId === "dungeon";
-  const isTouch = typeof window !== "undefined" && matchMedia("(hover: none) and (pointer: coarse)").matches;
-  const settings = useSettings();
   const useShadows = settings.shadows && !isTouch;
   const useHighQ = settings.highQuality && !isTouch;
 
