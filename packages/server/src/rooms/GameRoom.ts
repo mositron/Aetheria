@@ -30,6 +30,7 @@ import { Party } from "../services/Party.js";
 import { Achievements } from "../services/Achievements.js";
 import { Friend } from "../services/Friend.js";
 import { Mailbox } from "../services/Mailbox.js";
+import { Auction } from "../services/Auction.js";
 
 type Intent = { mx: number; mz: number; rotY: number };
 type CharRow = {
@@ -64,6 +65,8 @@ export class GameRoom extends Room<WorldState> {
   friendSvc = new Friend(prisma);
   // Mailbox (send/claim/read, DB-backed, race-safe claim)
   mailboxSvc = new Mailbox(prisma);
+  // Auction house (list / browse / buy / cancel)
+  auctionSvc = new Auction(prisma);
   monsterSpawn = new Map<string, { x: number; z: number; kind: MonsterKind }>();
   sessionToCharId = new Map<string, string>(); // sid -> Character.id (for DB writes)
   chunkSpawnAcc = 0;                            // tick accumulator for chunk spawning
@@ -626,116 +629,77 @@ export class GameRoom extends Room<WorldState> {
 
     // ── Auction house: persistent player-to-player marketplace ──────────────
     this.onMessage("auction:list", async (client, msg: any) => {
-      // List my own item for sale. Removes it from inventory immediately.
       const p = this.state.players.get(client.sessionId);
       if (!p) return;
       const invIndex = msg?.invIndex | 0;
-      const qty = Math.max(1, Math.min(99, msg?.qty | 0));
-      const pricePer = Math.max(1, Math.min(10_000_000, msg?.pricePer | 0));
       if (!Number.isInteger(invIndex) || invIndex < 0 || invIndex >= p.inventory.length) return;
       const stack = p.inventory[invIndex];
-      if (!stack || stack.qty < qty) return client.send("system", { text: "ของไม่พอ" });
-      // Cap total transaction at safe integer range
-      const total = pricePer * qty;
-      if (total > 999_999_999) return client.send("system", { text: "ราคารวมสูงเกิน (เกินขีดสูงสุด 999M zeny)" });
-      // Charge a small listing fee (1%) — anti-spam
-      const fee = Math.max(1, Math.floor(total * 0.01));
-      if (p.zeny < fee) return client.send("system", { text: `ต้องมีเงิน ${fee}z สำหรับค่าธรรมเนียมประกาศ` });
-      try {
-        await (prisma as any).auctionListing.create({
-          data: { sellerName: p.name, itemId: stack.itemId, qty, pricePer },
-        });
-        p.zeny -= fee;
-        stack.qty -= qty;
-        if (stack.qty <= 0) p.inventory.splice(invIndex, 1);
-        client.send("system", { text: `📢 ลงประกาศ ${qty} ชิ้น @${pricePer}z` });
-      } catch (e) {
-        console.error("[auction:list] create failed", e);
-        client.send("system", { text: "⚠ ลงประกาศไม่สำเร็จ" });
+      const qty = msg?.qty | 0;
+      const pricePer = msg?.pricePer | 0;
+      const v = this.auctionSvc.validateList(qty, pricePer);
+      if (!v.ok) {
+        const reasonMsg = v.reason === "qty" ? "จำนวนไม่ถูกต้อง (1-99)"
+          : v.reason === "price" ? "ราคาเกินขีดสูงสุด (10M zeny)"
+          : "ราคารวมสูงเกิน (เกินขีดสูงสุด 999M zeny)";
+        return client.send("system", { text: reasonMsg });
       }
+      if (!stack || stack.qty < qty) return client.send("system", { text: "ของไม่พอ" });
+      if (p.zeny < v.fee) return client.send("system", { text: `ต้องมีเงิน ${v.fee}z สำหรับค่าธรรมเนียมประกาศ` });
+      const created = await this.auctionSvc.create({ sellerName: p.name, itemId: stack.itemId, qty, pricePer });
+      if (!created) return client.send("system", { text: "⚠ ลงประกาศไม่สำเร็จ" });
+      p.zeny -= v.fee;
+      stack.qty -= qty;
+      if (stack.qty <= 0) p.inventory.splice(invIndex, 1);
+      client.send("system", { text: `📢 ลงประกาศ ${qty} ชิ้น @${pricePer}z` });
     });
 
     this.onMessage("auction:browse", async (client, msg: any) => {
-      const search = String(msg?.search ?? "").trim().toLowerCase();
-      try {
-        const listings = await (prisma as any).auctionListing.findMany({
-          where: search ? { itemId: { contains: search } } : undefined,
-          orderBy: { pricePer: "asc" },
-          take: 100,
-        });
-        client.send("auction:browse", { listings });
-      } catch {}
+      const listings = await this.auctionSvc.browse(String(msg?.search ?? ""));
+      client.send("auction:browse", { listings });
     });
 
     this.onMessage("auction:buy", async (client, msg: any) => {
       const p = this.state.players.get(client.sessionId);
       if (!p) return;
-      const id = String(msg?.id ?? "");
-      try {
-        // Atomically claim the listing — only one concurrent buyer wins.
-        // deleteMany returns count = 0 if already gone OR if it's the seller's own listing.
-        const listing = await (prisma as any).auctionListing.findUnique({ where: { id } });
-        if (!listing) return client.send("system", { text: "ของถูกซื้อหรือลบไปแล้ว" });
-        if (listing.sellerName === p.name) return client.send("system", { text: "ซื้อของตัวเองไม่ได้" });
-        const total = listing.pricePer * listing.qty;
-        if (p.zeny < total) return client.send("system", { text: `เงินไม่พอ (ต้อง ${total}z)` });
-
-        // Atomic delete-with-condition — if another buyer already claimed it, count = 0
-        const claim = await (prisma as any).auctionListing.deleteMany({
-          where: { id, sellerName: { not: p.name } },
-        });
-        if (claim.count === 0) return client.send("system", { text: "ของถูกคนอื่นซื้อไปแล้ว" });
-
-        // We own the claim; now try to give item + deduct zeny atomically on player state
-        const ok = this.addToInventory(p, listing.itemId, listing.qty);
-        if (!ok) {
-          // Re-list it so item isn't lost (best effort)
-          try {
-            await (prisma as any).auctionListing.create({ data: { sellerName: listing.sellerName, itemId: listing.itemId, qty: listing.qty, pricePer: listing.pricePer } });
-          } catch {}
-          return client.send("system", { text: "กระเป๋าเต็ม — ของถูก re-list" });
-        }
-        p.zeny -= total;
-        // Mail proceeds to seller (offline-friendly)
-        try {
-          await prisma.mail.create({
-            data: {
-              toName: listing.sellerName,
-              fromName: "AUCTION",
-              subject: `ขายแล้ว: ${listing.itemId} ×${listing.qty}`,
-              body: `ขาย ${listing.itemId} ${listing.qty} ชิ้น ราคารวม ${total}z`,
-              zeny: total, itemId: "", itemQty: 0,
-            },
-          });
-        } catch (e) {
-          console.error("[auction] mail to seller failed", e);
-        }
-        client.send("system", { text: `✅ ซื้อ ${listing.itemId} ×${listing.qty} (-${total}z)` });
-      } catch (e) {
-        console.error("[auction:buy] error", e);
-        client.send("system", { text: "⚠ เกิดข้อผิดพลาดในการซื้อ" });
+      const r = await this.auctionSvc.claimForBuy(String(msg?.id ?? ""), p.name);
+      if (!r.ok) {
+        const reasonMsg = r.reason === "missing" ? "ของถูกซื้อหรือลบไปแล้ว"
+          : r.reason === "self-buy" ? "ซื้อของตัวเองไม่ได้"
+          : r.reason === "lost-race" ? "ของถูกคนอื่นซื้อไปแล้ว"
+          : "⚠ เกิดข้อผิดพลาดในการซื้อ";
+        return client.send("system", { text: reasonMsg });
       }
+      if (p.zeny < r.total) {
+        await this.auctionSvc.relist(r.listing);
+        return client.send("system", { text: `เงินไม่พอ (ต้อง ${r.total}z)` });
+      }
+      const ok = this.addToInventory(p, r.listing.itemId, r.listing.qty);
+      if (!ok) {
+        await this.auctionSvc.relist(r.listing);
+        return client.send("system", { text: "กระเป๋าเต็ม — ของถูก re-list" });
+      }
+      p.zeny -= r.total;
+      await this.mailboxSvc.send({
+        fromName: "AUCTION", toName: r.listing.sellerName,
+        subject: `ขายแล้ว: ${r.listing.itemId} ×${r.listing.qty}`,
+        body: `ขาย ${r.listing.itemId} ${r.listing.qty} ชิ้น ราคารวม ${r.total}z`,
+        zeny: r.total,
+      });
+      client.send("system", { text: `✅ ซื้อ ${r.listing.itemId} ×${r.listing.qty} (-${r.total}z)` });
     });
 
     this.onMessage("auction:cancel", async (client, msg: any) => {
       const p = this.state.players.get(client.sessionId);
       if (!p) return;
-      const id = String(msg?.id ?? "");
-      try {
-        const listing = await (prisma as any).auctionListing.findUnique({ where: { id } });
-        if (!listing || listing.sellerName !== p.name) return;
-        // Return item via mail (avoids inventory-full edge case)
-        await prisma.mail.create({
-          data: {
-            toName: p.name, fromName: "AUCTION",
-            subject: `ยกเลิก: ${listing.itemId} ×${listing.qty}`,
-            body: "คุณยกเลิกการประกาศ",
-            zeny: 0, itemId: listing.itemId, itemQty: listing.qty,
-          },
-        });
-        await (prisma as any).auctionListing.delete({ where: { id } });
-        client.send("system", { text: "ยกเลิกประกาศแล้ว" });
-      } catch {}
+      const listing = await this.auctionSvc.cancel(String(msg?.id ?? ""), p.name);
+      if (!listing) return;
+      await this.mailboxSvc.send({
+        fromName: "AUCTION", toName: p.name,
+        subject: `ยกเลิก: ${listing.itemId} ×${listing.qty}`,
+        body: "คุณยกเลิกการประกาศ",
+        zeny: 0, itemId: listing.itemId, itemQty: listing.qty,
+      });
+      client.send("system", { text: "ยกเลิกประกาศแล้ว" });
     });
 
     // ── P2P Trading: A → B request, both add items/zeny, confirm, transfer ──

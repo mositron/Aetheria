@@ -64,10 +64,10 @@ Last updated: 2026-05-19 (commit `e1104c7`)
   - ✅ `Achievements` — unlock detection + leaderboard pts
   - ✅ `Friend` — DB-backed friend list w/ validation
   - ✅ `Mailbox` — race-safe claim, send/read/list
+  - ✅ `Auction` — list / browse / buy (race-safe) / cancel + relist on inv-full
 
 **Remaining services to extract** (ordered by coupling difficulty — low first):
 - `Quest` (playerQuests Map + reward delivery) — medium
-- `Auction` (DB-backed + inventory mutation) — medium
 - `Guild` ($transaction wrapped + chat broadcast) — medium
 - `Inventory` (addToInventory, addToInventoryOrMail, equip/unequip) — high coupling
 - `Trade` (tradeSessions + atomic swap + rollback) — high coupling
