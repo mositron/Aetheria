@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import { MAPS, biomeAt, BIOMES, type MapId } from "@game/shared";
+import { StepTerrain } from "./StepTerrain";
 // 5-band gradient texture for built-in toon material (Pagonia-look)
 const toonGradient = (() => {
   const steps = [60, 130, 195, 230, 255];
@@ -232,6 +233,19 @@ export function Environment({ mapId }: { mapId: MapId }) {
 
       {/* mountains (no shadow casting — too many cubes, shadow map would melt) */}
       <InstancedBlocks blocks={data.mountains} />
+
+      {/* Stepped multi-level terrain — plateaus, cliffs, river, waterfalls
+          (only on open-world field, not in dungeon). */}
+      {mapId === "field" && (
+        <StepTerrain
+          innerRadius={22}
+          outerRadius={70}
+          cellSize={2}
+          maxHeight={12}
+          stepSize={1.2}
+          seed={1337}
+        />
+      )}
 
       {/* river (static — animation removed for perf) */}
       <InstancedBlocks blocks={data.river} />
