@@ -28,6 +28,8 @@ import { AntiCheat } from "../services/AntiCheat.js";
 import { DailyChallenge } from "../services/DailyChallenge.js";
 import { Party } from "../services/Party.js";
 import { Achievements } from "../services/Achievements.js";
+import { Friend } from "../services/Friend.js";
+import { Mailbox } from "../services/Mailbox.js";
 
 type Intent = { mx: number; mz: number; rotY: number };
 type CharRow = {
@@ -58,6 +60,10 @@ export class GameRoom extends Room<WorldState> {
   partySvc = new Party();
   // Achievement progress + unlock detection
   achievementsSvc = new Achievements();
+  // Friend list (DB-backed)
+  friendSvc = new Friend(prisma);
+  // Mailbox (send/claim/read, DB-backed, race-safe claim)
+  mailboxSvc = new Mailbox(prisma);
   monsterSpawn = new Map<string, { x: number; z: number; kind: MonsterKind }>();
   sessionToCharId = new Map<string, string>(); // sid -> Character.id (for DB writes)
   chunkSpawnAcc = 0;                            // tick accumulator for chunk spawning
@@ -243,56 +249,50 @@ export class GameRoom extends Room<WorldState> {
     this.onMessage("sendMail", async (client, msg: any) => {
       const p = this.state.players.get(client.sessionId);
       if (!p) return;
-      const to = String(msg?.to ?? "").trim();
-      const subject = String(msg?.subject ?? "").slice(0, 60).trim() || "(ไม่มีหัวข้อ)";
-      const body = String(msg?.body ?? "").slice(0, 500).trim();
-      const zeny = Math.max(0, Math.min(9999999, msg?.zeny | 0));
-      const itemInvIdx = msg?.itemInvIdx;
-      let itemId = "", itemQty = 0;
+      const zeny = Math.max(0, Math.min(9_999_999, msg?.zeny | 0));
       if (zeny > 0 && p.zeny < zeny) {
         client.send("system", { text: "เงินไม่พอ" });
         return;
       }
+      // Resolve optional item-from-inventory payload
+      let itemId = "", itemQty = 0;
+      const itemInvIdx = msg?.itemInvIdx;
       if (typeof itemInvIdx === "number" && itemInvIdx >= 0 && itemInvIdx < p.inventory.length) {
         const stack = p.inventory[itemInvIdx];
         itemId = stack.itemId;
         itemQty = Math.max(1, Math.min(stack.qty, msg?.itemQty | 0 || 1));
       }
-      if (!to || (!body && zeny === 0 && !itemId)) return;
-      // Check target exists
-      const target = await prisma.character.findUnique({ where: { name: to } });
-      if (!target) { client.send("system", { text: `ไม่พบผู้เล่นชื่อ ${to}` }); return; }
-      // Deduct from sender
+      const r = await this.mailboxSvc.send({
+        fromName: p.name,
+        toName: String(msg?.to ?? "").trim(),
+        subject: String(msg?.subject ?? ""),
+        body: String(msg?.body ?? ""),
+        zeny, itemId, itemQty,
+      });
+      if (!r.ok) {
+        if (r.reason === "target-missing") client.send("system", { text: `ไม่พบผู้เล่นชื่อ ${msg?.to}` });
+        return;
+      }
       if (zeny > 0) p.zeny -= zeny;
       if (itemId && itemQty > 0) removeItem(p, itemId, itemQty);
-      // Persist
-      await prisma.mail.create({
-        data: { toName: to, fromName: p.name, subject, body, zeny, itemId, itemQty },
-      });
-      client.send("system", { text: `📬 ส่งจดหมายถึง ${to} แล้ว` });
+      client.send("system", { text: `📬 ส่งจดหมายถึง ${msg?.to} แล้ว` });
     });
 
     this.onMessage("claimMail", async (client, msg: any) => {
       const p = this.state.players.get(client.sessionId);
       if (!p) return;
-      const id = String(msg?.id ?? "");
-      const mail = await prisma.mail.findUnique({ where: { id } });
-      if (!mail || mail.toName !== p.name || mail.claimed) return;
-      if (mail.zeny > 0) p.zeny += mail.zeny;
-      if (mail.itemId && mail.itemQty > 0) this.addToInventory(p, mail.itemId, mail.itemQty);
-      await prisma.mail.update({ where: { id }, data: { read: 1, claimed: 1 } });
+      const reward = await this.mailboxSvc.claim(String(msg?.id ?? ""), p.name);
+      if (!reward) return; // race lost or invalid
+      if (reward.zeny > 0) p.zeny += reward.zeny;
+      if (reward.itemId && reward.itemQty > 0) this.addToInventory(p, reward.itemId, reward.itemQty);
       client.send("system", { text: "📦 รับของเรียบร้อย" });
-      // Notify client to refresh
       client.send("mailUpdated", {});
     });
 
     this.onMessage("readMail", async (client, msg: any) => {
       const p = this.state.players.get(client.sessionId);
       if (!p) return;
-      const id = String(msg?.id ?? "");
-      const mail = await prisma.mail.findUnique({ where: { id } });
-      if (!mail || mail.toName !== p.name) return;
-      await prisma.mail.update({ where: { id }, data: { read: 1 } });
+      await this.mailboxSvc.markRead(String(msg?.id ?? ""), p.name);
     });
 
     this.onMessage("visitHouse", (client, msg: any) => {
@@ -430,60 +430,32 @@ export class GameRoom extends Room<WorldState> {
     //    Currently in-memory (per session) — persisted on disconnect.
     this.onMessage("friend:add", async (client, msg: any) => {
       const me = this.state.players.get(client.sessionId);
-      if (!me) return;
-      const name = String(msg?.name ?? "").trim().slice(0, 24);
-      if (!name || name === me.name) return;
       const charId = this.sessionToCharId.get(client.sessionId);
-      if (!charId) return;
-      try {
-        // Validate target exists
-        const target = await prisma.character.findUnique({ where: { name } });
-        if (!target) {
-          return client.send("system", { text: `ไม่พบตัวละครชื่อ "${name}"` });
-        }
-        const c = await prisma.character.findUnique({ where: { id: charId } });
-        if (!c) return;
-        const friends: string[] = JSON.parse(((c as any).friendsJson) ?? "[]");
-        if (friends.length >= 100) {
-          return client.send("system", { text: "เพื่อนเต็ม (สูงสุด 100 คน) — ลบบางคนออกก่อน" });
-        }
-        if (!friends.includes(name)) {
-          friends.push(name);
-          await prisma.character.update({
-            where: { id: charId },
-            data: { friendsJson: JSON.stringify(friends) } as any,
-          });
-        }
-        client.send("friend:list", { friends: friends.map((n) => ({ name: n, online: this.isOnline(n) })) });
-      } catch (e) { console.error("[friend:add] error", e); }
+      if (!me || !charId) return;
+      const r = await this.friendSvc.add(charId, me.name, String(msg?.name ?? ""));
+      if (!r.ok) {
+        const reasonMsg = r.reason === "self" ? ""
+          : r.reason === "missing" ? `ไม่พบตัวละครชื่อ "${msg?.name}"`
+          : r.reason === "full" ? "เพื่อนเต็ม (สูงสุด 100 คน) — ลบบางคนออกก่อน"
+          : "";
+        if (reasonMsg) client.send("system", { text: reasonMsg });
+        return;
+      }
+      client.send("friend:list", { friends: r.friends.map((n) => ({ name: n, online: this.isOnline(n) })) });
     });
 
     this.onMessage("friend:remove", async (client, msg: any) => {
       const charId = this.sessionToCharId.get(client.sessionId);
       if (!charId) return;
-      const name = String(msg?.name ?? "").trim();
-      try {
-        const c = await prisma.character.findUnique({ where: { id: charId } });
-        if (!c) return;
-        const friends: string[] = JSON.parse(((c as any).friendsJson) ?? "[]");
-        const next = friends.filter((n) => n !== name);
-        await prisma.character.update({
-          where: { id: charId },
-          data: { friendsJson: JSON.stringify(next) } as any,
-        });
-        client.send("friend:list", { friends: next.map((n) => ({ name: n, online: this.isOnline(n) })) });
-      } catch {}
+      const r = await this.friendSvc.remove(charId, String(msg?.name ?? "").trim());
+      if (r.ok) client.send("friend:list", { friends: r.friends.map((n) => ({ name: n, online: this.isOnline(n) })) });
     });
 
     this.onMessage("friend:list", async (client) => {
       const charId = this.sessionToCharId.get(client.sessionId);
       if (!charId) return;
-      try {
-        const c = await prisma.character.findUnique({ where: { id: charId } });
-        if (!c) return;
-        const friends: string[] = JSON.parse(((c as any).friendsJson) ?? "[]");
-        client.send("friend:list", { friends: friends.map((n) => ({ name: n, online: this.isOnline(n) })) });
-      } catch {}
+      const friends = await this.friendSvc.list(charId);
+      client.send("friend:list", { friends: friends.map((n) => ({ name: n, online: this.isOnline(n) })) });
     });
 
     // ── Guild system: shared persistent groups with chat channel ─────────────

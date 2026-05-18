@@ -55,17 +55,17 @@ Last updated: 2026-05-19 (commit `e1104c7`)
 ## P1 — Production polish (high value, medium effort)
 
 ### 1. GameRoom.ts full domain split *(in progress)*
-**Status:** 6 services extracted with tests (38 tests passing).
+**Status:** 8 services extracted with tests (45 tests passing).
   - ✅ `RateLimiter` — token bucket
   - ✅ `SpatialHash` — chunk-grid spatial index
   - ✅ `AntiCheat` — input validation
   - ✅ `DailyChallenge` — progress + reward
   - ✅ `Party` — state machine + invite tracking
   - ✅ `Achievements` — unlock detection + leaderboard pts
+  - ✅ `Friend` — DB-backed friend list w/ validation
+  - ✅ `Mailbox` — race-safe claim, send/read/list
 
 **Remaining services to extract** (ordered by coupling difficulty — low first):
-- `Friend` (DB-only, no in-memory state) — easy
-- `Mailbox` (DB-only) — easy
 - `Quest` (playerQuests Map + reward delivery) — medium
 - `Auction` (DB-backed + inventory mutation) — medium
 - `Guild` ($transaction wrapped + chat broadcast) — medium
