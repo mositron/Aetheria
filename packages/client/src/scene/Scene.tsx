@@ -379,6 +379,12 @@ export function Scene({ room }: { room: Room<WorldState> }) {
         }
       }
 
+      // Swim mode: when player is in water, halve speed via reduced input magnitude.
+      if (terrainIsWater(me.pos.x, me.pos.z) && !me.flying) {
+        mx *= 0.45;
+        mz *= 0.45;
+      }
+
       seq.current += 1;
       const rotY = (mx || mz) ? Math.atan2(mx, mz) : me.rotY;
       room.send("input", { mx, mz, rotY, seq: seq.current });

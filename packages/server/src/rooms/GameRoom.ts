@@ -44,6 +44,7 @@ export class GameRoom extends Room<WorldState> {
   playerParty = new Map<string, string>();   // sid -> partyId
   partyInvites = new Map<string, string>();  // toSid -> fromSid (last invite)
   monsterSpawn = new Map<string, { x: number; z: number; kind: MonsterKind }>();
+  sessionToCharId = new Map<string, string>(); // sid -> Character.id (for DB writes)
   mpRegenAcc = 0;
   autoSaveAcc = 0;
   bossEventAcc = 0;
@@ -403,6 +404,58 @@ export class GameRoom extends Room<WorldState> {
       client.send("whisper", { from: fromP.name + " → " + to, text, ts: Date.now() });
     });
 
+    // ── Friend list: stored as JSON array of names on Character.friendsJson.
+    //    Currently in-memory (per session) — persisted on disconnect.
+    this.onMessage("friend:add", async (client, msg: any) => {
+      const me = this.state.players.get(client.sessionId);
+      if (!me) return;
+      const name = String(msg?.name ?? "").trim();
+      if (!name || name === me.name) return;
+      const charId = this.sessionToCharId.get(client.sessionId);
+      if (!charId) return;
+      try {
+        const c = await prisma.character.findUnique({ where: { id: charId } });
+        if (!c) return;
+        const friends: string[] = JSON.parse(((c as any).friendsJson) ?? "[]");
+        if (!friends.includes(name)) {
+          friends.push(name);
+          await prisma.character.update({
+            where: { id: charId },
+            data: { friendsJson: JSON.stringify(friends) } as any,
+          });
+        }
+        client.send("friend:list", { friends: friends.map((n) => ({ name: n, online: this.isOnline(n) })) });
+      } catch {}
+    });
+
+    this.onMessage("friend:remove", async (client, msg: any) => {
+      const charId = this.sessionToCharId.get(client.sessionId);
+      if (!charId) return;
+      const name = String(msg?.name ?? "").trim();
+      try {
+        const c = await prisma.character.findUnique({ where: { id: charId } });
+        if (!c) return;
+        const friends: string[] = JSON.parse(((c as any).friendsJson) ?? "[]");
+        const next = friends.filter((n) => n !== name);
+        await prisma.character.update({
+          where: { id: charId },
+          data: { friendsJson: JSON.stringify(next) } as any,
+        });
+        client.send("friend:list", { friends: next.map((n) => ({ name: n, online: this.isOnline(n) })) });
+      } catch {}
+    });
+
+    this.onMessage("friend:list", async (client) => {
+      const charId = this.sessionToCharId.get(client.sessionId);
+      if (!charId) return;
+      try {
+        const c = await prisma.character.findUnique({ where: { id: charId } });
+        if (!c) return;
+        const friends: string[] = JSON.parse(((c as any).friendsJson) ?? "[]");
+        client.send("friend:list", { friends: friends.map((n) => ({ name: n, online: this.isOnline(n) })) });
+      } catch {}
+    });
+
     this.onMessage("chat", (client, msg: ChatMsg) => {
       const p = this.state.players.get(client.sessionId);
       if (!p) return;
@@ -533,6 +586,7 @@ export class GameRoom extends Room<WorldState> {
     } catch { /* ignore */ }
     this.recalcStats(p);
     this.state.players.set(client.sessionId, p);
+    this.sessionToCharId.set(client.sessionId, c.id);
     this.playerUserId.set(client.sessionId, payload.uid);
     this.playerCharId.set(client.sessionId, c.id);
     console.log(`[room ${this.state.mapId}] ${c.name} joined`);
@@ -934,6 +988,12 @@ export class GameRoom extends Room<WorldState> {
   }
 
   // ---------- combat ----------
+  /** True if a player with this name is currently connected to the room. */
+  isOnline(name: string): boolean {
+    for (const [, p] of this.state.players) if (p.name === name) return true;
+    return false;
+  }
+
   handleAttack(attackerId: string, targetId: string) {
     const attacker = this.state.players.get(attackerId);
     if (!attacker || attacker.dead) return;
