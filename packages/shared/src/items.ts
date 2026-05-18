@@ -28,6 +28,14 @@ export const ITEMS: Record<string, ItemDef> = {
   wolf_fang:    { id: "wolf_fang",    name: "Wolf Fang",      slot: "material", stack: 99, icon: "🦷", color: "#e5e7eb" },
   orc_tusk:     { id: "orc_tusk",     name: "Orc Tusk",       slot: "material", stack: 99, icon: "🦴", color: "#fef3c7" },
   dark_crystal: { id: "dark_crystal", name: "Dark Crystal",   slot: "material", stack: 99, icon: "🔮", color: "#a855f7" },
+  // Mid-tier weapons (Lv15-25) — fill the gap between iron_sword (8 ATK) and blade_of_dawn (25 ATK)
+  mithril_sword:{ id: "mithril_sword", name: "Mithril Sword",  slot: "weapon", atk: 14, icon: "🗡", color: "#7dd3fc" },
+  great_sword:  { id: "great_sword",   name: "Great Sword",    slot: "weapon", atk: 18, icon: "⚔", color: "#94a3b8" },
+  arcane_staff: { id: "arcane_staff",  name: "Arcane Staff",   slot: "weapon", atk: 12, icon: "🪄", color: "#a78bfa" },
+  hunters_bow:  { id: "hunters_bow",   name: "Hunter's Bow",   slot: "weapon", atk: 13, icon: "🏹", color: "#92400e" },
+  // Mid-tier armor (Lv15-25)
+  chainmail:    { id: "chainmail",     name: "Chainmail",      slot: "armor",  def: 12, icon: "🥋", color: "#cbd5e1" },
+  knight_armor: { id: "knight_armor",  name: "Knight Armor",   slot: "armor",  def: 15, icon: "🛡", color: "#64748b" },
   blade_of_dawn:{ id: "blade_of_dawn",name: "Blade of Dawn",  slot: "weapon", atk: 25, icon: "⚜", color: "#fbbf24" },
   dragon_plate: { id: "dragon_plate", name: "Dragon Plate",   slot: "armor",  def: 20, icon: "🐲", color: "#dc2626" },
   // food / drink — survival
@@ -132,7 +140,10 @@ export const MONSTER_DROPS: Record<string, DropEntry[]> = {
   yeti: [
     { itemId: "dark_crystal", chance: 0.4 },
     { itemId: "hp_potion", chance: 0.5 },
-    { itemId: "iron_sword", chance: 0.05 },
+    { itemId: "mithril_sword", chance: 0.08 },
+    { itemId: "chainmail", chance: 0.08 },
+    { itemId: "arcane_staff", chance: 0.05 },
+    { itemId: "hunters_bow", chance: 0.05 },
   ],
   darklord: [
     { itemId: "dark_crystal", chance: 1.0 },
@@ -167,7 +178,8 @@ export const MONSTER_DROPS: Record<string, DropEntry[]> = {
     { itemId: "stone_chunk", chance: 1.0, min: 3, max: 6 },
     { itemId: "crystal", chance: 0.6 },
     { itemId: "iron_ore", chance: 0.5, min: 1, max: 3 },
-    { itemId: "iron_sword", chance: 0.08 },
+    { itemId: "great_sword", chance: 0.08 },
+    { itemId: "knight_armor", chance: 0.05 },
   ],
   fox: [
     { itemId: "raw_meat", chance: 0.8 },

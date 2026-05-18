@@ -8,9 +8,13 @@ export const GAME_CONFIG = {
   ATTACK_COOLDOWN_MS: 800,
   RESPAWN_MS: 5000,
   BOSS_RESPAWN_MS: 60_000,
-  // Early levels: very easy (a few mobs). Scales smoothly so high levels feel meaningful.
-  // Lv 1→2: 30 (3 slimes), Lv 5→6: 175, Lv 10→11: 525, Lv 20→21: 2025
-  EXP_PER_LEVEL: (lv: number) => Math.floor(25 + lv * lv * 5),
+  // Quadratic growth until Lv30, then linear softcap so endgame isn't a grind wall.
+  // Lv 1→2: 30 ; Lv 5→6: 175 ; Lv 20→21: 2025 ; Lv 30→31: 4525 (cap) ; Lv 50→51: ~6925.
+  EXP_PER_LEVEL: (lv: number) => {
+    if (lv <= 30) return Math.floor(25 + lv * lv * 5);
+    const base = 25 + 30 * 30 * 5;          // 4525
+    return Math.floor(base + (lv - 30) * 120);
+  },
 } as const;
 
 export const ROOM_NAME = "world";

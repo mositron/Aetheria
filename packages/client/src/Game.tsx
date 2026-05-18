@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { Client, Room } from "colyseus.js";
 import { Canvas } from "@react-three/fiber";
 import { Sky, Stars } from "@react-three/drei";
@@ -28,31 +28,33 @@ import { BiomeWidgets } from "./ui/BiomeWidgets";
 import { InteractionPrompt } from "./ui/InteractionPrompt";
 import { BottomBar } from "./ui/BottomBar";
 import { SurvivalEffects } from "./ui/SurvivalEffects";
-import { CraftingPanel } from "./ui/CraftingPanel";
-import { AchievementsPanel } from "./ui/AchievementsPanel";
 import { HintSystem } from "./ui/HintSystem";
 import { EmoteWheel } from "./ui/EmoteWheel";
 import { DailyReward } from "./ui/DailyReward";
-import { PhotoMode } from "./ui/PhotoMode";
 import { TutorialFinger } from "./ui/TutorialFinger";
-import { PetBox } from "./ui/PetBox";
 import { LevelUpCelebration } from "./ui/LevelUpCelebration";
 import { ScreenJoystick } from "./ui/ScreenJoystick";
-import { Leaderboard } from "./ui/Leaderboard";
-import { Mailbox } from "./ui/Mailbox";
 import { WaypointControls } from "./ui/WaypointControls";
 import { QuestTracker } from "./ui/QuestTracker";
 import { TargetDisplay } from "./ui/TargetDisplay";
-import { FriendList } from "./ui/FriendList";
-import { GuildPanel } from "./ui/GuildPanel";
-import { AuctionHouse } from "./ui/AuctionHouse";
 import { JobAdvancement } from "./ui/JobAdvancement";
 import { Onboarding } from "./ui/Onboarding";
 import { WaypointsPanel } from "./ui/WaypointsPanel";
-import { TradeWindow } from "./ui/TradeWindow";
 import { useSettings } from "./ui/SettingsPanel";
 import { DayNight } from "./scene/DayNight";
 import { useSfx } from "./hooks/useSfx";
+
+// Heavy / rarely-opened panels — lazy-loaded so they don't bloat initial bundle.
+const CraftingPanel = lazy(() => import("./ui/CraftingPanel").then((m) => ({ default: m.CraftingPanel })));
+const AchievementsPanel = lazy(() => import("./ui/AchievementsPanel").then((m) => ({ default: m.AchievementsPanel })));
+const PhotoMode = lazy(() => import("./ui/PhotoMode").then((m) => ({ default: m.PhotoMode })));
+const PetBox = lazy(() => import("./ui/PetBox").then((m) => ({ default: m.PetBox })));
+const Leaderboard = lazy(() => import("./ui/Leaderboard").then((m) => ({ default: m.Leaderboard })));
+const Mailbox = lazy(() => import("./ui/Mailbox").then((m) => ({ default: m.Mailbox })));
+const FriendList = lazy(() => import("./ui/FriendList").then((m) => ({ default: m.FriendList })));
+const GuildPanel = lazy(() => import("./ui/GuildPanel").then((m) => ({ default: m.GuildPanel })));
+const AuctionHouse = lazy(() => import("./ui/AuctionHouse").then((m) => ({ default: m.AuctionHouse })));
+const TradeWindow = lazy(() => import("./ui/TradeWindow").then((m) => ({ default: m.TradeWindow })));
 
 const SERVER_WS = `ws://${location.hostname}:2567`;
 
@@ -167,28 +169,30 @@ export function Game() {
       <InteractionPrompt room={room} />
       <BottomBar room={room} />
       <SurvivalEffects room={room} />
-      <CraftingPanel room={room} />
-      <AchievementsPanel room={room} />
+      <Suspense fallback={null}>
+        <CraftingPanel room={room} />
+        <AchievementsPanel room={room} />
+        <PhotoMode />
+        <PetBox room={room} />
+        <Leaderboard />
+        <Mailbox room={room} />
+        <FriendList room={room} />
+        <GuildPanel room={room} />
+        <AuctionHouse room={room} />
+        <TradeWindow room={room} />
+      </Suspense>
       <HintSystem room={room} />
       <EmoteWheel room={room} />
       <DailyReward room={room} />
-      <PhotoMode />
       <TutorialFinger room={room} />
-      <PetBox room={room} />
       <LevelUpCelebration room={room} />
       <ScreenJoystick />
-      <Leaderboard />
-      <Mailbox room={room} />
       <WaypointControls />
       <QuestTracker room={room} />
       <TargetDisplay room={room} />
-      <FriendList room={room} />
-      <GuildPanel room={room} />
-      <AuctionHouse room={room} />
       <JobAdvancement room={room} />
       <Onboarding room={room} />
       <WaypointsPanel />
-      <TradeWindow room={room} />
       <Chat room={room} />
       <Inventory room={room} />
       <Hotbar room={room} />

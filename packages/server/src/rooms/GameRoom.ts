@@ -37,6 +37,8 @@ export class GameRoom extends Room<WorldState> {
   intents = new Map<string, Intent>();
   lastAttack = new Map<string, number>();
   lastSkill = new Map<string, number>(); // key = sid+":"+skillId
+  // Anti-spam rate limiters: sid → [bucket of recent timestamps]
+  rateLimitBuckets = new Map<string, Map<string, number[]>>();
   playerUserId = new Map<string, string>();
   playerCharId = new Map<string, string>();
   playerQuests = new Map<string, PlayerQuestState>();
@@ -393,6 +395,9 @@ export class GameRoom extends Room<WorldState> {
     this.onMessage("whisper", (client, msg: any) => {
       const fromP = this.state.players.get(client.sessionId);
       if (!fromP) return;
+      if (!this.checkRateLimit(client.sessionId, "whisper", 5, 5000)) {
+        return client.send("system", { text: "⏸ ส่งช้าๆ" });
+      }
       const text = String(msg?.text ?? "").slice(0, 200).trim();
       const to = String(msg?.to ?? "").trim();
       if (!text || !to) return;
@@ -588,6 +593,9 @@ export class GameRoom extends Room<WorldState> {
       const me = this.state.players.get(client.sessionId);
       const charId = this.sessionToCharId.get(client.sessionId);
       if (!me || !charId) return;
+      if (!this.checkRateLimit(client.sessionId, "guild-chat", 5, 5000)) {
+        return client.send("system", { text: "⏸ ส่งช้าๆ" });
+      }
       const text = String(msg?.text ?? "").slice(0, 200).trim();
       if (!text) return;
       try {
@@ -944,6 +952,10 @@ export class GameRoom extends Room<WorldState> {
     this.onMessage("chat", (client, msg: ChatMsg) => {
       const p = this.state.players.get(client.sessionId);
       if (!p) return;
+      // Rate limit: 5 messages per 5 sec per client
+      if (!this.checkRateLimit(client.sessionId, "chat", 5, 5000)) {
+        return client.send("system", { text: "⏸ ส่งช้าๆ หน่อย — รอสักครู่" });
+      }
       const text = String(msg.text ?? "").slice(0, 200).trim();
       if (!text) return;
       // ── Slash commands ───────────────────────────────────────────────
@@ -1156,6 +1168,7 @@ export class GameRoom extends Room<WorldState> {
     this.tradeSessions.delete(sid);
     this.botIds.delete(sid);
     this.botState.delete(sid);
+    this.rateLimitBuckets.delete(sid);
     // Prune compound-keyed maps that include this session
     for (const k of this.tameProgress.keys()) if (k.startsWith(sid + ":")) this.tameProgress.delete(k);
     for (const k of this.statusTickAcc.keys()) if (k.startsWith(sid + ":")) this.statusTickAcc.delete(k);
@@ -2270,6 +2283,23 @@ export class GameRoom extends Room<WorldState> {
       return;
     }
     this.state.drops.delete(dropId);
+  }
+
+  /**
+   * Token-bucket rate limiter. Returns true if action is allowed.
+   * `key` is a bucket name (e.g., "chat", "trade-invite"). Independent per client.
+   */
+  checkRateLimit(sid: string, key: string, maxEvents: number, windowMs: number): boolean {
+    let buckets = this.rateLimitBuckets.get(sid);
+    if (!buckets) { buckets = new Map(); this.rateLimitBuckets.set(sid, buckets); }
+    const now = Date.now();
+    let bucket = buckets.get(key);
+    if (!bucket) { bucket = []; buckets.set(key, bucket); }
+    // Drop timestamps outside the window
+    while (bucket.length > 0 && bucket[0] < now - windowMs) bucket.shift();
+    if (bucket.length >= maxEvents) return false;
+    bucket.push(now);
+    return true;
   }
 
   /** Add items, falling back to mail delivery if inventory is full. Reward paths use this. */
