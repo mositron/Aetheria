@@ -2165,10 +2165,26 @@ export class GameRoom extends Room<WorldState> {
       }
     }
 
-    // Biome-aware spawn picks based on distance from origin & noise
-    const SPAWN_TABLE_DAY = ["slime", "slime", "wolf", "berry_bush"];
-    const SPAWN_TABLE_NIGHT = ["wolf", "wolf", "orc", "slime"];
-    const table = isNight ? SPAWN_TABLE_NIGHT : SPAWN_TABLE_DAY;
+    // Per-biome spawn tables. Distance from origin scales danger.
+    const TABLES: Record<string, { day: string[]; night: string[] }> = {
+      plains:  { day: ["slime", "slime", "wolf", "fox"],     night: ["wolf", "wolf", "fox", "slime"] },
+      forest:  { day: ["spider", "boar", "wolf", "slime"],   night: ["spider", "spider", "wolf", "bat"] },
+      desert:  { day: ["scorpion", "scorpion", "slime"],     night: ["scorpion", "ghost", "bat"] },
+      snow:    { day: ["yeti", "wolf", "wolf"],              night: ["yeti", "wolf", "ghost"] },
+      swamp:   { day: ["spider", "orc", "slime"],            night: ["spider", "ghost", "ghost"] },
+    };
+    function biomeAtServer(x: number, z: number): keyof typeof TABLES {
+      // Mirror chunkWorld.getBiome simplified — same noise classification.
+      // Since server doesn't import client code, use coarse banding by xz.
+      const n = (Math.sin(x * 0.013) + Math.cos(z * 0.011)) * 0.5 + 0.5;
+      const d = Math.hypot(x, z);
+      const far = Math.min(1, d / 250);
+      if (n < 0.30) return far > 0.5 ? "snow" : "plains";
+      if (n < 0.50) return "forest";
+      if (n < 0.70) return "plains";
+      if (n < 0.85) return far > 0.4 ? "desert" : "plains";
+      return "swamp";
+    }
 
     for (const k of candidates) {
       const have = chunkMobs.get(k) ?? 0;
@@ -2179,7 +2195,10 @@ export class GameRoom extends Room<WorldState> {
       const sz = (cz + Math.random()) * CHUNK_SIZE;
       // Keep spawn area clear
       if (Math.hypot(sx, sz) < SPAWN_RADIUS + 4) continue;
-      const kind = table[Math.floor(Math.random() * table.length)] as MonsterKind;
+      const biome = biomeAtServer(sx, sz);
+      const tbl = TABLES[biome];
+      const arr = isNight ? tbl.night : tbl.day;
+      const kind = arr[Math.floor(Math.random() * arr.length)] as MonsterKind;
       // Only spawn occasionally — keeps density low and feels natural
       if (Math.random() < 0.35) this.spawnMonster(kind, sx, sz);
     }
