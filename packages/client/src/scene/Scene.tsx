@@ -17,6 +17,8 @@ import { SkillEffects } from "./SkillEffects";
 import { Environment } from "./Environment";
 import { AmbientParticles } from "./AmbientParticles";
 import { Weather } from "./Weather";
+import { getHeight as terrainHeight, canWalk as terrainCanWalk, TERRAIN_CONFIG } from "./terrain";
+import { isBlocked as isObstacle } from "./obstacles";
 import { HeroModel } from "./models/HeroModel";
 import { SlimeModel } from "./models/SlimeModel";
 import { WolfModel } from "./models/WolfModel";
@@ -339,6 +341,39 @@ export function Scene({ room }: { room: Room<WorldState> }) {
         const cos = Math.cos(y), sin = Math.sin(y);
         mx = right * cos + fwd * sin;
         mz = -right * sin + fwd * cos;
+      }
+
+      // ── Client-side collision (terrain cliffs + obstacle objects).
+      //    Allowed to climb low ledges while jumping. Slide along edges when
+      //    blocked on one axis. Disabled while flying.
+      if ((mx || mz) && !me.flying) {
+        const speed = 5.0;
+        const dtSec = 0.5;
+        const fromH = terrainHeight(me.pos.x, me.pos.z);
+
+        function canStepTo(nx: number, nz: number): boolean {
+          // Object obstacles (houses, trees, rocks) always block
+          if (isObstacle(nx, nz)) return false;
+          // Terrain height — allowed if delta small OR jump high enough
+          const toH = terrainHeight(nx, nz);
+          const delta = toH - fromH;
+          if (delta <= TERRAIN_CONFIG.STEP * 2.5) return true;
+          // Jumping helps climb low ledges (up to current jump height)
+          return jumpY.current >= delta - TERRAIN_CONFIG.STEP * 1.2;
+        }
+
+        const nx = me.pos.x + mx * speed * dtSec;
+        const nz = me.pos.z + mz * speed * dtSec;
+        if (!canStepTo(nx, nz)) {
+          // Slide: try X-only, then Z-only
+          if (mz !== 0 && canStepTo(me.pos.x + mx * speed * dtSec, me.pos.z)) {
+            mz = 0;
+          } else if (mx !== 0 && canStepTo(me.pos.x, me.pos.z + mz * speed * dtSec)) {
+            mx = 0;
+          } else {
+            mx = 0; mz = 0;
+          }
+        }
       }
 
       seq.current += 1;

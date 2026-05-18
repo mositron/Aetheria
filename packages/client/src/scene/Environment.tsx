@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import { MAPS, biomeAt, BIOMES, type MapId } from "@game/shared";
 import { StepTerrain } from "./StepTerrain";
+import { setObstacles } from "./obstacles";
 // 5-band gradient texture for built-in toon material (Pagonia-look)
 const toonGradient = (() => {
   const steps = [60, 130, 195, 230, 255];
@@ -219,6 +220,22 @@ export function Environment({ mapId }: { mapId: MapId }) {
   const mapDef = MAPS[mapId];
   const pal = PALETTES[mapId];
   const data = useMemo(() => buildField(mapId, mapDef.size, pal), [mapId, mapDef.size, pal]);
+
+  // Publish obstacles for client-side collision detection.
+  useEffect(() => {
+    const obs: { x: number; z: number; r: number }[] = [];
+    // Village buildings (huts at ±6, ±6 with 3-wide footprint)
+    for (const v of data.village) {
+      // include only roof/wall blocks (skip doors/windows decoration which are thin)
+      if (v.sy >= 1.5) obs.push({ x: v.x, z: v.z, r: Math.max(v.sx, v.sz) * 0.55 });
+    }
+    // Decor: trees + rocks block, bushes/flowers don't
+    for (const d of data.decor) {
+      if (d.type === "tree") obs.push({ x: d.x, z: d.z, r: 0.5 * d.s });
+      else if (d.type === "rock") obs.push({ x: d.x, z: d.z, r: 0.6 * d.s });
+    }
+    setObstacles(obs);
+  }, [data.village, data.decor]);
 
   return (
     <group>
