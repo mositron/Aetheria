@@ -22,6 +22,8 @@ import {
 import { prisma } from "../db.js";
 import { verifyToken } from "../auth.js";
 import { recordContribution } from "../leaderboard.js";
+import { SpatialHash } from "../services/SpatialHash.js";
+import { RateLimiter } from "../services/RateLimiter.js";
 
 type Intent = { mx: number; mz: number; rotY: number };
 type CharRow = {
@@ -37,8 +39,10 @@ export class GameRoom extends Room<WorldState> {
   intents = new Map<string, Intent>();
   lastAttack = new Map<string, number>();
   lastSkill = new Map<string, number>(); // key = sid+":"+skillId
-  // Anti-spam rate limiters: sid → [bucket of recent timestamps]
-  rateLimitBuckets = new Map<string, Map<string, number[]>>();
+  // Anti-spam rate limiter (token bucket per sid×key).
+  rateLimiter = new RateLimiter();
+  // Spatial index for fast monster→player AI lookups. Rebuilt each tick.
+  playerSpatialHash = new SpatialHash<{ id: string; x: number; z: number; sid: string; dead: boolean }>();
   playerUserId = new Map<string, string>();
   playerCharId = new Map<string, string>();
   playerQuests = new Map<string, PlayerQuestState>();
@@ -1177,7 +1181,7 @@ export class GameRoom extends Room<WorldState> {
     this.tradeSessions.delete(sid);
     this.botIds.delete(sid);
     this.botState.delete(sid);
-    this.rateLimitBuckets.delete(sid);
+    this.rateLimiter.forget(sid);
     // Prune compound-keyed maps that include this session
     for (const k of this.tameProgress.keys()) if (k.startsWith(sid + ":")) this.tameProgress.delete(k);
     for (const k of this.statusTickAcc.keys()) if (k.startsWith(sid + ":")) this.statusTickAcc.delete(k);
@@ -2295,20 +2299,11 @@ export class GameRoom extends Room<WorldState> {
   }
 
   /**
-   * Token-bucket rate limiter. Returns true if action is allowed.
-   * `key` is a bucket name (e.g., "chat", "trade-invite"). Independent per client.
+   * Token-bucket rate limit. Delegates to RateLimiter service.
+   * Kept here as a thin wrapper so existing call sites compile unchanged.
    */
   checkRateLimit(sid: string, key: string, maxEvents: number, windowMs: number): boolean {
-    let buckets = this.rateLimitBuckets.get(sid);
-    if (!buckets) { buckets = new Map(); this.rateLimitBuckets.set(sid, buckets); }
-    const now = Date.now();
-    let bucket = buckets.get(key);
-    if (!bucket) { bucket = []; buckets.set(key, bucket); }
-    // Drop timestamps outside the window
-    while (bucket.length > 0 && bucket[0] < now - windowMs) bucket.shift();
-    if (bucket.length >= maxEvents) return false;
-    bucket.push(now);
-    return true;
+    return this.rateLimiter.check(sid, key, maxEvents, windowMs);
   }
 
   /** Add items, falling back to mail delivery if inventory is full. Reward paths use this. */
@@ -2870,6 +2865,12 @@ export class GameRoom extends Room<WorldState> {
     }
 
     const now = Date.now();
+    // Rebuild spatial hash for living players — O(P) instead of O(P*M) below
+    this.playerSpatialHash.clear();
+    for (const [sid, pp] of this.state.players) {
+      if (pp.dead) continue;
+      this.playerSpatialHash.update({ id: pp.id, sid, x: pp.pos.x, z: pp.pos.z, dead: false });
+    }
     for (const [, m] of this.state.monsters) {
       if (m.dead) continue;
       const cfg = (MONSTERS as any)[m.kind];
@@ -2915,17 +2916,18 @@ export class GameRoom extends Room<WorldState> {
         continue;
       }
 
+      // Use spatial hash — only scans players in nearby cells. With 30 mobs ×
+      // 5 players this drops from 150 scans to ~5-15 per tick.
+      const mh = estimateHeight(m.pos.x, m.pos.z);
+      const hit = this.playerSpatialHash.findNearest(m.pos.x, m.pos.z, def.aggroRange, (cand) => {
+        const ph = estimateHeight(cand.x, cand.z);
+        return Math.abs(ph - mh) <= 3; // terrain LOS proxy
+      });
       let nearest: Player | null = null;
       let nearestD = Infinity;
-      for (const [, p] of this.state.players) {
-        if (p.dead) continue;
-        const d = Math.hypot(p.pos.x - m.pos.x, p.pos.z - m.pos.z);
-        // Terrain LOS proxy: if estimated heights differ by more than 3m,
-        // assume cliff blocks line-of-sight and don't aggro. Uses the same
-        // coarse trig-noise as biome classification — cheap, deterministic.
-        const heightDiff = Math.abs(estimateHeight(p.pos.x, p.pos.z) - estimateHeight(m.pos.x, m.pos.z));
-        if (heightDiff > 3) continue;
-        if (d < nearestD) { nearestD = d; nearest = p; }
+      if (hit) {
+        nearest = this.state.players.get(hit.entity.sid) ?? null;
+        nearestD = hit.distance;
       }
       if (nearest && nearestD < def.aggroRange && !this.isStunned(m)) {
         m.targetId = nearest.id;

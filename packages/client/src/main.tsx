@@ -24,6 +24,13 @@ document.addEventListener("pointerdown", (e) => {
   import("./sfx/sfx").then((m) => m.Sfx?.click?.()).catch(() => {});
 }, { capture: true });
 
+// PWA: auto-update service worker registration. Imports from a virtual module
+// provided by vite-plugin-pwa at build time. In dev (devOptions.enabled=false),
+// the import is a no-op stub.
+import("virtual:pwa-register").then(({ registerSW }) => {
+  registerSW({ immediate: true, onRegisterError(err) { console.warn("[pwa] sw registration failed", err); } });
+}).catch(() => { /* dev mode — virtual module not present */ });
+
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     <App />

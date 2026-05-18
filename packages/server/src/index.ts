@@ -46,9 +46,26 @@ app.get("/health", (_req, res) => {
 app.get("/leaderboard", (_req, res) => res.json({ entries: getTop(10) }));
 
 const httpServer = http.createServer(app);
-const gameServer = new Server({
-  transport: new WebSocketTransport({ server: httpServer }),
-});
+
+// ── Multi-instance scale-out: opt-in via REDIS_URL ──────────────────────────
+// When unset, single-instance mode (in-memory presence + match maker). When
+// set, multiple server replicas share state via Redis pub/sub — required for
+// guild chat / whisper / leaderboard to cross room/instance boundaries.
+const serverOpts: any = { transport: new WebSocketTransport({ server: httpServer }) };
+if (process.env.REDIS_URL) {
+  try {
+    const { RedisPresence } = await import("@colyseus/redis-presence");
+    const { RedisDriver } = await import("@colyseus/redis-driver");
+    serverOpts.presence = new RedisPresence({ url: process.env.REDIS_URL });
+    serverOpts.driver = new RedisDriver(process.env.REDIS_URL);
+    logger.info("server.scaleOut.enabled", { url: process.env.REDIS_URL.replace(/:[^:@]+@/, ":***@") });
+  } catch (e) {
+    logger.error("server.scaleOut.initFailed", { err: String(e) });
+    // Fall through to single-instance — better degraded than refusing to start.
+  }
+}
+
+const gameServer = new Server(serverOpts);
 
 // one room per map
 for (const id of Object.keys(MAPS)) {
