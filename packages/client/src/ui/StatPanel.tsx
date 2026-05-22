@@ -2,10 +2,12 @@ import { useEffect, useState } from "react";
 import type { Room } from "colyseus.js";
 import { STAT_KEYS, STAT_NAMES, type Player, type StatKey, type WorldState, derived } from "@game/shared";
 import { keyEq } from "../utils/keyMatch";
+import { useT } from "../locales/useT";
 
 export function StatPanel({ room }: { room: Room<WorldState> }) {
   const [open, setOpen] = useState(false);
   const [, setTick] = useState(0);
+  const t = useT();
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -40,11 +42,11 @@ export function StatPanel({ room }: { room: Room<WorldState> }) {
           <div className="panel w-72 space-y-2 pointer-events-auto" onClick={(e) => e.stopPropagation()}>
             <div className="panel-corners" />
             <div className="panel-title">
-              <span>📊 Character</span>
+              <span>📊 {t('stat.character')}</span>
               <button onClick={() => setOpen(false)}>✕</button>
             </div>
             <div className="text-sm text-amber-300">
-              Stat points available: <span className="font-bold">{me.statPoints}</span>
+              {t('stat.statPointsAvailable', { points: me.statPoints })}
             </div>
 
             <div className="space-y-1">
@@ -75,14 +77,14 @@ export function StatPanel({ room }: { room: Room<WorldState> }) {
                   : "bg-slate-800 hover:bg-slate-700 border-slate-500 text-slate-300"
               }`}
             >
-              {me.pvpFlag ? "⚔ PvP เปิดอยู่ (กดปิด)" : "🕊 PvP ปิดอยู่ — กดเปิด"}
+              {me.pvpFlag ? t('stat.pvpOn') : t('stat.pvpOff')}
             </button>
             {me.level >= 30 && (
               <button
                 onClick={() => window.dispatchEvent(new Event("toggle-job-advance"))}
                 className="w-full rounded px-3 py-1.5 text-xs font-bold border-2 bg-amber-700 hover:bg-amber-600 border-amber-300 text-white"
               >
-                ✨ เปลี่ยนอาชีพ 2nd-class
+                {t('stat.changeJob')}
               </button>
             )}
           </div>

@@ -401,20 +401,75 @@ export const en = {
   "biome.enter": "Enter",
   "biome.distance": "m",
 
+  // ── Orientation Prompt ────────────────────────────────────────
+  "orientation.landscapeHintTitle": "Landscape is better",
+  "orientation.landscapeHintBody": "Rotate device for best UX · Tap to dismiss",
+
   // ── Pet Box ───────────────────────────────────────────────────
   "pets.title": "Pet Zoo",
   "pets.max": "8",
   "pets.kindChicken": "Chicken",
   "pets.kindPig": "Pig",
   "pets.kindCow": "Cow",
+  "pets.breedCost": "🥚 Breed (200 zeny)",
+  "pets.select1": "— Select #1 —",
+  "pets.select2": "— Select #2 —",
+  "pets.breed": "Breed",
+  "pets.empty": "No pets yet — find chicken/pig/cow and feed them berries!",
+  "pets.inUse": "✓ Active",
+  "pets.useThis": "Set Active",
+  "pets.release": "Release",
+  "pets.releaseConfirmTitle": "Release friend?",
+  "pets.releaseConfirmMsg": "{name} will be released. Are you sure?",
+  "pets.releaseBtn": "Release",
+
+  // ── Photo Mode ───────────────────────────────────────────────
+  "photo.title": "📸 Photo Mode",
+  "photo.filterNone": "None",
+  "photo.filterVintage": "Vintage",
+  "photo.filterDream": "Dream",
+  "photo.filterAnime": "Anime",
+  "photo.filterNeon": "Neon",
+  "photo.save": "📷 Save",
+  "photo.close": "✕ Close",
 
   // ── Skill Tree ───────────────────────────────────────────────
   "skilltree.title": "Skills",
   "skilltree.skillsUnlocked": "Skills unlocked",
+  "skilltree.skillPoints": "Skill Points",
+  "skilltree.points": "pts",
+  "skilltree.close": "Close",
+  "skilltree.requires": "Requires: {reqs}",
+  "skilltree.hint": "Click a skill to unlock (uses 1 pt) · Esc to close",
 
-  // ── Tutorial ──────────────────────────────────────────────────
-  "tutorial.next": "Next →",
-  "tutorial.finish": "Done",
+  // ── Stat Panel ────────────────────────────────────────────────
+  "stat.character": "Character",
+  "stat.statPointsAvailable": "Stat points available: {points}",
+  "stat.pvpOn": "⚔ PvP on (click to disable)",
+  "stat.pvpOff": "🕊 PvP off — click to enable",
+  "stat.changeJob": "✨ Change job (2nd class)",
+
+  // ── Trade Window ──────────────────────────────────────────────
+  "trade.tradeRequest": "Trade Request",
+  "trade.requestTrade": "Request Trade",
+  "trade.tradingWith": "Trading with {partner}",
+  "trade.myOffer": "My Offer",
+  "trade.processing": "Processing…",
+  "trade.waitingConfirm": "Waiting for other party to confirm",
+  "trade.locked": "✓ Locked",
+  "trade.noItems": "No items offered",
+  "trade.setZeny": "Set",
+
+  // ── Waypoints ─────────────────────────────────────────────────
+  "waypoint.cancelRoute": "Cancel route (Esc)",
+  "waypoint.cancelNav": "✕ Cancel navigation · {icon} {label}",
+  "waypoint.myMarkers": "My Markers",
+  "waypoint.saveCurrent": "💾 Save current marker ({x}, {z})",
+  "waypoint.namePlaceholder": "Name (e.g. home, market)",
+  "waypoint.save": "Save",
+  "waypoint.noMarkers": "No markers yet — tap minimap then save",
+  "waypoint.go": "➤ Go",
+  "waypoint.delete": "✕",
 
   // ── Loading Screen ─────────────────────────────────────────────
   "loading.enteringWorld": "Entering World",

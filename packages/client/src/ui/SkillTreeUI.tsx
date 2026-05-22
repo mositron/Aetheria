@@ -4,6 +4,7 @@ import type { Player, WorldState, SkillNode } from "@game/shared";
 import FocusTrap from "focus-trap-react";
 import { SKILL_TREES, JOBS, type JobId } from "@game/shared";
 import { GameFrame } from "./GameFrame";
+import { useT } from "../locales/useT";
 
 const JOB_COLORS: Record<string, string> = {
   swordsman: "#ef4444",
@@ -36,6 +37,7 @@ function isUnlocked(node: SkillNode, unlocked: string[]): boolean {
 
 export function SkillTreeUI({ room }: { room: Room<WorldState> }) {
   const [open, setOpen] = useState(false);
+  const t = useT();
 
   useEffect(() => {
     const onToggle = () => setOpen((o) => !o);
@@ -72,14 +74,14 @@ export function SkillTreeUI({ room }: { room: Room<WorldState> }) {
     <div data-no-screen-joy role="dialog" aria-modal="true" className="absolute inset-0 z-40 flex items-center justify-center bg-black/65 backdrop-blur-sm py-12 px-4" onClick={() => setOpen(false)}>
       <div className="w-[36rem] max-w-[94vw] flex flex-col min-h-0" style={{ maxHeight: "calc(100vh - 8rem)" }} onClick={(e) => e.stopPropagation()}>
         <GameFrame
-          title={`🌟 สกิล — ${JOBS[job]?.name ?? job}`}
+          title={`🌟 ${t('skilltree.title')} — ${JOBS[job]?.name ?? job}`}
           variant="violet"
           className="flex flex-col min-h-0"
           innerClassName="flex flex-col flex-1 min-h-0"
         >
           <button
             onClick={() => setOpen(false)}
-            aria-label="ปิด"
+            aria-label={t('skilltree.close')}
             className="absolute -top-3 -right-3 w-8 h-8 rounded-full bg-rose-700 hover:bg-rose-600 border-2 border-rose-300 text-white font-bold z-10"
           >
             ✕
@@ -90,11 +92,11 @@ export function SkillTreeUI({ room }: { room: Room<WorldState> }) {
             <div className="text-2xl" style={{ color: jobColor }}>⬡</div>
             <div className="flex-1">
               <div className="text-sm font-bold text-white">{JOBS[job]?.name ?? job}</div>
-              <div className="text-[10px] text-slate-400">สกิลที่เปิดแล้ว: {unlocked.length} / {tree.length}</div>
+              <div className="text-[10px] text-slate-400">{t('skilltree.skillsUnlocked')}: {unlocked.length} / {tree.length}</div>
             </div>
             <div className="text-right">
-              <div className="text-amber-300 font-bold text-sm">แต้มสกิล</div>
-              <div className="text-amber-100 text-xs">{skillPoints} แต้ม</div>
+              <div className="text-amber-300 font-bold text-sm">{t('skilltree.skillPoints')}</div>
+              <div className="text-amber-100 text-xs">{skillPoints} {t('skilltree.points')}</div>
             </div>
           </div>
 
@@ -125,7 +127,7 @@ export function SkillTreeUI({ room }: { room: Room<WorldState> }) {
                               room.send("allocateSkill", { skillId: node.skillId });
                             }
                           }}
-                          title={node.requires.length > 0 ? `ต้องมี: ${node.requires.join(", ")}` : ""}
+                          title={node.requires.length > 0 ? t('skilltree.requires', { reqs: node.requires.join(", ") }) : ""}
                         >
                           {/* Node icon */}
                           <div
@@ -158,7 +160,7 @@ export function SkillTreeUI({ room }: { room: Room<WorldState> }) {
           </div>
 
           <div className="text-[10px] text-slate-400 text-center mt-2 pt-2 border-t border-violet-400/20 flex-shrink-0">
-            คลิกสกิลที่ต้องการเพื่อเปิดใช้ (ใช้ 1 แต้ม) · Esc ปิด
+            {t('skilltree.hint')}
           </div>
         </GameFrame>
       </div>

@@ -1,10 +1,12 @@
 import { useEffect } from "react";
 import { useStore } from "../store";
+import { useT } from "../locales/useT";
 
 /** Floating cancel button + ESC handler for the active waypoint. */
 export function WaypointControls() {
   const waypoint = useStore((s) => s.waypoint);
   const setWaypoint = useStore((s) => s.setWaypoint);
+  const t = useT();
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -36,9 +38,9 @@ export function WaypointControls() {
         boxShadow: "0 0 0 2px rgba(244,114,182,0.4), 0 4px 0 rgba(190,24,93,0.5), inset 0 1px 0 rgba(255,255,255,0.4)",
         textShadow: "0 1px 2px rgba(0,0,0,0.4)",
       }}
-      title="ยกเลิกเส้นทาง (Esc)"
+      title={t('waypoint.cancelRoute')}
     >
-      ✕ ยกเลิกนำทาง · {waypoint.icon} {waypoint.label}
+      ✕ {t('waypoint.cancelNav', { icon: waypoint.icon, label: waypoint.label })}
     </button>
   );
 }

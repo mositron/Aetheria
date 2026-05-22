@@ -7,6 +7,7 @@ import type { Room } from "colyseus.js";
 import { ITEMS, type Player, type WorldState } from "@game/shared";
 import { useStore } from "../store";
 import { GameFrame } from "./GameFrame";
+import { useT } from "../locales/useT";
 
 type Offer = { invIndex: number; qty: number };
 type State = {
@@ -20,6 +21,7 @@ export function TradeWindow({ room }: { room: Room<WorldState> }) {
   const [state, setState] = useState<State | null>(null);
   const targetPlayerId = useStore((s) => s.targetPlayerId);
   const me = room.state.players.get(room.sessionId);
+  const t = useT();
 
   useEffect(() => {
     const offInv = room.onMessage("trade:invite" as any, (m: any) => setInvite(m));
@@ -39,17 +41,17 @@ export function TradeWindow({ room }: { room: Room<WorldState> }) {
     return (
       <div data-no-screen-joy className="absolute inset-0 z-40 flex items-center justify-center bg-black/65 backdrop-blur-sm">
         <div className="w-[18rem]">
-          <GameFrame title="🤝 คำขอเทรด">
-            <div className="text-sm text-white mb-3">{invite.fromName} ขอเทรดด้วย</div>
+          <GameFrame title={t('trade.tradeRequest')}>
+            <div className="text-sm text-white mb-3">{t('trade.requestFrom', { name: invite.fromName })}</div>
             <div className="flex gap-2">
               <button
                 onClick={() => room.send("trade:accept" as any, { fromSid: invite.fromSid })}
                 className="flex-1 bg-emerald-700 hover:bg-emerald-600 rounded px-3 py-1.5 text-xs font-bold text-white"
-              >✅ รับ</button>
+              >✅ {t('trade.accept')}</button>
               <button
                 onClick={() => setInvite(null)}
                 className="flex-1 bg-rose-700 hover:bg-rose-600 rounded px-3 py-1.5 text-xs font-bold text-white"
-              >🚫 ปฏิเสธ</button>
+              >🚫 {t('trade.reject')}</button>
             </div>
           </GameFrame>
         </div>
@@ -64,19 +66,19 @@ export function TradeWindow({ room }: { room: Room<WorldState> }) {
       <button
         onClick={requestTrade}
         className="absolute top-[5.5rem] left-1/2 -translate-x-1/2 bg-cyan-700 hover:bg-cyan-600 border-2 border-cyan-300 rounded-full px-3 py-1 text-xs font-bold text-white z-30"
-      >🤝 ขอเทรด</button>
+      >🤝 {t('trade.requestTrade')}</button>
     );
   }
 
   return (
     <div data-no-screen-joy className="absolute inset-0 z-40 flex items-center justify-center bg-black/65 backdrop-blur-sm py-12 px-4">
       <div className="w-[32rem] max-w-[96vw]">
-        <GameFrame title={`🤝 เทรดกับ ${state.partner}`}>
+        <GameFrame title={t('trade.tradingWith', { partner: state.partner })}>
           <button onClick={() => room.send("trade:cancel" as any, {})} className="absolute -top-3 -right-3 w-8 h-8 rounded-full bg-rose-700 hover:bg-rose-600 border-2 border-rose-300 text-white font-bold z-10">✕</button>
 
           <div className="grid grid-cols-2 gap-3 pt-1">
-            <Side label="ของฉัน" offer={state.meItems} zeny={state.meZeny} confirmed={state.meConfirmed} me={me} canEdit={true} room={room} />
-            <Side label={state.partner} offer={state.themItems} zeny={state.themZeny} confirmed={state.themConfirmed} me={null} canEdit={false} room={room} />
+            <Side label={t('trade.myOffer')} offer={state.meItems} zeny={state.meZeny} confirmed={state.meConfirmed} me={me} canEdit={true} room={room} t={t} />
+            <Side label={state.partner} offer={state.themItems} zeny={state.themZeny} confirmed={state.themConfirmed} me={null} canEdit={false} room={room} t={t} />
           </div>
 
           <button
@@ -84,7 +86,7 @@ export function TradeWindow({ room }: { room: Room<WorldState> }) {
             onClick={() => room.send("trade:confirm" as any, {})}
             className={`w-full mt-3 rounded px-3 py-2 text-sm font-bold text-white ${state.meConfirmed ? "bg-slate-600" : "bg-amber-600 hover:bg-amber-500"}`}
           >
-            {state.meConfirmed ? (state.themConfirmed ? "กำลังประมวลผล..." : "รออีกฝ่ายกดยืนยัน") : "🔒 ยืนยัน"}
+            {state.meConfirmed ? (state.themConfirmed ? t('trade.processing') : t('trade.waitingConfirm')) : t('trade.confirm')}
           </button>
         </GameFrame>
       </div>
@@ -92,7 +94,7 @@ export function TradeWindow({ room }: { room: Room<WorldState> }) {
   );
 }
 
-function Side({ label, offer, zeny, confirmed, me, canEdit, room }: { label: string; offer: Offer[]; zeny: number; confirmed: boolean; me: Player | null; canEdit: boolean; room: Room<WorldState> }) {
+function Side({ label, offer, zeny, confirmed, me, canEdit, room, t }: { label: string; offer: Offer[]; zeny: number; confirmed: boolean; me: Player | null; canEdit: boolean; room: Room<WorldState>; t: ReturnType<typeof useT> }) {
   const [draftZeny, setDraftZeny] = useState(zeny);
   useEffect(() => { setDraftZeny(zeny); }, [zeny]);
 
@@ -111,10 +113,10 @@ function Side({ label, offer, zeny, confirmed, me, canEdit, room }: { label: str
     <div className={`bg-slate-900/60 border rounded p-2 ${confirmed ? "border-emerald-400/60" : "border-white/15"}`}>
       <div className="text-[11px] font-bold text-cyan-300 mb-1 flex items-center justify-between">
         <span>{label}</span>
-        {confirmed && <span className="text-emerald-300">✓ ล็อก</span>}
+        {confirmed && <span className="text-emerald-300">{t('trade.locked')}</span>}
       </div>
       <div className="space-y-1 text-[10px] max-h-32 overflow-y-auto game-scroll">
-        {offer.length === 0 && <div className="text-slate-500 italic">ยังไม่มีของเสนอ</div>}
+        {offer.length === 0 && <div className="text-slate-500 italic">{t('trade.noItems')}</div>}
         {offer.map((o, i) => {
           const stack = me?.inventory[o.invIndex];
           const def = stack ? ITEMS[stack.itemId] : null;
@@ -135,7 +137,7 @@ function Side({ label, offer, zeny, confirmed, me, canEdit, room }: { label: str
               onBlur={() => update(offer, draftZeny)}
               className="flex-1 bg-slate-900 border border-amber-400/40 rounded px-1.5 py-0.5 text-[10px] text-white"
             />
-            <button onClick={() => update(offer, draftZeny)} className="bg-amber-600 hover:bg-amber-500 rounded px-1.5 py-0.5 text-[9px] font-bold text-white">ตั้งเงิน</button>
+            <button onClick={() => update(offer, draftZeny)} className="bg-amber-600 hover:bg-amber-500 rounded px-1.5 py-0.5 text-[9px] font-bold text-white">{t('trade.setZeny')}</button>
           </div>
           <div className="grid grid-cols-6 gap-0.5 max-h-20 overflow-y-auto game-scroll bg-black/40 p-0.5 rounded">
             {Array.from(me.inventory.values()).map((s, i) => {

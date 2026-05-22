@@ -401,25 +401,80 @@ export const th = {
   "biome.enter": "เข้าสู่",
   "biome.distance": "m",
 
+  // ── Orientation Prompt ────────────────────────────────────────
+  "orientation.landscapeHintTitle": "เล่นแนวนอนดีกว่า",
+  "orientation.landscapeHintBody": "หมุนเครื่องเพื่อ UX ที่ดีที่สุด · แตะเพื่อปิด",
+
   // ── Pet Box ───────────────────────────────────────────────────
   "pets.title": "สวนสัตว์",
   "pets.max": "8",
   "pets.kindChicken": "ไก่",
   "pets.kindPig": "หมู",
   "pets.kindCow": "วัว",
+  "pets.breedCost": "🥚 ผสมพันธุ์ (200 zeny)",
+  "pets.select1": "— เลือกตัวที่ 1 —",
+  "pets.select2": "— เลือกตัวที่ 2 —",
+  "pets.breed": "ผสม",
+  "pets.empty": "ยังไม่มีสัตว์เลี้ยง — หาไก่/หมู/วัวแล้วป้อนเบอร์รี่!",
+  "pets.inUse": "✓ ใช้อยู่",
+  "pets.useThis": "ใช้ตัวนี้",
+  "pets.release": "ปล่อย",
+  "pets.releaseConfirmTitle": "ปล่อยเพื่อน?",
+  "pets.releaseConfirmMsg": "{name} จะถูกปล่อยไป คุณแน่ใจหรือไม่?",
+  "pets.releaseBtn": "ปล่อย",
+
+  // ── Photo Mode ───────────────────────────────────────────────
+  "photo.title": "📸 โหมดถ่ายภาพ",
+  "photo.filterNone": "ไม่ปรับ",
+  "photo.filterVintage": "วินเทจ",
+  "photo.filterDream": "ฝัน",
+  "photo.filterAnime": "การ์ตูน",
+  "photo.filterNeon": "นีออน",
+  "photo.save": "📷 บันทึก",
+  "photo.close": "✕ ปิด",
 
   // ── Skill Tree ───────────────────────────────────────────────
   "skilltree.title": "สกิล",
   "skilltree.skillsUnlocked": "สกิลที่เปิดแล้ว",
+  "skilltree.skillPoints": "แต้มสกิล",
+  "skilltree.points": "แต้ม",
+  "skilltree.close": "ปิด",
+  "skilltree.requires": "ต้องมี: {reqs}",
+  "skilltree.hint": "คลิกสกิลที่ต้องการเพื่อเปิดใช้ (ใช้ 1 แต้ม) · Esc ปิด",
 
-  // ── Tutorial ──────────────────────────────────────────────────
-  "tutorial.next": "ต่อไป →",
-  "tutorial.finish": "เสร็จแล้ว",
+  // ── Stat Panel ────────────────────────────────────────────────
+  "stat.character": "ตัวละคร",
+  "stat.statPointsAvailable": "แต้มสเตตัสที่ใช้ได้: {points}",
+  "stat.pvpOn": "⚔ PvP เปิดอยู่ (กดปิด)",
+  "stat.pvpOff": "🕊 PvP ปิดอยู่ — กดเปิด",
+  "stat.changeJob": "✨ เปลี่ยนอาชีพ 2nd-class",
+
+  // ── Trade Window ──────────────────────────────────────────────
+  "trade.tradeRequest": "คำขอเทรด",
+  "trade.requestTrade": "ขอเทรด",
+  "trade.tradingWith": "เทรดกับ {partner}",
+  "trade.myOffer": "ของฉัน",
+  "trade.processing": "กำลังประมวลผล…",
+  "trade.waitingConfirm": "รออีกฝ่ายกดยืนยัน",
+  "trade.locked": "✓ ล็อก",
+  "trade.noItems": "ยังไม่มีของเสนอ",
+  "trade.setZeny": "ตั้งเงิน",
+
+  // ── Waypoints ─────────────────────────────────────────────────
+  "waypoint.cancelRoute": "ยกเลิกเส้นทาง (Esc)",
+  "waypoint.cancelNav": "✕ ยกเลิกนำทาง · {icon} {label}",
+  "waypoint.myMarkers": "หมุดของฉัน",
+  "waypoint.saveCurrent": "💾 บันทึกหมุดปัจจุบัน ({x}, {z})",
+  "waypoint.namePlaceholder": "ตั้งชื่อ (เช่น บ้าน, ตลาด)",
+  "waypoint.save": "บันทึก",
+  "waypoint.noMarkers": "ยังไม่มีหมุด — แตะที่ minimap แล้วกดบันทึก",
+  "waypoint.go": "➤ ไป",
+  "waypoint.delete": "✕",
 
   // ── Loading Screen ─────────────────────────────────────────────
   "loading.enteringWorld": "กำลังเข้าโลก",
   "loading.error": "ขัดข้อง",
-  "loading.reconnecting": "⟳ กำลังเชื่อมต่อใหม่...",
+  "loading.reconnecting": "⟳ กำลังเชื่อมต่อใหม่…",
   "loading.logout": "ออกจากระบบ",
 
   // ── Onboarding ────────────────────────────────────────────────
