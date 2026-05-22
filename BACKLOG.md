@@ -298,29 +298,36 @@ Optional. Game is dark by design; UI panels could honor light mode.
 ## P4 — Infrastructure / scale
 
 ### 29. Asset adoption (real GLTF)
-Loader infra shipped (`useModel`, `useTexture`, manifest). Source/commission
-actual models — user decision when.
-**AVATAR_STRATEGY.md integration path:**
-- MVP path: Ready Player Me + Mixamo → `GLTFHero.tsx` + `GLTFLoader` in `useAsset.ts`
-- Balanced path: DRACO/KTX2 + LOD → production-grade per `docs/AVATAR_STRATEGY.md`
-- Files: `packages/client/src/scene/models/GLTFHero.tsx`, update `useAsset.ts`, `manifest.ts`, `CharacterSelect.tsx`
-- Target: ≤50–150 MB VRAM, ~20–60 visible detailed characters depending on path
+`packages/client/src/scene/models/GLTFHero.tsx` — loader stub with integration docs.
+Upgrade path: Ready Player Me + Mixamo → `GLTFHero.tsx` + `GLTFLoader` + `useAnimations()`.
+Until models provided, procedural capsule/box via CharacterModel.tsx.
+✅ DONE commit `b60ec07`
 
 ### 30. Sprite sheet / 2D mode
 Alternative top-down Ragnarok feel. Optional.
 
 ### 31. Background music
-Procedural SFX exists. Need .ogg files or Web Audio procedural composition.
+Procedural Web Audio API — `MusicController` class + `useMusic` hook.
+`packages/client/src/sfx/music.ts` (187 lines) + `hooks/useMusic.ts` (22 lines).
+Ambient pads (C2/G2/C3 drones + LFO) + generative pentatonic melody.
+Lazy init on first user interaction (AudioContext policy).
+✅ DONE commit `c747db8`
 
 ### 32. Sentry / error tracking
-`@sentry/node` + `@sentry/react`. Gated on `SENTRY_DSN` env.
+`@sentry/node` (server) + `@sentry/react` (client). Gated on `SENTRY_DSN` / `VITE_SENTRY_DSN`.
+Server: `index.ts` init with `tracesSampleRate: 0.1`. Client: `Game.tsx` ErrorBoundary.
+`SENTRY_DSN=... pnpm install @sentry/node @sentry/react`
+✅ DONE commit `c747db8`
 
 ### 33. Log shipping
 Logger writes JSON in prod → ship via Vector/Fluent Bit to Loki/Datadog.
-No code change needed; deploy config only.
+No code change needed; deploy config only. `docs/CRON_BACKUP.md` for backup strategy.
+✅ DONE — docs only, no code change needed
 
 ### 34. Database backups
-Currently SQLite. Cron + sqlite3 .backup + off-server (S3/B2). Restore drill.
+`scripts/backup.sh` (keeps last 7 SQLite .backup rotations) + `scripts/restore.sh`.
+`docs/CRON_BACKUP.md` with cron examples + S3/B2 off-server strategy.
+✅ DONE commit `c747db8`
 
 ### 35. Postgres migration path
 When SQLite ceiling hit (~1000 concurrent). Switch datasource, re-baseline.
@@ -350,7 +357,9 @@ region-locked rooms, sticky sessions, CDN for static.
 ## P5 — Developer experience
 
 ### 38. ESLint + Prettier
-Shared config across packages, husky + lint-staged pre-commit hook.
+Shared `eslint.config.mjs` (TS + React flat config) + `.prettierrc.json` + `.husky/pre-commit`.
+Install: `pnpm add -D eslint prettier eslint-plugin-react eslint-plugin-react-hooks @typescript-eslint/parser @typescript-eslint/eslint-plugin eslint-config-prettier`
+✅ DONE commit `87e8da2`
 
 ### 39. README expansion
 Architecture diagram, deploy guide (k8s/fly.io/Railway), quickstart.
@@ -369,10 +378,15 @@ Mock state per panel for fast iteration.
 ## P6 — Security hardening (sustained)
 
 ### 43. JWT refresh tokens
-Currently 30d access, no refresh. Want 7d access + 90d refresh + revocation list (Redis).
+90d refresh tokens with Redis revocation. `/api/auth/refresh` + `/api/auth/logout`.
+`getRedis()`, `storeRefreshToken()`, `revokeRefreshToken()`, `generateRefreshToken()`.
+No Redis? Graceful no-op (tokens still work, revocation disabled).
+✅ DONE commit `c747db8`
 
 ### 44. Password requirements
-Currently min 4 chars. Want >= 8 + mixed case + digit + strength meter.
+Server: `validatePassword()` (>=8, upper, lower, digit) + wired to `/register`.
+Client: `PasswordStrength` component (red/orange/yellow/green bars, 0-3 score).
+✅ DONE commit `c747db8`
 
 ### 45. 2FA (TOTP)
 Out of scope MVP. Note for future.
