@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import type { Room } from "colyseus.js";
 import { MAPS, NPCS, type MapId, type WorldState } from "@game/shared";
 import { useStore } from "../store";
+import { useT } from "../locales/useT";
 
 // Friend list cache: keeps a Set of friend names refreshed from server.
 function useFriendNames(room: Room<WorldState>) {
@@ -26,6 +27,7 @@ const SIZE = 110;
  * No drag — symmetric and predictable.
  */
 export function Minimap({ room, mapId }: { room: Room<WorldState>; mapId: MapId }) {
+  const t = useT();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const mapDef = MAPS[mapId];
   const waypoint = useStore((s) => s.waypoint);
@@ -40,7 +42,7 @@ export function Minimap({ room, mapId }: { room: Room<WorldState>; mapId: MapId 
     const py = e.clientY - rect.top;
     const wx = (px / SIZE) * mapDef.size - mapDef.size / 2;
     const wz = (py / SIZE) * mapDef.size - mapDef.size / 2;
-    setWaypoint({ x: wx, z: wz, label: "ปักหมุด", icon: "📍" });
+    setWaypoint({ x: wx, z: wz, label: t("minimap.pinLocation"), icon: "📍" });
   }
 
   useEffect(() => {
@@ -129,7 +131,7 @@ export function Minimap({ room, mapId }: { room: Room<WorldState>; mapId: MapId 
     };
     draw();
     return () => clearTimeout(timer);
-  }, [room, mapId, mapDef, waypoint]);
+  }, [room, mapId, mapDef, waypoint, friends]);
 
   // Clear any stale dragged position from localStorage (one-time migration).
   useEffect(() => {
@@ -155,7 +157,7 @@ export function Minimap({ room, mapId }: { room: Room<WorldState>; mapId: MapId 
             onClick={() => setWaypoint(null)}
             className="text-rose-300 hover:text-rose-200"
             style={{ fontSize: 9 }}
-            title="ยกเลิกเส้นทาง"
+            title={t("minimap.cancelRoute")}
           >✕</button>
         )}
       </div>

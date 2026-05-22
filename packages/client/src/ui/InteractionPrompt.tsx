@@ -2,11 +2,13 @@ import { useEffect, useRef, useState } from "react";
 import type { Room } from "colyseus.js";
 import { MAPS, type WorldState, type MapId } from "@game/shared";
 import { keyEq } from "../utils/keyMatch";
+import { useT } from "../locales/useT";
 
 type FishingState = "idle" | "casting" | "done";
 
 /** Floating contextual prompts: drink water + cast fishing line when near water. */
 export function InteractionPrompt({ room }: { room: Room<WorldState> }) {
+  const t = useT();
   const [near, setNear] = useState<"water" | null>(null);
   const [fishing, setFishing] = useState<FishingState>("idle");
   const [castEnd, setCastEnd] = useState<number>(0);
@@ -74,7 +76,7 @@ export function InteractionPrompt({ room }: { room: Room<WorldState> }) {
     <div className="absolute bottom-32 left-1/2 -translate-x-1/2 pointer-events-none select-none flex flex-col items-center gap-2">
       {fishing === "casting" ? (
         <div className="pointer-events-auto flex flex-col items-center gap-2">
-          <div className="text-cyan-100 text-xs uppercase tracking-widest animate-pulse">🎣 รอปลากัดเบ็ด...</div>
+          <div className="text-cyan-100 text-xs uppercase tracking-widest animate-pulse">🎣 {t("prompt.waitingFish")}</div>
           <div className="w-48 h-2 bg-black/70 border border-cyan-400/40 rounded-full overflow-hidden">
             <div
               className="h-full transition-all"
@@ -90,14 +92,14 @@ export function InteractionPrompt({ room }: { room: Room<WorldState> }) {
             onTouchStart={(e) => { e.preventDefault(); room.send("stopFishing", {}); }}
             className="px-4 py-2 rounded bg-rose-700/80 hover:bg-rose-600 border-2 border-rose-400 text-white font-bold text-sm"
           >
-            ✕ ยกเลิก
+            ✕ {t("prompt.cancel")}
           </button>
         </div>
       ) : fishing === "done" ? (
-        <div className="text-amber-300 font-bold text-lg animate-bounce">🎉 ตกได้แล้ว!</div>
+        <div className="text-amber-300 font-bold text-lg animate-bounce">🎉 {t("prompt.caughtFish")}</div>
       ) : near === "water" && (
         <div className="pointer-events-auto flex flex-col items-center gap-1.5">
-          <div className="text-cyan-100 text-xs uppercase tracking-widest animate-pulse">น้ำใสสะอาด</div>
+          <div className="text-cyan-100 text-xs uppercase tracking-widest animate-pulse">{t("prompt.cleanWater")}</div>
           <div className="flex gap-2">
             <button
               onClick={() => room.send("drink", {})}
@@ -113,7 +115,7 @@ export function InteractionPrompt({ room }: { room: Room<WorldState> }) {
                 boxShadow: "0 0 16px rgba(34,211,238,0.6), inset 0 2px 4px rgba(255,255,255,0.3)",
               }}
             >
-              💧 ดื่ม <span className="text-[10px] opacity-70">(E)</span>
+              💧 {t("prompt.drink")} <span className="text-[10px] opacity-70">(E)</span>
             </button>
             <button
               onClick={() => room.send("startFishing", {})}
@@ -129,7 +131,7 @@ export function InteractionPrompt({ room }: { room: Room<WorldState> }) {
                 boxShadow: "0 0 16px rgba(52,211,153,0.6), inset 0 2px 4px rgba(255,255,255,0.3)",
               }}
             >
-              🎣 ตกปลา <span className="text-[10px] opacity-70">(F)</span>
+              🎣 {t("prompt.fish")} <span className="text-[10px] opacity-70">(F)</span>
             </button>
           </div>
         </div>

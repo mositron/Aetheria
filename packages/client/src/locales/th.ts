@@ -904,8 +904,8 @@ export const th = {
   "minimap.pinLocation": "ปักหมุด",
   "minimap.cancelRoute": "ยกเลิกเส้นทาง",
 
-} as const;
-export type LocaleKey = keyof typeof th;
+  // ── Touch Controls ──────────────────────────────────────────
+  "touch.fly": "บิน",
   "touch.flyLand": "ลง",
   "touch.flyHint": "บิน",
   "touch.flyLandHint": "ลงพื้น",
