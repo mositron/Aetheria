@@ -527,13 +527,38 @@ export const en = {
   "worldCreate.create": "Create",
 
   // ── Dungeon UI ────────────────────────────────────────────────
-  "dungeon.title": "Dungeon",
+  "dungeon.title": "Endless Tower — Floor {floor}",
   "dungeon.enter": "Enter",
   "dungeon.floor": "Floor",
   "dungeon.clear": "Cleared",
   "dungeon.reward": "Reward",
   "dungeon.locked": "Locked",
   "dungeon.recommendedLevel": "Recommended Level",
+  "dungeon.monsterRemaining": "Monster remaining",
+  "dungeon.floorCleared": "Floor cleared! Claim reward.",
+  "dungeon.claimReward": "Claim Reward",
+  "dungeon.descend": "Descend to Floor {floor}",
+
+  // ── Event Feed ──────────────────────────────────────────────
+  "eventfeed.you": "You",
+  "eventfeed.someone": "Someone",
+  "eventfeed.levelUp": "⭐ {name} reached Lv {level}!",
+  "eventfeed.questComplete": "📜 Quest complete! +{exp}xp +{zeny}z",
+
+  // ── Friend List ────────────────────────────────────────────
+  "friend.addPlaceholder": "Character name to add",
+  "friend.addBtn": "+ Add",
+  "friend.empty": "No friends yet — add one to send /w easily",
+  "friend.onlineStatus": "Online",
+  "friend.offlineStatus": "Offline",
+  "friend.removeConfirm": "Remove {name} from friends?",
+
+  // ── Job Advancement ─────────────────────────────────────────
+  "jobadv.title": "Change Job",
+  "jobadv.levelText": "Level {level} — Change job from {from} to:",
+  "jobadv.noSecondClass": "This job has no 2nd-class yet",
+  "jobadv.confirmChange": "Change to {job}? Cannot be undone",
+  "jobadv.skillsLabel": "Skills:",
 
 } as const;
 export type LocaleKey = keyof typeof en;

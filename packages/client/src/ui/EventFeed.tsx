@@ -1,11 +1,13 @@
 import { useEffect, useState } from "react";
 import type { Room } from "colyseus.js";
 import type { WorldState } from "@game/shared";
+import { useT } from "../locales/useT";
 
 type Entry = { id: number; text: string; color: string; born: number; severity: "info" | "warn" | "error" };
 let UID = 0;
 
 export function EventFeed({ room }: { room: Room<WorldState> }) {
+  const t = useT();
   const [entries, setEntries] = useState<Entry[]>([]);
 
   useEffect(() => {
@@ -13,11 +15,11 @@ export function EventFeed({ room }: { room: Room<WorldState> }) {
       setEntries((arr) => [...arr.slice(-7), { id: ++UID, text, color, born: Date.now(), severity }]);
     };
     const off1 = room.onMessage("levelup" as any, (m: any) => {
-      const name = m.name ?? (m.playerId === room.sessionId ? "You" : "Someone");
-      add(`⭐ ${name} reached Lv ${m.level}!`, "#fde047", "info");
+      const name = m.name ?? (m.playerId === room.sessionId ? t("eventfeed.you") : t("eventfeed.someone"));
+      add(t("eventfeed.levelUp", { name, level: m.level }), "#fde047", "info");
     });
     const off2 = room.onMessage("questReward" as any, (m: any) => {
-      add(`📜 Quest complete! +${m.exp}xp +${m.zeny}z`, "#86efac", "info");
+      add(t("eventfeed.questComplete", { exp: m.exp, zeny: m.zeny }), "#86efac", "info");
     });
     const off3 = room.onMessage("system" as any, (m: any) => {
       const sev = m.severity ?? "info";

@@ -527,13 +527,38 @@ export const th = {
   "worldCreate.create": "สร้าง",
 
   // ── Dungeon UI ────────────────────────────────────────────────
-  "dungeon.title": "ดันเจอน",
+  "dungeon.title": "หอคอยไม่มีที่สิ้นสุด — ชั้น {floor}",
   "dungeon.enter": "เข้า",
   "dungeon.floor": "ชั้น",
   "dungeon.clear": "ผ่านแล้ว",
   "dungeon.reward": "รางวัล",
   "dungeon.locked": "ล็อก",
   "dungeon.recommendedLevel": "เลเวลแนะนำ",
+  "dungeon.monsterRemaining": "มอนสเตอร์ที่เหลือ",
+  "dungeon.floorCleared": "ผ่านด่านแล้ว! รับรางวัล",
+  "dungeon.claimReward": "รับรางวัล",
+  "dungeon.descend": "ลงชั้น {floor}",
+
+  // ── Event Feed ──────────────────────────────────────────────
+  "eventfeed.you": "คุณ",
+  "eventfeed.someone": "ใครสักคน",
+  "eventfeed.levelUp": "⭐ {name} ขึ้นเลเวล {level}!",
+  "eventfeed.questComplete": "📜 ทำเควสเสร็จ! +{exp}xp +{zeny}z",
+
+  // ── Friend List ────────────────────────────────────────────
+  "friend.addPlaceholder": "ชื่อตัวละครที่อยากเพิ่ม",
+  "friend.addBtn": "+ เพิ่ม",
+  "friend.empty": "ยังไม่มีเพื่อน — เพิ่มเพื่อจะส่ง /w ได้สะดวก",
+  "friend.onlineStatus": "ออนไลน์",
+  "friend.offlineStatus": "ออฟไลน์",
+  "friend.removeConfirm": "ลบ {name} ออกจากเพื่อน?",
+
+  // ── Job Advancement ─────────────────────────────────────────
+  "jobadv.title": "เปลี่ยนอาชีพ",
+  "jobadv.levelText": "เลเวล {level} — เปลี่ยนอาชีพจาก {from} เป็น:",
+  "jobadv.noSecondClass": "อาชีพนี้ยังไม่มี 2nd-class",
+  "jobadv.confirmChange": "เปลี่ยนเป็น {job}? เปลี่ยนแล้วย้อนกลับไม่ได้",
+  "jobadv.skillsLabel": "สกิล:",
 
 } as const;
 export type LocaleKey = keyof typeof th;

@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
 import type { Room } from "colyseus.js";
 import { type WorldState } from "@game/shared";
+import { useT } from "../locales/useT";
 
 export function DungeonUI({ room }: { room: Room<WorldState> }) {
+  const t = useT();
   const [floor, setFloor] = useState(0);
   const [cleared, setCleared] = useState(false);
   const [monstersTotal, setMonstersTotal] = useState(0);
@@ -26,13 +28,13 @@ export function DungeonUI({ room }: { room: Room<WorldState> }) {
     <div className="absolute top-4 right-4 w-56 pointer-events-auto">
       <div className="bg-slate-900/90 border-2 border-amber-500 rounded-2xl p-3 text-white text-sm">
         <div className="text-center font-bold text-amber-400 text-base mb-2">
-          🏰 Endless Tower — Floor {floor}
+          🏰 {t("dungeon.title", { floor })}
         </div>
 
         <div className="space-y-2">
           {/* Monster counter */}
           <div>
-            <div className="text-xs text-slate-400 mb-1">Monster remaining</div>
+            <div className="text-xs text-slate-400 mb-1">{t("dungeon.monsterRemaining")}</div>
             <div className="flex items-center gap-2">
               <div className="flex-1 h-2 bg-slate-700 rounded-full overflow-hidden">
                 <div
@@ -53,7 +55,7 @@ export function DungeonUI({ room }: { room: Room<WorldState> }) {
           {/* Cleared banner */}
           {cleared && (
             <div className="text-center text-amber-400 font-bold text-xs animate-pulse">
-              ✅ Floor cleared! Claim reward.
+              ✅ {t("dungeon.floorCleared")}
             </div>
           )}
 
@@ -65,7 +67,7 @@ export function DungeonUI({ room }: { room: Room<WorldState> }) {
                 className="w-full py-1.5 px-3 rounded-lg text-xs font-bold text-white"
                 style={{ background: "linear-gradient(180deg, #fde68a 0%, #fbbf24 60%, #d97706 100%)" }}
               >
-                💰 Claim Reward
+                💰 {t("dungeon.claimReward")}
               </button>
             )}
             {cleared && (
@@ -74,7 +76,7 @@ export function DungeonUI({ room }: { room: Room<WorldState> }) {
                 className="w-full py-1.5 px-3 rounded-lg text-xs font-bold text-white"
                 style={{ background: "linear-gradient(180deg, #c084fc 0%, #a855f7 60%, #7c3aed 100%)" }}
               >
-                ⬇️ Descend to Floor {floor + 1}
+                ⬇️ {t("dungeon.descend", { floor: floor + 1 })}
               </button>
             )}
           </div>

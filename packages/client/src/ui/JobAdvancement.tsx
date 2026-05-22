@@ -5,8 +5,10 @@ import { useEffect, useState } from "react";
 import type { Room } from "colyseus.js";
 import { JOBS, JOB_ADVANCEMENT, type Player, type WorldState, type JobId } from "@game/shared";
 import { GameFrame } from "./GameFrame";
+import { useT } from "../locales/useT";
 
 export function JobAdvancement({ room }: { room: Room<WorldState> }) {
+  const t = useT();
   const [open, setOpen] = useState(false);
   useEffect(() => {
     const onToggle = () => setOpen((o) => !o);
@@ -36,15 +38,15 @@ export function JobAdvancement({ room }: { room: Room<WorldState> }) {
   return (
     <div data-no-screen-joy className="absolute inset-0 z-40 flex items-center justify-center bg-black/65 backdrop-blur-sm py-12 px-4" onClick={() => setOpen(false)}>
       <div className="w-[24rem] max-w-[94vw]" onClick={(e) => e.stopPropagation()}>
-        <GameFrame title="✨ เปลี่ยนอาชีพ">
+        <GameFrame title={t("jobadv.title")}>
           <button onClick={() => setOpen(false)} className="absolute -top-3 -right-3 w-8 h-8 rounded-full bg-rose-700 hover:bg-rose-600 border-2 border-rose-300 text-white font-bold z-10">✕</button>
 
           <div className="text-xs text-slate-300 mb-3">
-            เลเวล {me.level} — เปลี่ยนอาชีพจาก <span className="text-amber-300 font-bold">{(JOBS as any)[me.job]?.name ?? me.job}</span> เป็น:
+            {t("jobadv.levelText", { level: me.level, from: (JOBS as any)[me.job]?.name ?? me.job })}
           </div>
 
           {options.length === 0 ? (
-            <div className="text-slate-400 italic text-xs text-center py-4">อาชีพนี้ยังไม่มี 2nd-class</div>
+            <div className="text-slate-400 italic text-xs text-center py-4">{t("jobadv.noSecondClass")}</div>
           ) : (
             <div className="space-y-1.5">
               {options.map((j) => {
@@ -54,7 +56,7 @@ export function JobAdvancement({ room }: { room: Room<WorldState> }) {
                   <button
                     key={j}
                     onClick={() => {
-                      if (confirm(`เปลี่ยนเป็น ${job.name}? เปลี่ยนแล้วย้อนกลับไม่ได้`)) {
+                      if (confirm(t("jobadv.confirmChange", { job: job.name }))) {
                         room.send("advanceJob" as any, { job: j });
                         setOpen(false);
                       }
@@ -66,7 +68,7 @@ export function JobAdvancement({ room }: { room: Room<WorldState> }) {
                       HP/lv: {job.hpPerLevel} · MP/lv: {job.mpPerLevel ?? "-"} · ATK/lv: {job.atkPerLevel ?? "-"}
                     </div>
                     <div className="text-[10px] text-cyan-300 mt-0.5">
-                      สกิล: {job.skills?.map((s: any) => s.icon ?? s.name).join(" ") ?? "-"}
+                      {t("jobadv.skillsLabel")} {job.skills?.map((s: any) => s.icon ?? s.name).join(" ") ?? "-"}
                     </div>
                   </button>
                 );
