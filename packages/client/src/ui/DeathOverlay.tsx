@@ -1,10 +1,12 @@
 import { useEffect, useState } from "react";
 import type { Room } from "colyseus.js";
 import type { WorldState } from "@game/shared";
+import { useT } from "../locales/useT";
 
 const RESPAWN_MS = 5000;
 
 export function DeathOverlay({ room }: { room: Room<WorldState> }) {
+  const t = useT();
   const [, setTick] = useState(0);
   const [deathAt, setDeathAt] = useState<number | null>(null);
 
@@ -49,11 +51,11 @@ export function DeathOverlay({ room }: { room: Room<WorldState> }) {
           className="text-7xl font-black tracking-[0.2em] bg-gradient-to-b from-rose-200 via-rose-400 to-rose-700 text-transparent bg-clip-text drop-shadow-[0_0_20px_rgba(239,68,68,0.6)]"
           style={{ animation: "deathDrop 0.6s ease-out" }}
         >
-          คุณตายแล้ว
+          {t("death.title")}
         </div>
-        <div className="text-rose-300/80 text-sm italic">"ทุกผู้กล้าล้วนล้มเหลว... แต่ลุกขึ้นมาใหม่ได้เสมอ"</div>
+        <div className="text-rose-300/80 text-sm italic">"{t("death.quote")}"</div>
         <div className="text-cyan-300 text-lg mt-6">
-          ฟื้นใน <span className="text-5xl font-black text-white">{remainingSec}</span>
+          {t("death.respawning")} <span className="text-5xl font-black text-white">{remainingSec}</span>
         </div>
         <div className="w-64 h-1.5 mx-auto bg-black/60 border border-rose-500/30 rounded-full overflow-hidden">
           <div

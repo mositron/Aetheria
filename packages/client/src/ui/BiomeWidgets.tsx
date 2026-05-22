@@ -3,10 +3,12 @@ import type { Room } from "colyseus.js";
 import { MAPS, BIOMES, biomeAt, type WorldState, type MapId } from "@game/shared";
 import { setAmbientBiome, stopAmbient } from "../sfx/sfx";
 import { useSettings } from "./SettingsPanel";
+import { useT } from "../locales/useT";
 
 /** Biome toast + compass-to-village. Both top-center, lightweight. */
 export function BiomeWidgets({ room }: { room: Room<WorldState> }) {
   const settings = useSettings();
+  const t = useT();
   const [biome, setBiome] = useState<string | null>(null);
   const [showToast, setShowToast] = useState<{ id: string; name: string } | null>(null);
   const [bearing, setBearing] = useState(0);   // radians toward home
@@ -60,7 +62,7 @@ export function BiomeWidgets({ room }: { room: Room<WorldState> }) {
                 <path d="M12 2 L17 14 L12 11 L7 14 Z" fill="#22d3ee" stroke="#0e7490" strokeWidth="0.8" />
               </svg>
             </div>
-            <span className="text-[11px] text-cyan-100 font-semibold">🏘 หมู่บ้าน</span>
+            <span className="text-[11px] text-cyan-100 font-semibold">🏘 {t("biome.village")}</span>
             <span className="text-[10px] text-slate-300">{Math.round(distance)}m</span>
           </div>
         </div>
@@ -77,7 +79,7 @@ export function BiomeWidgets({ room }: { room: Room<WorldState> }) {
             className="px-6 py-3 bg-gradient-to-b from-slate-900/95 to-black/85 backdrop-blur-md border-2 border-amber-400/60 rounded shadow-[0_0_30px_rgba(251,191,36,0.3)]"
             style={{ clipPath: "polygon(12px 0, calc(100% - 12px) 0, 100% 50%, calc(100% - 12px) 100%, 12px 100%, 0 50%)" }}
           >
-            <div className="text-[10px] text-amber-300 tracking-[0.4em] uppercase text-center">เข้าสู่</div>
+            <div className="text-[10px] text-amber-300 tracking-[0.4em] uppercase text-center">{t("biome.enter")}</div>
             <div className="text-2xl font-black tracking-wider text-white text-center drop-shadow-[0_0_10px_rgba(251,191,36,0.5)]">
               {showToast.name}
             </div>

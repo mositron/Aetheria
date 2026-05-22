@@ -343,6 +343,12 @@ export const th = {
   "ach.locked": "ยังไม่ปลดล็อก",
   "ach.progress": "ความก้าวหน้า",
   "ach.total": "ทั้งหมด",
+  "ach.myTitles": "ตำแหน่งของฉัน",
+  "ach.none": "ไม่ใช้",
+  "ach.changeTitle": "เปลี่ยนตำแหน่ง?",
+  "ach.confirmChangeTitle": "เปลี่ยนฉายาเป็น \"{title}\" หรือไม่?",
+  "ach.confirmClearTitle": "ยกเลิกฉายาปัจจุบันหรือไม่?",
+  "ach.change": "เปลี่ยน",
 
   // ── Auction House ────────────────────────────────────────────
   "auction.title": "ตลาดประมูล",
@@ -839,6 +845,28 @@ export const th = {
   "jobadv.noSecondClass": "อาชีพนี้ยังไม่มี 2nd-class",
   "jobadv.confirmChange": "เปลี่ยนเป็น {job}? เปลี่ยนแล้วย้อนกลับไม่ได้",
   "jobadv.skillsLabel": "สกิล:",
+
+  // ── Death Overlay ──────────────────────────────────────────
+  "death.title": "คุณตายแล้ว",
+  "death.quote": "ทุกผู้กล้าล้วนล้มเหลว... แต่ลุกขึ้นมาใหม่ได้เสมอ",
+  "death.respawning": "ฟื้นใน",
+
+  // ── Emote Wheel ────────────────────────────────────────────
+  "emote.wave": "ทักทาย",
+  "emote.heart": "รัก",
+  "emote.laugh": "ขำ",
+  "emote.cry": "เศร้า",
+  "emote.wow": "ตกใจ",
+  "emote.sleep": "ง่วง",
+  "emote.dance": "เต้น",
+  "emote.thanks": "ขอบคุณ",
+  "emote.selfie": "เซลฟี่",
+  "emote.yes": "เห็นด้วย",
+  "emote.no": "ไม่",
+  "emote.music": "เพลง",
+
+  // ── Level Up Celebration ──────────────────────────────────
+  "levelup.improved": "เก่งขึ้นแล้ว!",
 
 } as const;
 export type LocaleKey = keyof typeof th;

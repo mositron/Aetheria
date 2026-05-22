@@ -343,6 +343,12 @@ export const en = {
   "ach.locked": "Not unlocked yet",
   "ach.progress": "Progress",
   "ach.total": "Total",
+  "ach.myTitles": "My Titles",
+  "ach.none": "None",
+  "ach.changeTitle": "Change Title?",
+  "ach.confirmChangeTitle": "Change your title to \"{title}\"?",
+  "ach.confirmClearTitle": "Clear your current title?",
+  "ach.change": "Change",
 
   // ── Auction House ────────────────────────────────────────────
   "auction.title": "Auction House",
@@ -767,6 +773,7 @@ export const en = {
 
   // ── Party ──────────────────────────────────────────────────────
   "party.inviteTitle": "Party Invite",
+  "party.party": "Party",
   "party.invitesYou": "{name} invites you to party!",
   "party.accept": "Accept",
   "party.decline": "Decline",
@@ -842,6 +849,28 @@ export const en = {
   "jobadv.noSecondClass": "This job has no 2nd-class yet",
   "jobadv.confirmChange": "Change to {job}? Cannot be undone",
   "jobadv.skillsLabel": "Skills:",
+
+  // ── Death Overlay ──────────────────────────────────────────
+  "death.title": "You Died",
+  "death.quote": "All heroes fall... but rise again",
+  "death.respawning": "Respawn in",
+
+  // ── Emote Wheel ────────────────────────────────────────────
+  "emote.wave": "Wave",
+  "emote.heart": "Love",
+  "emote.laugh": "Haha",
+  "emote.cry": "Sad",
+  "emote.wow": "Wow",
+  "emote.sleep": "Sleepy",
+  "emote.dance": "Dance",
+  "emote.thanks": "Thanks",
+  "emote.selfie": "Selfie",
+  "emote.yes": "Yes",
+  "emote.no": "No",
+  "emote.music": "Music",
+
+  // ── Level Up Celebration ──────────────────────────────────
+  "levelup.improved": "Improved!",
 
 } as const;
 export type LocaleKey = keyof typeof en;

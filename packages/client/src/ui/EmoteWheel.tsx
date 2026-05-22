@@ -2,23 +2,15 @@ import { useEffect, useState } from "react";
 import type { Room } from "colyseus.js";
 import type { WorldState } from "@game/shared";
 import { keyEq } from "../utils/keyMatch";
+import { useT } from "../locales/useT";
 
-const EMOTES = [
-  { id: "wave",    icon: "👋", label: "ทักทาย" },
-  { id: "heart",   icon: "💖", label: "รัก" },
-  { id: "laugh",   icon: "😂", label: "ขำ" },
-  { id: "cry",     icon: "😭", label: "เศร้า" },
-  { id: "wow",     icon: "😮", label: "ตกใจ" },
-  { id: "sleep",   icon: "😴", label: "ง่วง" },
-  { id: "dance",   icon: "💃", label: "เต้น" },
-  { id: "thanks",  icon: "🙏", label: "ขอบคุณ" },
-  { id: "selfie",  icon: "📸", label: "เซลฟี่" },
-  { id: "yes",     icon: "👍", label: "เห็นด้วย" },
-  { id: "no",      icon: "👎", label: "ไม่" },
-  { id: "music",   icon: "🎵", label: "เพลง" },
-];
+const EMOTE_IDS = [
+  "wave", "heart", "laugh", "cry", "wow", "sleep",
+  "dance", "thanks", "selfie", "yes", "no", "music",
+] as const;
 
 export function EmoteWheel({ room }: { room: Room<WorldState> }) {
+  const t = useT();
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
@@ -41,6 +33,11 @@ export function EmoteWheel({ room }: { room: Room<WorldState> }) {
     setOpen(false);
   }
 
+  const EMOTE_ICONS: Record<string, string> = {
+    wave: "👋", heart: "💖", laugh: "😂", cry: "😭", wow: "😮", sleep: "😴",
+    dance: "💃", thanks: "🙏", selfie: "📸", yes: "👍", no: "👎", music: "🎵",
+  };
+
   return (
     <>
       {open && (
@@ -58,16 +55,16 @@ export function EmoteWheel({ room }: { room: Room<WorldState> }) {
             }}
             onClick={(e) => e.stopPropagation()}
           >
-            {EMOTES.map((e) => (
+            {EMOTE_IDS.map((id) => (
               <button
-                key={e.id}
-                onClick={() => play(e.icon)}
-                onTouchStart={(ev) => { ev.preventDefault(); play(e.icon); }}
+                key={id}
+                onClick={() => play(EMOTE_ICONS[id])}
+                onTouchStart={(ev) => { ev.preventDefault(); play(EMOTE_ICONS[id]); }}
                 className="flex flex-col items-center gap-1 p-2 rounded-2xl bg-white/70 border-2 border-white hover:scale-110 active:scale-95 transition-transform"
                 style={{ minWidth: 64 }}
               >
-                <span className="text-3xl">{e.icon}</span>
-                <span className="text-[10px] font-bold text-pink-800">{e.label}</span>
+                <span className="text-3xl">{EMOTE_ICONS[id]}</span>
+                <span className="text-[10px] font-bold text-pink-800">{t(`emote.${id}`)}</span>
               </button>
             ))}
           </div>

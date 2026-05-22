@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
 import type { Room } from "colyseus.js";
 import type { WorldState } from "@game/shared";
+import { useT } from "../locales/useT";
 
 export function LevelUpCelebration({ room }: { room: Room<WorldState> }) {
+  const t = useT();
   const [show, setShow] = useState<{ level: number } | null>(null);
 
   useEffect(() => {
@@ -31,7 +33,7 @@ export function LevelUpCelebration({ room }: { room: Room<WorldState> }) {
         <div className="text-7xl font-black text-amber-900" style={{ filter: "drop-shadow(0 4px 6px rgba(0,0,0,0.3))" }}>
           ⭐ Lv {show.level}
         </div>
-        <div className="text-amber-700 text-xs italic mt-1">เก่งขึ้นแล้ว!</div>
+        <div className="text-amber-700 text-xs italic mt-1">{t("levelup.improved")}</div>
 
         {/* sparkles */}
         {[
