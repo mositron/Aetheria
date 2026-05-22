@@ -1,0 +1,14 @@
+#!/bin/bash
+# Pre-commit hook for game-v1
+# Runs ESLint on all packages before commit
+
+echo "Running pre-commit lint..."
+
+pnpm exec eslint packages/server/src packages/client/src packages/shared/src --max-warnings 0
+
+if [ $? -ne 0 ]; then
+  echo "Lint failed. Please fix errors before committing."
+  exit 1
+fi
+
+echo "Pre-commit lint passed."

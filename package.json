@@ -9,7 +9,9 @@
     "build": "pnpm -r build",
     "db:push": "pnpm --filter @game/server db:push",
     "test:harness": "tsx tools/harness-runner.ts",
-    "loadtest": "k6 run tools/k6/loadtest-room.js"
+    "loadtest": "k6 run tools/k6/loadtest-room.js",
+    "lint": "eslint .",
+    "format": "prettier --write ."
   },
   "devDependencies": {
     "ioredis-mock": "^8.13.1",
