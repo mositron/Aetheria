@@ -2,13 +2,14 @@ import { useEffect, useState } from "react";
 import type { Room } from "colyseus.js";
 import { JOBS, JOB_ADVANCEMENT, SECOND_TIER_JOBS, type JobId, type Player, type WorldState } from "@game/shared";
 import { GameFrame } from "./GameFrame";
+import { useT } from "../locales/useT";
 
 const FIRST_CLASS_OPTIONS = [
-  { job: "swordsman", icon: "⚔", label: "นักดาบ", desc: "HP สูง + เบิร์สแรง" },
-  { job: "mage",      icon: "🪄", label: "เมจ",   desc: "MP เยอะ + เวทธาตุ" },
-  { job: "archer",    icon: "🏹", label: "นักธนู", desc: "โจมตีระยะไกล" },
-  { job: "acolyte",   icon: "✨", label: "อโคไลท์", desc: "ฮีล + holy" },
-  { job: "thief",     icon: "🗡", label: "โจร",   desc: "พิษ + เบิร์ส" },
+  { job: "swordsman", icon: "⚔", labelKey: "job.swordsmanLabel", descKey: "job.swordsmanDesc" },
+  { job: "mage",      icon: "🪄", labelKey: "job.mageLabel",     descKey: "job.mageDesc" },
+  { job: "archer",    icon: "🏹", labelKey: "job.archerLabel",   descKey: "job.archerDesc" },
+  { job: "acolyte",   icon: "✨", labelKey: "job.acolyteLabel",  descKey: "job.acolyteDesc" },
+  { job: "thief",     icon: "🗡", labelKey: "job.thiefLabel",    descKey: "job.thiefDesc" },
 ];
 
 const SECOND_CLASS_LABELS: Record<string, { icon: string; label: string; desc: string }> = {
@@ -28,6 +29,7 @@ const THIRD_CLASS_LABELS: Record<string, { icon: string; label: string; desc: st
 };
 
 export function JobPicker({ room }: { room: Room<WorldState> }) {
+  const t = useT();
   const [, setTick] = useState(0);
   useEffect(() => {
     const id = setInterval(() => setTick((t) => t + 1), 250);
@@ -47,20 +49,20 @@ export function JobPicker({ room }: { room: Room<WorldState> }) {
 
   if (!firstClassReady && !secondClassReady && !thirdClassReady) return null;
 
-  return (
+return (
     <div className="absolute bottom-32 left-1/2 -translate-x-1/2 w-[26rem] max-w-[94vw] pointer-events-auto">
       <GameFrame
-        title={firstClassReady ? "เปลี่ยนอาชีพ Lv 5" : thirdClassReady ? "เลื่อนขั้น 3rd-class (Lv50)" : "เลื่อนขั้น 2nd-class"}
+        title={firstClassReady ? t("job.changeTitleLv5") : thirdClassReady ? t("job.promoTitle3rd") : t("job.promoTitle2nd")}
         variant={thirdClassReady ? "gold" : secondClassReady ? "violet" : "cyan"}
       >
         <div className="text-center text-xs text-slate-300 mb-2">
-          {firstClassReady ? "เลือกอาชีพแรกของคุณ — ปลดล็อก skill ใหม่!" :
-           thirdClassReady ? "🌟 ผ่านเลเวล 50 — เลื่อนขั้นเป็นอาชีพชั้นสูง!" :
-           "🌟 ผ่านเลเวล 30 — เลื่อนขั้นเป็นอาชีพชั้นสอง!"}
+          {firstClassReady ? t("job.pickFirst") :
+           thirdClassReady ? "🌟 " + t("job.promo50") :
+           "🌟 " + t("job.promo30")}
         </div>
         <div className="grid grid-cols-2 gap-2">
           {firstClassReady && FIRST_CLASS_OPTIONS.map((j) => (
-            <JobBtn key={j.job} job={j.job} icon={j.icon} label={j.label} desc={j.desc} room={room} variant="primary" />
+            <JobBtn key={j.job} job={j.job} icon={j.icon} label={t(j.labelKey)} desc={t(j.descKey)} room={room} variant="primary" />
           ))}
           {secondClassReady && advancements!.map((nextJob) => {
             const info = SECOND_CLASS_LABELS[nextJob];

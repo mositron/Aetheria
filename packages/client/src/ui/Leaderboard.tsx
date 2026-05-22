@@ -1,9 +1,11 @@
 import { useEffect, useState } from "react";
 import { GameFrame } from "./GameFrame";
+import { useT } from "../locales/useT";
 
 type Entry = { name: string; score: number; kills: number; level: number };
 
 export function Leaderboard() {
+  const t = useT();
   const [open, setOpen] = useState(false);
   const [entries, setEntries] = useState<Entry[]>([]);
   const [loading, setLoading] = useState(false);
@@ -32,11 +34,11 @@ export function Leaderboard() {
   return (
     <div data-no-screen-joy role="dialog" aria-modal="true" className="absolute inset-0 z-40 flex items-center justify-center bg-black/65 backdrop-blur-sm py-16 px-4" onClick={() => setOpen(false)}>
       <div className="w-[24rem] max-w-[94vw]" onClick={(e) => e.stopPropagation()}>
-        <GameFrame title="🏆 Top 10 สัปดาห์นี้">
+        <GameFrame title={"🏆 " + t("leader.top10Title")}>
           <button onClick={() => setOpen(false)} className="absolute -top-3 -right-3 w-8 h-8 rounded-full bg-rose-700 hover:bg-rose-600 border-2 border-rose-300 text-white font-bold z-10">✕</button>
           <div className="space-y-1.5 pt-1">
-            {loading && <div className="text-center text-slate-400 py-4">กำลังโหลด...</div>}
-            {!loading && entries.length === 0 && <div className="text-center text-slate-400 py-4">ยังไม่มีคะแนน — ออกล่า mob เลย!</div>}
+            {loading && <div className="text-center text-slate-400 py-4">{t("leader.loading")}</div>}
+            {!loading && entries.length === 0 && <div className="text-center text-slate-400 py-4">{t("leader.noScores")}</div>}
             {entries.map((e, i) => (
               <div
                 key={e.name}
@@ -61,7 +63,7 @@ export function Leaderboard() {
               </div>
             ))}
           </div>
-          <div className="text-[9px] text-slate-400 text-center mt-2">รีเซ็ตทุกวันจันทร์</div>
+          <div className="text-[9px] text-slate-400 text-center mt-2">{t("leader.resetWeekly")}</div>
         </GameFrame>
       </div>
     </div>

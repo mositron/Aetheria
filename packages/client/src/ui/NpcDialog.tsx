@@ -4,8 +4,10 @@ import FocusTrap from "focus-trap-react";
 import { ITEMS, NPCS, QUESTS, QUESTS_BY_GIVER, HOUSE_COST, type Player, type WorldState } from "@game/shared";
 import { useStore } from "../store";
 import { useQuests } from "../hooks/useQuests";
+import { useT } from "../locales/useT";
 
 export function NpcDialog({ room }: { room: Room<WorldState> }) {
+  const t = useT();
   const npcId = useStore((s) => s.activeNpcId);
   const close = () => useStore.setState({ activeNpcId: null });
   const [tab, setTab] = useState<"buy" | "sell" | "quests">("buy");
@@ -58,7 +60,7 @@ return (
         <span>{npc.icon} {npc.name}</span>
         <span className="flex items-center gap-2">
           <span className="normal-case text-yellow-200">💰 {me?.zeny ?? 0}z</span>
-          <button onClick={close} aria-label="ปิด">✕</button>
+          <button onClick={close} aria-label={t("npc.close")}>✕</button>
         </span>
       </div>
       <div className="text-[11px] text-slate-300 italic">"{npc.dialog}"</div>
@@ -110,22 +112,22 @@ return (
               {/* Bulk-sell shortcuts (sit at top of the sell list) */}
               <div className="flex gap-1.5 mb-1.5 sticky top-0 bg-slate-900/90 backdrop-blur-sm py-1 z-10">
                 <button
-                  onClick={() => {
-                    if (!confirm("ขาย material ทั้งหมด? (รวมของในกระเป๋าทั้งหมด)")) return;
+onClick={() => {
+                    if (!confirm(t("npc.confirmSellMaterials"))) return;
                     setErr(null); room.send("shopSellMany", { npcId: npc.id, sellAllMaterials: true });
                   }}
                   className="flex-1 bg-amber-700/70 hover:bg-amber-600 border border-amber-400/40 rounded px-2 py-1.5 text-[11px] font-bold text-white"
                 >
-                  💼 ขาย material ทั้งหมด
+                  💼 {t("npc.sellAllMaterials")}
                 </button>
                 <button
-                  onClick={() => {
-                    if (!confirm("ขายของรกๆ ทั้งหมด?")) return;
+onClick={() => {
+                    if (!confirm(t("npc.confirmSellJunk"))) return;
                     setErr(null); room.send("shopSellMany", { npcId: npc.id, sellAllJunk: true });
                   }}
                   className="flex-1 bg-rose-700/70 hover:bg-rose-600 border border-rose-400/40 rounded px-2 py-1.5 text-[11px] font-bold text-white"
                 >
-                  🗑 ขายของรกๆ
+                  🗑 {t("npc.sellAllJunk")}
                 </button>
               </div>
               {Array.from(me.inventory.values()).length === 0 && <div className="text-slate-500 text-sm">Inventory is empty.</div>}
@@ -206,29 +208,30 @@ return (
 }
 
 function TutorialPanel() {
+  const t = useT();
   const tips = [
-    { icon: "⚔", title: "การต่อสู้", body: "แตะปุ่ม ⚔ เพื่อโจมตี mob ใกล้สุดอัตโนมัติ" },
-    { icon: "🪵", title: "เก็บทรัพยากร", body: "ตีต้นไม้ได้ไม้ · ตีหินได้หิน · พุ่มไม้ได้เบอร์รี่" },
-    { icon: "🪓", title: "เครื่องมือ", body: "Craft ขวาน/อีเหล็ก → ตัดเร็วขึ้น 3 เท่า" },
-    { icon: "💧", title: "น้ำ", body: "ไปทะเลสาบ (NE) → กดปุ่ม 💧 ดื่ม หรือ 🎣 ตกปลา" },
-    { icon: "🌱", title: "ปลูกผัก", body: "เก็บ berry_seed → แตะในช่อง hotbar → ปลูก รอ 3 นาที" },
-    { icon: "🏠", title: "บ้าน", body: "คุยช่างไม้ Bren → 20 ไม้ + 10 หิน + 500z" },
-    { icon: "🐎", title: "เลี้ยงสัตว์", body: "ป้อน berry กับ ไก่/หมู/วัว 3-7 ครั้ง → จับเป็นสัตว์เลี้ยง → ขี่ได้" },
-    { icon: "🔨", title: "Crafting", body: "กดปุ่ม 🔨 หรือ K → ทำของจากทรัพยากร" },
-    { icon: "🌙", title: "กลางคืน", body: "มอนสเตอร์แรงขึ้น 1.5× → ระวังให้ดี" },
+    { icon: "⚔", titleKey: "npc.tipCombat", bodyKey: "npc.tipCombatBody" },
+    { icon: "🪵", titleKey: "npc.tipGather", bodyKey: "npc.tipGatherBody" },
+    { icon: "🪓", titleKey: "npc.tipTools", bodyKey: "npc.tipToolsBody" },
+    { icon: "💧", titleKey: "npc.tipWater", bodyKey: "npc.tipWaterBody" },
+    { icon: "🌱", titleKey: "npc.tipFarm", bodyKey: "npc.tipFarmBody" },
+    { icon: "🏠", titleKey: "npc.tipHouse", bodyKey: "npc.tipHouseBody" },
+    { icon: "🐎", titleKey: "npc.tipPets", bodyKey: "npc.tipPetsBody" },
+    { icon: "🔨", titleKey: "npc.tipCrafting", bodyKey: "npc.tipCraftingBody" },
+    { icon: "🌙", titleKey: "npc.tipNight", bodyKey: "npc.tipNightBody" },
   ];
   return (
     <div className="bg-cyan-900/30 border border-cyan-400/40 rounded p-2 space-y-1.5 max-h-72 overflow-y-auto game-scroll">
       <div className="text-cyan-100 font-bold text-xs flex items-center gap-1">
-        🎓 คู่มือผู้กล้า
+        🎓 {t("npc.tutorial")}
       </div>
       <div className="space-y-1">
-        {tips.map((t, i) => (
+        {tips.map((tip, i) => (
           <div key={i} className="flex gap-2 items-start text-[11px] py-1 border-b border-white/5 last:border-b-0">
-            <span className="text-lg leading-none">{t.icon}</span>
+            <span className="text-lg leading-none">{tip.icon}</span>
             <div className="flex-1">
-              <div className="font-bold text-amber-200">{t.title}</div>
-              <div className="text-slate-300">{t.body}</div>
+              <div className="font-bold text-amber-200">{t(tip.titleKey)}</div>
+              <div className="text-slate-300">{t(tip.bodyKey)}</div>
             </div>
           </div>
         ))}
@@ -238,6 +241,7 @@ function TutorialPanel() {
 }
 
 function CarpenterPanel({ room, me, building, setBuilding }: { room: Room<WorldState>; me: Player; building: boolean; setBuilding: (v: boolean) => void }) {
+  const t = useT();
   let wood = 0, stone = 0;
   for (const s of me.inventory.values()) {
     if (s.itemId === "wood_log") wood += s.qty;
@@ -249,28 +253,28 @@ function CarpenterPanel({ room, me, building, setBuilding }: { room: Room<WorldS
   const haveZeny = me.zeny >= HOUSE_COST.zeny;
   const canBuild = !hasHouse && haveWood && haveStone && haveZeny;
 
-  if (hasHouse) {
+if (hasHouse) {
     return (
       <div className="bg-emerald-900/40 border border-emerald-400/40 rounded p-2 text-xs">
-        🏠 คุณเป็นเจ้าของบ้านอยู่แล้ว (slot {me.houseSlot}) — ยินดีต้อนรับกลับ!
+        🏠 {t("npc.alreadyHaveHouse", { slot: me.houseSlot })}
       </div>
     );
   }
 
   return (
     <div className="bg-slate-900/60 border border-amber-400/30 rounded p-2 space-y-2 text-xs">
-      <div className="text-amber-200 font-bold">🏠 สร้างบ้าน</div>
+      <div className="text-amber-200 font-bold">🏠 {t("npc.carpenterTitle")}</div>
       <div className="grid grid-cols-3 gap-2">
-        <CostRow icon="🪵" label="ไม้" have={wood} need={HOUSE_COST.wood_log} ok={haveWood} />
-        <CostRow icon="🪨" label="หิน" have={stone} need={HOUSE_COST.stone_chunk} ok={haveStone} />
-        <CostRow icon="💰" label="zeny" have={me.zeny} need={HOUSE_COST.zeny} ok={haveZeny} />
+        <CostRow icon="🪵" label={t("npc.costWood")} have={wood} need={HOUSE_COST.wood_log} ok={haveWood} />
+        <CostRow icon="🪨" label={t("npc.costStone")} have={stone} need={HOUSE_COST.stone_chunk} ok={haveStone} />
+        <CostRow icon="💰" label={t("npc.zeny")} have={me.zeny} need={HOUSE_COST.zeny} ok={haveZeny} />
       </div>
 <button
         disabled={!canBuild || building}
         onClick={() => { setBuilding(true); room.send("buildHouse", {}); }}
         className="w-full py-1.5 rounded bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 disabled:opacity-40 disabled:cursor-not-allowed font-bold"
       >
-        {building ? "กำลังสร้าง..." : "🔨 สร้างเลย"}
+        {building ? t("npc.building") : "🔨 " + t("npc.buildNow")}
       </button>
     </div>
   );
@@ -291,6 +295,7 @@ function CostRow({ icon, label, have, need, ok }: { icon: string; label: string;
 const ENCHANT_COST = 500;
 
 function EnchantPanel({ room, me }: { room: Room<WorldState>; me: Player }) {
+  const t = useT();
   const [enchanting, setEnchanting] = useState<{ slot: number; itemId: string } | null>(null);
   const [paying, setPaying] = useState(false);
 
@@ -315,22 +320,22 @@ function EnchantPanel({ room, me }: { room: Room<WorldState>; me: Player }) {
 
   return (
     <div className="bg-slate-900/60 border border-orange-400/30 rounded p-2 space-y-2 text-xs">
-      <div className="text-orange-300 font-bold">⚒️ ปั้มไอเทม (+1 stat ต่อ 500z)</div>
+      <div className="text-orange-300 font-bold">{t("npc.enchantTitle")}</div>
       {enchanting ? (
         <div className="space-y-1">
-          <div className="text-slate-300">🔮 {ITEMS[enchanting.itemId]?.name} — รอจ่าย {ENCHANT_COST}z</div>
+          <div className="text-slate-300">🔮 {ITEMS[enchanting.itemId]?.name} — {t("npc.enchantWaiting", { item: ITEMS[enchanting.itemId]?.name ?? "", cost: ENCHANT_COST })}</div>
           <button
             onClick={payEnchant}
             disabled={paying || me.zeny < ENCHANT_COST}
             className="w-full py-1.5 rounded bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-500 hover:to-red-500 disabled:opacity-40 font-bold text-white"
           >
-            {paying ? "กำลังปั้ม..." : `จ่าย ${ENCHANT_COST}z`}
+            {paying ? t("npc.enchanting") : t("npc.enchantPay", { cost: ENCHANT_COST })}
           </button>
-          <button onClick={() => setEnchanting(null)} className="w-full py-1 rounded bg-slate-700 hover:bg-slate-600 text-slate-300">ยกเลิก</button>
+          <button onClick={() => setEnchanting(null)} className="w-full py-1 rounded bg-slate-700 hover:bg-slate-600 text-slate-300">{t("npc.enchantCancel")}</button>
         </div>
       ) : (
         <div className="space-y-1">
-          {equippable.length === 0 && <div className="text-slate-500 italic">ไม่มีอาวุธหรือเกราะในกระเป๋า</div>}
+          {equippable.length === 0 && <div className="text-slate-500 italic">{t("npc.enchantNoGear")}</div>}
           {equippable.map(({ s, i }) => {
             const def = ITEMS[s.itemId];
             return (
@@ -343,7 +348,7 @@ function EnchantPanel({ room, me }: { room: Room<WorldState>; me: Player }) {
                   disabled={me.zeny < ENCHANT_COST}
                   className="min-w-[44px] min-h-[32px] px-2 py-1 rounded bg-orange-700 hover:bg-orange-600 disabled:opacity-40 text-white text-[10px] font-bold"
                 >
-                  ปั้ม
+                  {t("npc.enchant")}
                 </button>
               </div>
             );
@@ -363,6 +368,7 @@ function getWaypointCost(wx: number, wz: number, px: number, pz: number): number
 }
 
 function WaypointPanel({ room, me }: { room: Room<WorldState>; me: Player }) {
+  const t = useT();
   const [wptList, setWptList] = useState<Array<{ id: string; x: number; z: number; label: string; icon: string }>>([]);
   const [using, setUsing] = useState(false);
 
@@ -375,7 +381,7 @@ function WaypointPanel({ room, me }: { room: Room<WorldState>; me: Player }) {
 
   const travel = (wpt: typeof wptList[0], cost: number) => {
     if (me.zeny < cost) {
-      room.send("system", { text: `❌ เงินไม่พอ — ต้องใช้ ${cost}z`, severity: "error" });
+      room.send("system", { text: t("npc.notEnoughZeny", { cost }), severity: "error" });
       return;
     }
     setUsing(true);
@@ -389,12 +395,12 @@ function WaypointPanel({ room, me }: { room: Room<WorldState>; me: Player }) {
 
   return (
     <div className="bg-slate-900/60 border border-cyan-400/30 rounded p-2 space-y-2 text-xs">
-      <div className="text-cyan-300 font-bold">🏛️ วาร์ปไปหมุด</div>
-      {wptList.length === 0 && <div className="text-slate-500 italic">ยังไม่มีหมุด — กด M แล้วคลิกแผนที่เพื่อบันทึก</div>}
+      <div className="text-cyan-300 font-bold">🏛️ {t("npc.waypointTitle")}</div>
+      {wptList.length === 0 && <div className="text-slate-500 italic">{t("npc.waypointNoMarkers")}</div>}
       <div className="space-y-1 max-h-32 overflow-y-auto">
         {wptList.map((w) => {
           const cost = getWaypointCost(w.x, w.z, myX, myZ);
-          const costLabel = cost === 50 ? "ไม่มีค่าใช้จ่าย" : `${cost}z`;
+          const costLabel = cost === 50 ? t("npc.waypointFree") : `${cost}z`;
           return (
             <div key={w.id} className="flex items-center gap-2 bg-slate-800 rounded p-1.5">
               <span>{w.icon}</span>
@@ -405,7 +411,7 @@ function WaypointPanel({ room, me }: { room: Room<WorldState>; me: Player }) {
                 disabled={using || me.zeny < cost}
                 className="min-w-[52px] min-h-[32px] px-2 py-1 rounded bg-cyan-700 hover:bg-cyan-600 disabled:opacity-40 text-white text-[10px] font-bold"
               >
-                {using ? "..." : `Warp (${cost}z)`}
+                {using ? "..." : t("npc.warp", { cost })}
               </button>
             </div>
           );
