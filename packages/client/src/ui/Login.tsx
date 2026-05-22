@@ -3,6 +3,7 @@ import { Canvas } from "@react-three/fiber";
 import { useStore } from "../store";
 import { MenuScene } from "./MenuScene";
 import { GameFrame } from "./GameFrame";
+import { AccountRecovery } from "./AccountRecovery";
 
 /** Compute strength 0-3 from password string. */
 function passwordStrength(password: string): number {
@@ -55,6 +56,7 @@ export function Login() {
   const [mode, setMode] = useState<"login" | "register">("login");
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [showRecovery, setShowRecovery] = useState(false);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -79,7 +81,15 @@ const res = await fetch(`/api/auth/${mode}`, {
       setErr(e.message);
     } finally {
       setBusy(false);
-    }
+}
+  }
+
+  if (showRecovery) {
+    return (
+      <div className="w-full h-full relative overflow-hidden">
+        <AccountRecovery onBack={() => setShowRecovery(false)} />
+      </div>
+    );
   }
 
   return (
@@ -125,12 +135,12 @@ const res = await fetch(`/api/auth/${mode}`, {
                 >
                   ✦ สมัครใหม่
                 </button>
-              </div>
+</div>
               <div>
                 <div className="game-label">⛨ ชื่อผู้ใช้</div>
                 <input className="game-input" placeholder="username" value={username} onChange={(e) => setU(e.target.value)} />
               </div>
-<div>
+              <div>
                 <div className="game-label">⚿ รหัสผ่าน</div>
                 <input className="game-input" placeholder="••••••" type="password" value={password} onChange={(e) => setP(e.target.value)} />
                 {mode === "register" && <PasswordStrength password={password} />}
@@ -151,6 +161,15 @@ const res = await fetch(`/api/auth/${mode}`, {
               <button disabled={busy} className="btn-game w-full">
                 {busy ? "กำลังเชื่อมต่อ…" : mode === "login" ? "▶ เข้าสู่โลก" : "✦ สร้างบัญชี"}
               </button>
+              {mode === "login" && (
+                <button
+                  type="button"
+                  onClick={() => setShowRecovery(true)}
+                  className="w-full text-xs text-cyan-400/70 hover:text-cyan-300 transition py-1"
+                >
+                  ลืมรหัสผ่าน?
+                </button>
+              )}
             </div>
           </GameFrame>
         </form>

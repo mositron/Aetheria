@@ -13,6 +13,11 @@ model User {
   passwordHash String
   createdAt    DateTime     @default(now())
   characters   Character[]
+  // Security questions for account recovery
+  securityQuestion1 String?
+  securityAnswer1   String?
+  securityQuestion2 String?
+  securityAnswer2   String?
 }
 
 model AuctionListing {
@@ -66,6 +71,7 @@ model World {
   seed           Int      @default(0)
   status         String   @default("open")     // open | playing | closed
   inviteCode     String   @default("")
+  roomId         String   @default("")         // Colyseus room id (set after room creation)
   createdAt      DateTime @default(now())
 
   @@index([status, privacy])

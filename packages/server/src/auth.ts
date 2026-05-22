@@ -80,7 +80,7 @@ function summarizeCharacter(c: any) {
 }
 
 authRouter.post("/register", async (req, res) => {
-  const { username, password } = req.body ?? {};
+  const { username, password, securityQuestion1, securityAnswer1, securityQuestion2, securityAnswer2 } = req.body ?? {};
   if (typeof username !== "string" || typeof password !== "string" || username.length < 3) {
     return res.status(400).json({ error: "invalid username/password" });
   }
@@ -91,7 +91,27 @@ authRouter.post("/register", async (req, res) => {
 
   // 12 rounds — ~250ms on modern CPUs; balances UX vs offline brute-force cost.
   const passwordHash = await bcrypt.hash(password, 12);
-  const user = await prisma.user.create({ data: { username, passwordHash } });
+
+  // Hash security answers if provided (normalize to lowercase for case-insensitive comparison)
+  let hashedAnswer1: string | null = null;
+  let hashedAnswer2: string | null = null;
+  if (securityAnswer1 && securityQuestion1) {
+    hashedAnswer1 = await bcrypt.hash(securityAnswer1.toLowerCase().trim(), 10);
+  }
+  if (securityAnswer2 && securityQuestion2) {
+    hashedAnswer2 = await bcrypt.hash(securityAnswer2.toLowerCase().trim(), 10);
+  }
+
+  const user = await prisma.user.create({
+    data: {
+      username,
+      passwordHash,
+      securityQuestion1: securityQuestion1 || null,
+      securityAnswer1: hashedAnswer1,
+      securityQuestion2: securityQuestion2 || null,
+      securityAnswer2: hashedAnswer2,
+    }
+  });
   const token = jwt.sign({ uid: user.id, username }, SECRET, { expiresIn: TOKEN_TTL });
   auditService.log("auth.register", { userId: user.id, ip: req.ip });
   res.json({ token, username, characters: [] });
@@ -154,6 +174,83 @@ authRouter.post("/logout", async (req, res) => {
   if (typeof uid === "string" && typeof refreshToken === "string") {
     await revokeRefreshToken(uid, refreshToken);
   }
+  res.json({ ok: true });
+});
+
+// ── Account Recovery ────────────────────────────────────────────────────────
+
+// POST /api/auth/recovery/verify — verify security answers → short-lived JWT
+authRouter.post("/recovery/verify", async (req, res) => {
+  const { username, securityAnswer1, securityAnswer2 } = req.body ?? {};
+  if (typeof username !== "string") {
+    return res.status(400).json({ error: "invalid body" });
+  }
+
+  const user = await prisma.user.findUnique({ where: { username } });
+  if (!user) {
+    // Use same timing as login to prevent username enumeration
+    await bcrypt.compare(securityAnswer1 ?? "", DUMMY_HASH);
+    return res.status(401).json({ error: "bad credentials" });
+  }
+
+  // Verify at least one security answer is correct
+  const answer1Ok = user.securityAnswer1
+    ? await bcrypt.compare((securityAnswer1 ?? "").toLowerCase().trim(), user.securityAnswer1)
+    : false;
+  const answer2Ok = user.securityAnswer2
+    ? await bcrypt.compare((securityAnswer2 ?? "").toLowerCase().trim(), user.securityAnswer2)
+    : false;
+
+  // Require at least ONE correct answer (user may have set only one question)
+  const hasAnyAnswer = user.securityAnswer1 || user.securityAnswer2;
+  if (hasAnyAnswer && !answer1Ok && !answer2Ok) {
+    logger.warn("auth.recovery.failed", { username: username.slice(0, 24), ip: req.ip });
+    auditService.log("auth.recovery.fail", { userId: null, ip: req.ip, metadata: { username } });
+    return res.status(401).json({ error: "bad credentials" });
+  }
+
+  // Issue a short-lived recovery token (15 minutes)
+  const recoveryToken = jwt.sign(
+    { uid: user.id, username, type: "recovery" },
+    SECRET,
+    { expiresIn: "15m" }
+  );
+  logger.info("auth.recovery.ok", { uid: user.id });
+  auditService.log("auth.recovery.success", { userId: user.id, ip: req.ip });
+  res.json({ recoveryToken });
+});
+
+// POST /api/auth/recovery/reset-password — reset password using recovery token
+authRouter.post("/recovery/reset-password", async (req, res) => {
+  const { recoveryToken, newPassword } = req.body ?? {};
+  if (typeof recoveryToken !== "string" || typeof newPassword !== "string") {
+    return res.status(400).json({ error: "invalid body" });
+  }
+
+  let payload: { uid: string; username: string; type: string };
+  try {
+    payload = jwt.verify(recoveryToken, SECRET) as { uid: string; username: string; type: string };
+  } catch {
+    return res.status(401).json({ error: "invalid or expired token" });
+  }
+
+  if (payload.type !== "recovery") {
+    return res.status(401).json({ error: "invalid token type" });
+  }
+
+  const passwordError = validatePassword(newPassword);
+  if (passwordError) return res.status(400).json({ error: passwordError });
+
+  const passwordHash = await bcrypt.hash(newPassword, 12);
+  await prisma.user.update({
+    where: { id: payload.uid },
+    data: { passwordHash },
+  });
+
+  // Revoke all refresh tokens for this user (force re-login)
+  await revokeAllRefreshTokens(payload.uid);
+
+  auditService.log("auth.password.reset", { userId: payload.uid, ip: req.ip });
   res.json({ ok: true });
 });
 

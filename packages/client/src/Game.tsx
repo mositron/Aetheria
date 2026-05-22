@@ -41,6 +41,8 @@ import { JobAdvancement } from "./ui/JobAdvancement";
 import { Onboarding } from "./ui/Onboarding";
 import { WaypointsPanel } from "./ui/WaypointsPanel";
 import { useSettings } from "./ui/SettingsPanel";
+import { Sprite2DRenderer } from "./scene/Sprite2DRenderer";
+import { ViewModeToggle } from "./ui/ViewModeToggle";
 import { DayNight } from "./scene/DayNight";
 import { useSfx } from "./hooks/useSfx";
 import { useMusic } from "./hooks/useMusic";
@@ -65,7 +67,7 @@ const WorldCompanionPanel = lazy(() => import("./ui/WorldCompanionPanel").then((
 const SERVER_WS = `ws://${location.hostname}:2567`;
 
 export function Game() {
-  const { token, characterId, setRoom, pushChat, logout, exitToSelect } = useStore();
+  const { token, characterId, setRoom, pushChat, logout, exitToSelect, viewMode } = useStore();
   useSfx();
   useMusic();
   const [room, setLocalRoom] = useState<Room<WorldState> | null>(null);
@@ -179,26 +181,33 @@ return (
       <a href="#game-canvas" className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-[9999] focus:px-4 focus:py-2 focus:bg-cyan-600 focus:text-white focus:rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-300">
         ข้ามไปเนื้อหาหลัก
       </a>
-      <Canvas
-        shadows={useShadows ? { type: 1, enabled: true } : false}
-        gl={{ antialias: useHighQ, powerPreference: "high-performance" }}
-        dpr={useHighQ ? [1, 1.5] : [1, 1]}
-        camera={{ position: [0, 12, 12], fov: 55 }}
-      >
-        {isDungeon ? (
-          <>
-            <color attach="background" args={["#0a0517"]} />
-            <Stars radius={50} depth={40} count={1500} factor={4} fade speed={0.5} />
-            <ambientLight intensity={0.25} />
-            <directionalLight position={[10, 15, 5]} intensity={0.5} castShadow />
-          </>
-        ) : (
-          <DayNight mapId={mapId} />
-        )}
-        <Sentry.ErrorBoundary fallback={<div className="text-white p-4">เกิดข้อผิดพลาด กรุณารีเฟรชหน้า</div>}>
-          <Scene room={room} />
-        </Sentry.ErrorBoundary>
-      </Canvas>
+{viewMode === "3d" ? (
+        <Canvas
+          shadows={useShadows ? { type: 1, enabled: true } : false}
+          gl={{ antialias: useHighQ, powerPreference: "high-performance" }}
+          dpr={useHighQ ? [1, 1.5] : [1, 1]}
+          camera={{ position: [0, 12, 12], fov: 55 }}
+        >
+          {isDungeon ? (
+            <>
+              <color attach="background" args={["#0a0517"]} />
+              <Stars radius={50} depth={40} count={1500} factor={4} fade speed={0.5} />
+              <ambientLight intensity={0.25} />
+              <directionalLight position={[10, 15, 5]} intensity={0.5} castShadow />
+            </>
+          ) : (
+            <DayNight mapId={mapId} />
+          )}
+          <Sentry.ErrorBoundary fallback={<div className="text-white p-4">เกิดข้อผิดพลาด กรุณารีเฟรชหน้า</div>}>
+            <Scene room={room} />
+          </Sentry.ErrorBoundary>
+        </Canvas>
+      ) : (
+        <Sprite2DRenderer
+          room={room}
+          mapId={mapId}
+        />
+      )}
       <HUD room={room} />
       <MenuBar />
       <TouchControls room={room} />

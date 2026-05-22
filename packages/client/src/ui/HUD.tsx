@@ -3,6 +3,7 @@ import type { Room } from "colyseus.js";
 import { type Player, type WorldState, type MapId } from "@game/shared";
 import { useStore } from "../store";
 import { Minimap } from "./Minimap";
+import { ViewModeToggle } from "./ViewModeToggle";
 
 /**
  * Minimal top-left vitals: HP + SP only (per user spec).
@@ -48,7 +49,7 @@ export function HUD({ room }: { room: Room<WorldState> }) {
           <Pill icon="🍗" value={me.hunger} warn={hungerWarn} color="#a3e635" warnColor="#fb923c" />
           <Pill icon="💧" value={me.thirst} warn={thirstWarn} color="#38bdf8" warnColor="#fb923c" />
           <Pill icon="⚡" value={me.stamina} max={me.maxStamina} color="#fde047" />
-        </div>
+</div>
         {/* Gold + unspent stat points — sit directly under the HUD card */}
         <div className="mt-1 flex items-center gap-1">
           <div className="bg-black/55 backdrop-blur-md border border-amber-400/30 rounded px-1.5 py-0.5 flex items-center" style={{ fontSize: 9 }}>
@@ -60,8 +61,21 @@ export function HUD({ room }: { room: Room<WorldState> }) {
             </div>
           )}
         </div>
+        {/* World info badge — shows when inside a named world */}
+        {room.state.worldId && (
+          <div className="mt-1 flex items-center gap-1 bg-black/55 backdrop-blur-md border border-slate-400/30 rounded px-1.5 py-0.5" style={{ fontSize: 9 }}>
+            <span className="text-slate-300">🌍</span>
+            <span className="text-cyan-200 font-bold truncate max-w-[6rem]">{room.state.worldName || "World"}</span>
+            <span className={`text-[8px] px-1 rounded ${room.state.worldMode === "pvp" ? "bg-rose-600/40 text-rose-300 border border-rose-500/40" : room.state.worldMode === "co-op" ? "bg-emerald-600/40 text-emerald-300 border border-emerald-500/40" : "bg-blue-600/40 text-blue-300 border border-blue-500/40"}`}>
+              {room.state.worldMode === "pvp" ? "PvP" : room.state.worldMode === "co-op" ? "Co-op" : "Adv"}
+            </span>
+            <span className="text-slate-400">{room.state.players.size} online</span>
+          </div>
+        )}
         {/* Build mode toggle */}
         <BuildModeButton />
+        {/* View mode toggle (2D/3D) */}
+        <ViewModeToggle />
       </div>
 
       {/* ── TOP-RIGHT: Minimap + icon-only status chips (tooltip on hover) ── */}

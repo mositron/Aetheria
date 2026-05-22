@@ -75,7 +75,7 @@ app.get("/api/worlds", async (_req, res) => {
   }
 });
 
-// POST /api/worlds/create — create a new world
+// POST /api/worlds/create — create a new world record; Colyseus room is created on first player join
 app.post("/api/worlds/create", async (req, res) => {
   try {
     const { name, template, mode, privacy, maxPlayers } = req.body;

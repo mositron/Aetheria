@@ -36,6 +36,7 @@ type S = {
   lang: "th" | "en";
   musicEnabled: boolean;
   musicVolume: number;
+  viewMode: "3d" | "2d";
   setLang: (lang: "th" | "en") => void;
   setMusicEnabled: (v: boolean) => void;
   setMusicVolume: (v: number) => void;
@@ -52,6 +53,7 @@ type S = {
   toggleInventory: () => void;
   toggleBuildMode: () => void;
   setSelectedStructItem: (itemId: string | null) => void;
+  toggleViewMode: () => void;
 };
 
 export const useStore = create<S>((set, get) => ({
@@ -79,6 +81,7 @@ export const useStore = create<S>((set, get) => ({
   lang: "th" as "th" | "en",
   musicEnabled: localStorage.getItem("musicEnabled") !== "false",
   musicVolume: parseFloat(localStorage.getItem("musicVolume") ?? "0.4"),
+  viewMode: "3d",
   setLang: (lang: "th" | "en") => set({ lang }),
   setMusicEnabled: (v: boolean) => {
     try { localStorage.setItem("musicEnabled", String(v)); } catch {}
@@ -100,7 +103,6 @@ export const useStore = create<S>((set, get) => ({
     return { dismissedHints: next };
   }),
   setAuth: (token, username, characters) => {
-    // Safari private-mode + quota-exceeded throw on setItem; degrade gracefully.
     try { localStorage.setItem("token", token); } catch {}
     try { localStorage.setItem("username", username); } catch {}
     set({ token, username, characters });
@@ -129,4 +131,5 @@ export const useStore = create<S>((set, get) => ({
   toggleInventory: () => set({ inventoryOpen: !get().inventoryOpen }),
   toggleBuildMode: () => set((s) => ({ buildMode: !s.buildMode, selectedStructItemId: s.buildMode ? null : s.selectedStructItemId })),
   setSelectedStructItem: (itemId: string | null) => set({ selectedStructItemId: itemId, buildMode: itemId ? true : get().buildMode }),
+  toggleViewMode: () => set((s) => ({ viewMode: s.viewMode === "3d" ? "2d" : "3d" })),
 }));

@@ -131,6 +131,10 @@ export function plantStage(plantedAt: number, now: number): 0 | 1 | 2 | 3 {
 
 export class WorldState extends Schema {
   @type("string") mapId = "field";
+  @type("string") worldId = "";
+  @type("string") worldName = "";
+  @type("string") worldMode = "adventure";
+  @type("string") worldTemplate = "forest";
   @type({ map: Player }) players = new MapSchema<Player>();
   @type({ map: Monster }) monsters = new MapSchema<Monster>();
   @type({ map: GroundItem }) drops = new MapSchema<GroundItem>();

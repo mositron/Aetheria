@@ -127,6 +127,11 @@ export class WorldManager {
     });
   }
 
+  /** Persist the Colyseus roomId on the world record. */
+  async setRoomId(id: string, roomId: string): Promise<void> {
+    await prisma.world.update({ where: { id }, data: { roomId } });
+  }
+
   /** Delete a world (host action or automatic when empty). */
   async deleteWorld(id: string): Promise<void> {
     const world = await prisma.world.findUnique({ where: { id } });

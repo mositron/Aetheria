@@ -355,4 +355,109 @@ html, body, #root { width: 100%; height: 100%; }
   outline-offset: 2px;
 }
 
+/* ────────────────────────────────────────────────────────────────────────── */
+/* LIGHT MODE — override dark glassmorphism for light preference             */
+/* ────────────────────────────────────────────────────────────────────────── */
+@media (prefers-color-scheme: light) {
+  /* panel — lighter gradient, same neon border and glow */
+  .panel {
+    background: linear-gradient(160deg, rgba(248, 250, 252, 0.82) 0%, rgba(241, 245, 249, 0.88) 100%);
+    border-color: rgba(34, 211, 238, 0.35);
+    box-shadow:
+      0 0 0 1px rgba(34, 211, 238, 0.2),
+      inset 0 1px 0 rgba(255, 255, 255, 0.7),
+      0 8px 32px rgba(0, 0, 0, 0.12),
+      0 0 24px rgba(244, 114, 182, 0.08);
+  }
+  /* neon top edge — stays cyan/violet */
+  .panel::before {
+    background: linear-gradient(90deg, transparent 0%, rgba(34, 211, 238, 0.8) 30%, rgba(168, 85, 247, 0.8) 70%, transparent 100%);
+  }
+  /* corner dots — same neon colors, softer glow */
+  .panel > .panel-corners::before { box-shadow: 0 0 6px #22d3ee, 0 0 12px rgba(34, 211, 238, 0.4); }
+  .panel > .panel-corners::after  { box-shadow: 0 0 6px #a855f7, 0 0 12px rgba(168, 85, 247, 0.4); }
+
+  /* panel title — dark slate text for high contrast */
+  .panel-title {
+    color: #0f172a;
+    border-bottom-color: rgba(100, 116, 139, 0.15);
+    background: linear-gradient(180deg, rgba(34, 211, 238, 0.08) 0%, transparent 100%);
+  }
+  .panel-title button { color: rgba(100, 116, 139, 0.7); }
+  .panel-title button:hover { color: #0891b2; }
+
+  /* stat-pill — light slate background */
+  .stat-pill {
+    background: rgba(241, 245, 249, 0.7);
+    border-color: rgba(34, 211, 238, 0.2);
+  }
+
+  /* game-frame — light cream/pink tint, keep neon border-image and glows */
+  .game-frame {
+    background: linear-gradient(180deg, rgba(254, 252, 255, 0.92) 0%, rgba(248, 250, 252, 0.94) 100%);
+    box-shadow:
+      0 0 0 2px rgba(125, 211, 252, 0.4),
+      0 0 30px rgba(125, 211, 252, 0.25),
+      0 0 60px rgba(244, 114, 182, 0.12),
+      inset 0 0 0 1px rgba(255, 255, 255, 0.8),
+      inset 0 2px 0 rgba(255, 255, 255, 0.9),
+      0 12px 40px rgba(0, 0, 0, 0.15);
+  }
+  /* violet variant — same light treatment */
+  .game-frame.violet {
+    box-shadow:
+      0 0 0 2px rgba(240, 171, 252, 0.45),
+      0 0 30px rgba(168, 85, 247, 0.25),
+      0 0 60px rgba(244, 114, 182, 0.15),
+      inset 0 0 0 1px rgba(255, 255, 255, 0.8),
+      inset 0 2px 0 rgba(255, 255, 255, 0.9),
+      0 12px 40px rgba(0, 0, 0, 0.15);
+  }
+  /* frame-banner — stronger text shadow for readability on light bg */
+  .game-frame > .frame-banner {
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+  }
+  /* frame-corner gems — slightly desaturated but keep vivid hues */
+  .game-frame > .frame-corner.tl { background: radial-gradient(circle at 30% 30%, #fce7f3 0%, #f472b6 70%, #be123c 100%); }
+  .game-frame > .frame-corner.tr { background: radial-gradient(circle at 30% 30%, #fef3c7 0%, #fbbf24 70%, #b45309 100%); }
+  .game-frame > .frame-corner.bl { background: radial-gradient(circle at 30% 30%, #e0f2fe 0%, #38bdf8 70%, #0369a1 100%); }
+  .game-frame > .frame-corner.br { background: radial-gradient(circle at 30% 30%, #f3e8ff 0%, #a855f7 70%, #7c3aed 100%); }
+  /* frame-rivets — same neon colors, slightly dimmer to avoid harshness */
+  .game-frame > .frame-rivets::before { opacity: 0.65; }
+  .game-frame > .frame-rivets::after  { opacity: 0.65; }
+
+  /* scrollbar — light track, same neon thumb */
+  .game-scroll::-webkit-scrollbar-track { background: rgba(241, 245, 249, 0.5); }
+  .game-scroll.violet::-webkit-scrollbar-track { background: rgba(241, 245, 249, 0.5); }
+  .game-scroll { scrollbar-color: #22d3ee rgba(241, 245, 249, 0.5); }
+  .game-scroll.violet { scrollbar-color: #a855f7 rgba(241, 245, 249, 0.5); }
+
+  /* game-input — light background, dark text for contrast ≥ 4.5:1 */
+  .game-input {
+    color: #0f172a;
+    background: linear-gradient(180deg, rgba(254, 254, 254, 0.95) 0%, rgba(248, 250, 252, 0.9) 100%);
+    box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.08);
+  }
+  .game-input:focus {
+    border-color: #0891b2;
+    box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.08), 0 0 0 1px rgba(34, 211, 238, 0.4), 0 0 12px rgba(34, 211, 238, 0.2);
+  }
+  .game-label { color: #0e7490; text-shadow: 0 0 6px rgba(34, 211, 238, 0.2); }
+
+  /* slot — light background, same cyan hover glow */
+  .slot {
+    background: linear-gradient(140deg, rgba(248, 250, 252, 0.6) 0%, rgba(241, 245, 249, 0.8) 100%);
+    border-color: rgba(100, 116, 139, 0.15);
+  }
+  .slot:hover {
+    border-color: rgba(34, 211, 238, 0.6);
+    box-shadow: 0 0 12px rgba(34, 211, 238, 0.25);
+  }
+
+  /* focus ring — keep cyan but slightly adjusted for light bg */
+  *:focus-visible {
+    outline-color: #0891b2;
+  }
+}
+
 
