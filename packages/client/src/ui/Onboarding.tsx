@@ -5,18 +5,20 @@
 import { useEffect, useState } from "react";
 import type { Room } from "colyseus.js";
 import type { WorldState } from "@game/shared";
+import { useT } from "../locales/useT";
 
-const STEPS: Array<{ title: string; body: string }> = [
-  { title: "🌸 ยินดีต้อนรับสู่ Aetheria", body: "เลื่อนซ้ายเพื่อเคลื่อนที่ ลากนิ้วหรือกด WASD" },
-  { title: "⚔ โจมตี", body: "แตะมอนสเตอร์เพื่อเลือกเป้าหมาย แล้วกดดาบขวาล่าง" },
-  { title: "🔥 ใช้สกิล", body: "ปุ่มสกิลรอบดาบ — ต้องมี MP (สกิลใช้ MP, ดาบไม่ใช้)" },
-  { title: "🧪 Auto-Potion", body: "ปุ่มยาเปิด config — ตั้งเปอร์เซ็นต์ HP/MP ที่ให้กินยาอัตโนมัติ" },
-  { title: "🗺 สำรวจโลก", body: "แตะแผนที่เพื่อปักหมุด เดินไกลขึ้นเรื่อยๆ จะเจอภูเขา · ทะเลทราย · หิมะ" },
+const STEPS: Array<{ titleKey: string; bodyKey: string }> = [
+  { titleKey: "onboard.step1Title", bodyKey: "onboard.step1Body" },
+  { titleKey: "onboard.step2Title", bodyKey: "onboard.step2Body" },
+  { titleKey: "onboard.step3Title", bodyKey: "onboard.step3Body" },
+  { titleKey: "onboard.step4Title", bodyKey: "onboard.step4Body" },
+  { titleKey: "onboard.step5Title", bodyKey: "onboard.step5Body" },
 ];
 
 export function Onboarding({ room }: { room: Room<WorldState> }) {
   const [step, setStep] = useState(0);
   const [open, setOpen] = useState(false);
+  const t = useT();
 
   useEffect(() => {
     // Only show for first-time chars
@@ -62,8 +64,8 @@ export function Onboarding({ room }: { room: Room<WorldState> }) {
         }}
       >
         <div className="flex-1">
-          <div className="text-cyan-300 font-bold text-xs mb-0.5">{s.title}</div>
-          <div className="text-white/85 text-[11px] leading-relaxed">{s.body}</div>
+          <div className="text-cyan-300 font-bold text-xs mb-0.5">{t(s.titleKey)}</div>
+          <div className="text-white/85 text-[11px] leading-relaxed">{t(s.bodyKey)}</div>
           <div className="text-[9px] text-slate-400 mt-1">{step + 1} / {STEPS.length}</div>
         </div>
         <button onClick={skip} className="text-rose-300/80 hover:text-rose-300 leading-none text-sm">✕</button>
