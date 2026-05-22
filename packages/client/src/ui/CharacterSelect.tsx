@@ -19,7 +19,7 @@ export function CharacterSelect() {
 
   useEffect(() => {
     if (!token) return;
-    fetch("/auth/characters", { headers: { Authorization: `Bearer ${token}` } })
+    fetch("/api/auth/characters", { headers: { Authorization: `Bearer ${token}` } })
       .then((r) => r.json())
       .then((d) => {
         if (Array.isArray(d.characters)) {

@@ -33,7 +33,7 @@ export function CharacterCreator({ onCancel, onCreated }: Props) {
     setErr(null);
     setBusy(true);
     try {
-      const res = await fetch("/auth/characters", {
+      const res = await fetch("/api/auth/characters", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ name: name.trim(), job: "novice", appearance }),

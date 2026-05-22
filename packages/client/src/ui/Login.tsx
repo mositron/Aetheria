@@ -61,7 +61,7 @@ export function Login() {
     setErr(null);
     setBusy(true);
     try {
-      const res = await fetch(`/auth/${mode}`, {
+const res = await fetch(`/api/auth/${mode}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username, password }),
