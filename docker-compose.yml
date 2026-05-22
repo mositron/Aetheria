@@ -1,0 +1,29 @@
+version: '3.9'
+services:
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+  server1:
+    build: .
+    ports:
+      - "2567:2567"
+    environment:
+      - REDIS_URL=redis://redis:6379
+      - PORT=2567
+    depends_on:
+      - redis
+  server2:
+    build: .
+    ports:
+      - "2568:2567"
+    environment:
+      - REDIS_URL=redis://redis:6379
+      - PORT=2568
+    depends_on:
+      - redis
+volumes:
+  redis_data:

@@ -1,0 +1,42 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  ci:
+    name: Build & Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "pnpm"
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Type-check server
+        run: cd packages/server && pnpm exec tsc --noEmit
+        if: always()
+
+      - name: Type-check shared
+        run: cd packages/shared && pnpm exec tsc --noEmit
+        if: always()
+
+      - name: Build all packages
+        run: pnpm build
+        if: always()
+
+      - name: Test server
+        run: cd packages/server && pnpm test
+        if: always()
+
+      - name: Test shared
+        run: cd packages/shared && pnpm test
+        if: always()
