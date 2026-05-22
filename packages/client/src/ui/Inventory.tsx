@@ -6,10 +6,12 @@ import { useStore } from "../store";
 import { GameFrame } from "./GameFrame";
 import { keyEq } from "../utils/keyMatch";
 import { ConfirmDialog } from "./ConfirmDialog";
+import { useT } from "../locales/useT";
 
 type FilterKey = "all" | "weapon" | "armor" | "consumable" | "material" | "structure";
 
 export function Inventory({ room }: { room: Room<WorldState> }) {
+  const t = useT();
   const open = useStore((s) => s.inventoryOpen);
   const toggle = useStore((s) => s.toggleInventory);
   const [, setTick] = useState(0);
@@ -56,33 +58,33 @@ return (
           onClick={(e) => e.stopPropagation()}
         >
           <div className="w-[22rem] max-w-[92vw] flex flex-col min-h-0" style={{ maxHeight: "calc(100vh - 8rem)" }}>
-            <GameFrame
-              title="กระเป๋า"
+<GameFrame
+              title={t('inventory.title')}
               className="flex flex-col min-h-0"
               innerClassName="flex flex-col flex-1 min-h-0"
             >
               <button
                 onClick={toggle}
-                aria-label="ปิด"
+                aria-label={t('inventory.close')}
                 className="absolute -top-3 -right-3 min-w-[44px] min-h-[44px] w-11 h-11 rounded-full bg-rose-700 hover:bg-rose-600 border-2 border-rose-300 text-white font-bold z-10 flex items-center justify-center"
               >
                 ✕
               </button>
           <div className="space-y-3 pt-1 overflow-y-auto game-scroll flex-1 pr-1" style={{ minHeight: 0 }}>
             <div className="grid grid-cols-2 gap-2">
-              <EquipSlot label="อาวุธ" itemId={me.weapon} onUnequip={() => setConfirmUnequip({ slot: "weapon", itemId: me.weapon })} />
-              <EquipSlot label="ชุดเกราะ" itemId={me.armor} onUnequip={() => setConfirmUnequip({ slot: "armor", itemId: me.armor })} />
+              <EquipSlot label={t('inventory.weapon')} itemId={me.weapon} onUnequip={() => setConfirmUnequip({ slot: "weapon", itemId: me.weapon })} t={t} />
+              <EquipSlot label={t('inventory.armor')} itemId={me.armor} onUnequip={() => setConfirmUnequip({ slot: "armor", itemId: me.armor })} t={t} />
             </div>
 
             {/* Filter chips */}
             <div className="flex flex-wrap gap-1 mb-1">
               {([
-                { id: "all", label: "ทั้งหมด", icon: "📦" },
-                { id: "weapon", label: "อาวุธ", icon: "⚔" },
-                { id: "armor", label: "เกราะ", icon: "🛡" },
-                { id: "consumable", label: "ใช้", icon: "🧪" },
-                { id: "material", label: "วัสดุ", icon: "🪵" },
-                { id: "structure", label: "สร้าง", icon: "🏗️" },
+                { id: "all", label: t('inventory.all'), icon: "📦" },
+                { id: "weapon", label: t('inventory.weapon'), icon: "⚔" },
+                { id: "armor", label: t('inventory.armor'), icon: "🛡" },
+                { id: "consumable", label: t('inventory.consumable'), icon: "🧪" },
+                { id: "material", label: t('inventory.material'), icon: "🪵" },
+                { id: "structure", label: t('inventory.structure'), icon: "🏗️" },
               ] as { id: FilterKey; label: string; icon: string }[]).map((f) => (
                 <button
                   key={f.id}
@@ -101,9 +103,10 @@ return (
                 const stack = entry?.s;
                 const realIdx = entry?.idx ?? -1;
                 return (
-                  <ItemSlot
+<ItemSlot
                     key={gridIdx}
                     stack={stack}
+                    t={t}
                     onUse={() => {
                       if (!stack) return;
                       const def = ITEMS[stack.itemId];
@@ -123,8 +126,8 @@ return (
                 );
               })}
             </div>
-            <div className="text-[10px] text-slate-400 text-center">
-              แตะใช้/สวม · กดค้างเพื่อทิ้ง
+<div className="text-[10px] text-slate-400 text-center">
+              {t('inventory.tapUse')}
             </div>
 </div>
           </GameFrame>
@@ -133,10 +136,10 @@ return (
       </FocusTrap>
       <ConfirmDialog
       open={confirmUnequip !== null}
-      title="ถอดออก?"
-      message={`ถอด ${ITEMS[confirmUnequip?.itemId ?? ""]?.name ?? "ไอเทม"} ออกจากช่องสวมใส่?`}
+      title={t('inventory.unequipTitle')}
+      message={t('inventory.unequipMsg', { item: ITEMS[confirmUnequip?.itemId ?? ""]?.name ?? t('inventory.empty') })}
       severity={confirmUnequip?.itemId.startsWith("rare_") ? "warning" : "info"}
-      confirmLabel="ถอด"
+      confirmLabel={t('inventory.unequip')}
       onConfirm={() => {
         if (confirmUnequip) room.send("unequip", { slot: confirmUnequip.slot });
         setConfirmUnequip(null);
@@ -147,14 +150,14 @@ onCancel={() => setConfirmUnequip(null)}
   );
 }
 
-function ItemSlot({ stack, onUse, onDrop }: { stack?: { itemId: string; qty: number }; onUse: () => void; onDrop: () => void }) {
+function ItemSlot({ stack, onUse, onDrop, t }: { stack?: { itemId: string; qty: number }; onUse: () => void; onDrop: () => void; t: ReturnType<typeof useT> }) {
   const def = stack ? ITEMS[stack.itemId] : null;
   const longPressTimer = useRef<number | null>(null);
 
   function startLongPress() {
     if (!stack) return;
     longPressTimer.current = window.setTimeout(() => {
-      if (confirm(`ทิ้ง ${def?.name}?`)) onDrop();
+      if (confirm(t('inventory.dropConfirm', { item: def?.name ?? t('inventory.empty') }))) onDrop();
       longPressTimer.current = null;
     }, 600);
   }
@@ -184,14 +187,14 @@ function ItemSlot({ stack, onUse, onDrop }: { stack?: { itemId: string; qty: num
   );
 }
 
-function EquipSlot({ label, itemId, onUnequip }: { label: string; itemId: string; onUnequip: () => void }) {
+function EquipSlot({ label, itemId, onUnequip, t }: { label: string; itemId: string; onUnequip: () => void; t: ReturnType<typeof useT> }) {
   const def = itemId ? ITEMS[itemId] : null;
   return (
     <div className="bg-slate-900/60 rounded p-2 flex items-center gap-2 border border-cyan-400/20">
       <div className="w-11 h-11 slot text-2xl">{def?.icon ?? "—"}</div>
       <div className="flex-1 min-w-0">
         <div className="text-[10px] text-cyan-300 uppercase tracking-widest">{label}</div>
-        <div className="truncate text-xs">{def?.name ?? "(ว่าง)"}</div>
+        <div className="truncate text-xs">{def?.name ?? t('inventory.empty')}</div>
       </div>
       {def && <button className="w-7 h-7 rounded bg-rose-700 hover:bg-rose-600 text-white text-sm font-bold" onClick={onUnequip}>×</button>}
     </div>

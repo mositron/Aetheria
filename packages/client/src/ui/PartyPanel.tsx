@@ -1,11 +1,13 @@
 import { useEffect, useState } from "react";
 import type { Room } from "colyseus.js";
 import type { WorldState } from "@game/shared";
+import { useT } from "../locales/useT";
 
 type Member = { id: string; name: string; hp: number; maxHp: number; level: number };
 type Invite = { fromId: string; fromName: string };
 
 export function PartyPanel({ room }: { room: Room<WorldState> }) {
+  const t = useT();
   const [members, setMembers] = useState<Member[]>([]);
   const [leaderId, setLeaderId] = useState("");
   const [invite, setInvite] = useState<Invite | null>(null);
@@ -30,13 +32,13 @@ export function PartyPanel({ room }: { room: Room<WorldState> }) {
       {invite && (
         <div className="panel absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-72 z-50">
           <div className="panel-corners" />
-          <div className="panel-title">Party Invite</div>
+          <div className="panel-title">{t('party.inviteTitle')}</div>
           <div className="text-sm py-2">
-            <b className="text-amber-300">{invite.fromName}</b> invites you to party!
+            {t('party.invitesYou', { name: invite.fromName })}
           </div>
           <div className="flex gap-2">
-            <button onClick={() => { room.send("partyAccept", { fromId: invite.fromId }); setInvite(null); }} className="btn-3d btn-emerald flex-1">Accept</button>
-            <button onClick={() => setInvite(null)} className="btn-3d btn-rose flex-1">Decline</button>
+            <button onClick={() => { room.send("partyAccept", { fromId: invite.fromId }); setInvite(null); }} className="btn-3d btn-emerald flex-1">{t('party.accept')}</button>
+            <button onClick={() => setInvite(null)} className="btn-3d btn-rose flex-1">{t('party.decline')}</button>
           </div>
         </div>
       )}
@@ -45,8 +47,8 @@ export function PartyPanel({ room }: { room: Room<WorldState> }) {
         <div className="panel absolute left-2 top-32 w-56">
           <div className="panel-corners" />
           <div className="panel-title">
-            <span>👥 Party ({members.length}/4)</span>
-            <button onClick={() => room.send("partyLeave", {})}>Leave</button>
+            <span>👥 {t('party.party')} ({members.length}/4)</span>
+            <button onClick={() => room.send("partyLeave", {})}>{t('party.leave')}</button>
           </div>
           <div className="space-y-1">
             {members.map((m) => (
@@ -68,7 +70,7 @@ export function PartyPanel({ room }: { room: Room<WorldState> }) {
         <div className="panel absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-64 z-40">
           <div className="panel-corners" />
           <div className="panel-title">
-            <span>👥 Invite Player</span>
+            <span>👥 {t('party.invitePlayer')}</span>
             <button onClick={() => setShowInviteBox(false)}>✕</button>
           </div>
           <input
@@ -81,13 +83,13 @@ export function PartyPanel({ room }: { room: Room<WorldState> }) {
               }
             }}
             autoFocus
-            placeholder="player name"
+            placeholder={t('party.playerName')}
             className="w-full bg-slate-800 px-2 py-1 text-xs border border-slate-600 mb-2 rounded"
           />
           <button
             onClick={() => { if (inviteName.trim()) { room.send("partyInvite", { targetName: inviteName.trim() }); setInviteName(""); setShowInviteBox(false); } }}
             className="btn-3d btn-emerald w-full"
-          >Send Invite</button>
+          >{t('party.sendInvite')}</button>
         </div>
       )}
     </>

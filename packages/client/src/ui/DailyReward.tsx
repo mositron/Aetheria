@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import type { Room } from "colyseus.js";
 import { ITEMS, type WorldState } from "@game/shared";
+import { useT } from "../locales/useT";
 
 type RewardData = {
   day: number;
@@ -10,6 +11,7 @@ type RewardData = {
 };
 
 export function DailyReward({ room }: { room: Room<WorldState> }) {
+  const t = useT();
   const [reward, setReward] = useState<RewardData | null>(null);
 
   useEffect(() => {
@@ -40,10 +42,10 @@ export function DailyReward({ room }: { room: Room<WorldState> }) {
         <div className="absolute -top-2 right-8 text-2xl animate-pulse" style={{ animationDelay: "0.3s" }}>⭐</div>
         <div className="absolute -bottom-2 left-10 text-2xl animate-pulse" style={{ animationDelay: "0.6s" }}>🌟</div>
 
-        <div className="text-amber-700 text-xs font-bold tracking-widest uppercase mb-1">Daily Login</div>
-        <div className="text-4xl font-black text-amber-900 mb-1">🎁 ของขวัญวันนี้!</div>
+        <div className="text-amber-700 text-xs font-bold tracking-widest uppercase mb-1">{t("daily.title")}</div>
+        <div className="text-4xl font-black text-amber-900 mb-1">{t("daily.todayGift")}</div>
         <div className="text-sm text-amber-800 mb-4">
-          เข้าเกมต่อเนื่อง <span className="font-bold text-rose-600">{reward.streak} วัน</span> 🔥
+          เข้าเกมต่อเนื่อง <span className="font-bold text-rose-600">{t("daily.streakDays", { streak: reward.streak })}</span> 🔥
         </div>
 
         {/* 7-day streak indicator */}
@@ -67,7 +69,7 @@ export function DailyReward({ room }: { room: Room<WorldState> }) {
         </div>
 
         <div className="bg-white/70 rounded-2xl p-3 mb-3 border-2 border-amber-300">
-          <div className="text-amber-700 text-xs font-bold mb-1.5">รางวัล</div>
+          <div className="text-amber-700 text-xs font-bold mb-1.5">{t("daily.reward")}</div>
           <div className="flex justify-center items-center gap-3 flex-wrap">
             <div className="flex items-center gap-1">
               <span className="text-2xl">💰</span>
@@ -93,7 +95,7 @@ export function DailyReward({ room }: { room: Room<WorldState> }) {
             boxShadow: "0 0 0 2px rgba(254, 215, 170, 0.5), 0 4px 0 rgba(154, 52, 18, 0.5), inset 0 1px 0 rgba(255,255,255,0.45)",
           }}
         >
-          🎉 รับเลย!
+          {t("daily.claim")}
         </button>
       </div>
 

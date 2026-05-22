@@ -4,6 +4,7 @@ import { type Player, type WorldState, type MapId } from "@game/shared";
 import { useStore } from "../store";
 import { Minimap } from "./Minimap";
 import { ViewModeToggle } from "./ViewModeToggle";
+import { useT } from "../locales/useT";
 
 /**
  * Minimal top-left vitals: HP + SP only (per user spec).
@@ -11,6 +12,7 @@ import { ViewModeToggle } from "./ViewModeToggle";
  * EXP moved to BottomBar.
  */
 export function HUD({ room }: { room: Room<WorldState> }) {
+  const t = useT();
   const [, setTick] = useState(0);
   // Mobile: shrink HUD card (still show all bars + pills — user expects to see them)
   const isMobile = true; // mobile sizing used on all screens
@@ -69,7 +71,7 @@ export function HUD({ room }: { room: Room<WorldState> }) {
             <span className={`text-[8px] px-1 rounded ${room.state.worldMode === "pvp" ? "bg-rose-600/40 text-rose-300 border border-rose-500/40" : room.state.worldMode === "co-op" ? "bg-emerald-600/40 text-emerald-300 border border-emerald-500/40" : "bg-blue-600/40 text-blue-300 border border-blue-500/40"}`}>
               {room.state.worldMode === "pvp" ? "PvP" : room.state.worldMode === "co-op" ? "Co-op" : "Adv"}
             </span>
-            <span className="text-slate-400">{room.state.players.size} online</span>
+            <span className="text-slate-400">{room.state.players.size} {t('hud.online')}</span>
           </div>
         )}
         {/* Build mode toggle */}
@@ -82,20 +84,20 @@ export function HUD({ room }: { room: Room<WorldState> }) {
       <div className="absolute top-2 right-2 pointer-events-auto select-none flex flex-col items-end gap-1">
         <Minimap room={room} mapId={room.state.mapId as MapId} />
         <div className="flex gap-1 flex-wrap justify-end max-w-[8rem]">
-          {room.state.isNight && (
-            <StatusChip icon="🌙" color="#a855f7" title="กลางคืน · มอนแรง" pulse />
+{room.state.isNight && (
+            <StatusChip icon="🌙" color="#a855f7" title={t('hud.night')} pulse />
           )}
           {room.state.season && room.state.season !== "none" && (
             <StatusChip
               icon={room.state.season === "christmas" ? "🎄" : room.state.season === "halloween" ? "🎃" : "💦"}
               color="#ec4899"
-              title={room.state.season === "christmas" ? "เทศกาลคริสต์มาส" : room.state.season === "halloween" ? "ฮาโลวีน" : "สงกรานต์"}
+              title={room.state.season === "christmas" ? t('hud.seasonChristmas') : room.state.season === "halloween" ? t('hud.seasonHalloween') : t('hud.seasonSongkran')}
               pulse
             />
           )}
-          {room.state.weather === "rainy" && <StatusChip icon="🌧" color="#38bdf8" title="ฝนตก · stamina ฟื้นเร็ว" />}
-          {hungerWarn && <StatusChip icon="🍗" color="#fb923c" title="หิวจัด!" pulse />}
-          {thirstWarn && <StatusChip icon="💧" color="#60a5fa" title="กระหายน้ำ!" pulse />}
+          {room.state.weather === "rainy" && <StatusChip icon="🌧" color="#38bdf8" title={t('hud.rainyWeather')} />}
+          {hungerWarn && <StatusChip icon="🍗" color="#fb923c" title={t('hud.hungry')} pulse />}
+          {thirstWarn && <StatusChip icon="💧" color="#60a5fa" title={t('hud.thirsty')} pulse />}
         </div>
       </div>
     </>
@@ -163,7 +165,7 @@ function BuildModeButton() {
   return (
     <div className="mt-1 flex flex-col gap-1">
       {/* Toggle build mode on/off */}
-      <button
+<button
         onClick={toggleBuildMode}
         className={`flex items-center gap-1 px-2 py-1 rounded text-xs font-bold border transition-all ${
           buildMode
@@ -171,7 +173,7 @@ function BuildModeButton() {
             : "bg-black/55 border-amber-400/40 text-amber-300 hover:border-amber-400/80"
         }`}
       >
-        🏠 {buildMode ? "ออกจากโหมดสร้าง" : "สร้างฐาน"}
+        🏠 {buildMode ? t('hud.exitBuildMode') : t('hud.buildMode')}
       </button>
       {buildMode && (
         <div className="flex gap-1">
@@ -183,7 +185,7 @@ function BuildModeButton() {
                 : "bg-black/55 border-slate-600 text-slate-300 hover:border-rose-400/60"
             }`}
           >
-            🔨 สร้าง
+            🔨 {t('hud.build')}
           </button>
           <button
             onClick={() => setSelectedStructItem("__destroy__")}
@@ -193,18 +195,18 @@ function BuildModeButton() {
                 : "bg-black/55 border-slate-600 text-slate-300 hover:border-rose-400/60"
             }`}
           >
-            💥 ทำลาย
+            💥 {t('hud.destroy')}
           </button>
         </div>
       )}
       {buildMode && selectedStructItemId && selectedStructItemId !== "__destroy__" && (
         <div className="text-[9px] text-cyan-300/70 px-1">
-          คลิกซ้ายพื้นเพื่อวาง · คลิกขวาบนสิ่งก่อสร้างเพื่อทำลาย
+          {t('hud.buildModeHint1')}
         </div>
       )}
       {buildMode && selectedStructItemId === "__destroy__" && (
         <div className="text-[9px] text-rose-300/70 px-1">
-          คลิกขวาบนสิ่งก่อสร้างเพื่อทำลาย
+          {t('hud.buildModeHint2')}
         </div>
       )}
     </div>

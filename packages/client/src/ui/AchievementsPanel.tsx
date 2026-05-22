@@ -4,8 +4,10 @@ import FocusTrap from "focus-trap-react";
 import { ACHIEVEMENTS, type WorldState, type Player } from "@game/shared";
 import { GameFrame } from "./GameFrame";
 import { ConfirmDialog } from "./ConfirmDialog";
+import { useT } from "../locales/useT";
 
 export function AchievementsPanel({ room }: { room: Room<WorldState> }) {
+  const t = useT();
   const [open, setOpen] = useState(false);
   const [, setTick] = useState(0);
   const [pendingTitle, setPendingTitle] = useState<string | null>(null);
@@ -64,7 +66,7 @@ export function AchievementsPanel({ room }: { room: Room<WorldState> }) {
       {bannerAchievement && (
         <div role="status" aria-live="polite" aria-atomic="true" className="fixed top-16 left-1/2 -translate-x-1/2 z-[9999] animate-slide-down pointer-events-none">
           <div className="bg-gradient-to-r from-amber-900 via-amber-700 to-amber-900 border-2 border-amber-400 rounded-2xl px-6 py-3 shadow-2xl text-center max-w-sm">
-            <div className="text-amber-200 text-[10px] uppercase tracking-widest mb-1">ได้รับความสำเร็จ!</div>
+            <div className="text-amber-200 text-[10px] uppercase tracking-widest mb-1">{t("ach.unlocked")}</div>
             <div className="text-white font-bold text-base">{bannerAchievement.name}</div>
             <div className="text-amber-200 text-xs mt-0.5">{bannerAchievement.desc}</div>
             <div className="text-amber-300 text-[10px] mt-1">+{bannerAchievement.reward?.zeny ?? 0} Zeny</div>
@@ -78,19 +80,19 @@ export function AchievementsPanel({ room }: { room: Room<WorldState> }) {
             data-no-screen-joy
             role="dialog"
             aria-modal="true"
-            aria-label="เหรียญตรา"
+            aria-label={t("ach.title")}
             className="absolute inset-0 z-40 flex items-center justify-center bg-black/65 backdrop-blur-sm py-16 px-4"
             onClick={e => e.stopPropagation()}
           >
             <div className="w-[28rem] max-w-[94vw] flex flex-col min-h-0" style={{ maxHeight: "calc(100vh - 8rem)" }}>
               <GameFrame
-                title={`เหรียญตรา ${unlockedCount}/${total}`}
+                title={`${t("ach.title")} ${unlockedCount}/${total}`}
                 className="flex flex-col min-h-0"
                 innerClassName="flex flex-col flex-1 min-h-0"
               >
                 <button
                   onClick={() => setOpen(false)}
-                  aria-label="ปิด"
+                  aria-label={t("common.close")}
                   className="absolute -top-3 -right-3 min-w-[44px] min-h-[44px] w-11 h-11 rounded-full bg-rose-700 hover:bg-rose-600 border-2 border-rose-300 text-white font-bold z-10 flex items-center justify-center"
                 >
                   ✕
@@ -98,13 +100,13 @@ export function AchievementsPanel({ room }: { room: Room<WorldState> }) {
 
                 {titles.length > 0 && (
                   <div className="mb-2 p-2 rounded-xl bg-amber-900/30 border border-amber-400/40">
-                    <div className="text-[10px] text-amber-300 uppercase tracking-wider font-bold mb-1.5">ตำแหน่งของฉัน</div>
+                    <div className="text-[10px] text-amber-300 uppercase tracking-wider font-bold mb-1.5">{t("ach.myTitles")}</div>
                     <div className="flex flex-wrap gap-1.5">
                       <button
                         onClick={() => setPendingTitle("")}
                         className={`text-[10px] px-2 py-1 rounded-full border-2 transition ${me.title === "" ? "border-amber-300 bg-amber-500/30" : "border-amber-700/50 bg-slate-900/40 hover:border-amber-400"}`}
                       >
-                        ไม่ใช้
+                        {t("ach.none")}
                       </button>
                       {titles.map((t) => (
                         <button
@@ -165,12 +167,11 @@ export function AchievementsPanel({ room }: { room: Room<WorldState> }) {
 
       <ConfirmDialog
         open={pendingTitle !== null}
-        title="เปลี่ยนตำแหน่ง?"
+        title={t("ach.changeTitle")}
         message={pendingTitle !== null && pendingTitle !== ""
-          ? `คุณต้องการเปลี่ยนฉายาเป็น "${pendingTitle}" หรือไม่?`
-          : "คุณต้องการยกเลิกฉายาปัจจุบันหรือไม่?"}
-        severity="info"
-        confirmLabel="เปลี่ยน"
+          ? t("ach.confirmChangeTitle", { title: pendingTitle })
+          : t("ach.confirmClearTitle")}
+        confirmLabel={t("ach.change")}
         onConfirm={() => {
           if (pendingTitle !== null) room.send("setTitle", { title: pendingTitle });
           setPendingTitle(null);
