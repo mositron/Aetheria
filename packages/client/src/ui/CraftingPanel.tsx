@@ -3,33 +3,35 @@ import type { Room } from "colyseus.js";
 import { RECIPES, ITEMS, CRAFTING_BENCHES, QUALITY_COLORS, QUALITY_NAMES, type Recipe, type Player, type WorldState, type ItemQuality } from "@game/shared";
 import { GameFrame } from "./GameFrame";
 import { keyEq } from "../utils/keyMatch";
+import { useT } from "../locales/useT";
 
-const CATEGORIES: Array<{ id: Recipe["category"]; label: string; icon: string }> = [
-  { id: "cooking", label: "ปรุง",  icon: "🍖" },
-  { id: "potion",  label: "ยา",    icon: "🧪" },
-  { id: "weapon",  label: "อาวุธ", icon: "⚔" },
-  { id: "armor",   label: "ชุด",   icon: "🛡" },
+const CATEGORIES = [
+  { id: "cooking", label: () => t("craft.categoryCooking"),  icon: "🍖" },
+  { id: "potion",  label: () => t("craft.categoryPotion"),   icon: "🧪" },
+  { id: "weapon",  label: () => t("craft.categoryWeapon"),   icon: "⚔" },
+  { id: "armor",   label: () => t("craft.categoryArmor"),    icon: "🛡" },
 ];
 
 type Tab = "craft" | "research";
 
-function qualityChanceBar(qc: Recipe["qualityChance"], benchBonus: number): Array<{ label: string; pct: number; color: string }> {
-  if (!qc) return [{ label: "ธรรมดา", pct: 100, color: QUALITY_COLORS.normal }];
+function qualityChanceBar(qc: Recipe["qualityChance"], benchBonus: number, t: ReturnType<typeof useT>): Array<{ label: string; pct: number; color: string }> {
+  if (!qc) return [{ label: t("craft.common"), pct: 100, color: QUALITY_COLORS.normal }];
   const bars: Array<{ label: string; pct: number; color: string }> = [];
   const superior = (qc.superior ?? 0) + benchBonus * 0.25;
   const rare = (qc.rare ?? 0) + benchBonus * 0.15;
   const masterwork = (qc.masterwork ?? 0) + benchBonus * 0.1;
   const legendary = (qc.legendary ?? 0) + benchBonus * 0.05;
   const normal = Math.max(0, 1 - superior - rare - masterwork - legendary);
-  if (legendary > 0) bars.push({ label: "ตำนาน", pct: legendary * 100, color: QUALITY_COLORS.legendary });
-  if (masterwork > 0) bars.push({ label: "ช่างฝีมือ", pct: masterwork * 100, color: QUALITY_COLORS.masterwork });
-  if (rare > 0) bars.push({ label: "หายาก", pct: rare * 100, color: QUALITY_COLORS.rare });
-  if (superior > 0) bars.push({ label: "เหนือกว่า", pct: superior * 100, color: QUALITY_COLORS.superior });
-  if (normal > 0) bars.push({ label: "ธรรมดา", pct: normal * 100, color: QUALITY_COLORS.normal });
+  if (legendary > 0) bars.push({ label: t("craft.legendary"), pct: legendary * 100, color: QUALITY_COLORS.legendary });
+  if (masterwork > 0) bars.push({ label: t("craft.masterwork"), pct: masterwork * 100, color: QUALITY_COLORS.masterwork });
+  if (rare > 0) bars.push({ label: t("craft.rare"), pct: rare * 100, color: QUALITY_COLORS.rare });
+  if (superior > 0) bars.push({ label: t("craft.superior"), pct: superior * 100, color: QUALITY_COLORS.superior });
+  if (normal > 0) bars.push({ label: t("craft.common"), pct: normal * 100, color: QUALITY_COLORS.normal });
   return bars;
 }
 
 export function CraftingPanel({ room }: { room: Room<WorldState> }) {
+  const t = useT();
   const [open, setOpen] = useState(false);
   const [cat, setCat] = useState<Recipe["category"]>("cooking");
   const [benchIdx, setBenchIdx] = useState(0);
@@ -79,7 +81,7 @@ export function CraftingPanel({ room }: { room: Room<WorldState> }) {
     <div data-no-screen-joy role="dialog" aria-modal="true" className="absolute inset-0 z-40 flex items-center justify-center bg-black/65 backdrop-blur-sm py-16 px-4" onClick={() => setOpen(false)}>
       <div className="w-[30rem] max-w-[94vw] flex flex-col min-h-0" style={{ maxHeight: "calc(100vh - 8rem)" }} onClick={(e) => e.stopPropagation()}>
         <GameFrame
-          title="ห้องช่างไม้-เตาตี"
+          title={t("craft.title")}
           variant="violet"
           className="flex flex-col min-h-0"
           innerClassName="flex flex-col flex-1 min-h-0"
@@ -143,7 +145,7 @@ export function CraftingPanel({ room }: { room: Room<WorldState> }) {
                     }`}
                   >
                     <span className="text-lg">{c.icon}</span>
-                    <span>{c.label}</span>
+                    <span>{c.label()}</span>
                   </button>
                 ))}
               </div>
@@ -159,7 +161,7 @@ export function CraftingPanel({ room }: { room: Room<WorldState> }) {
                   const levelOk = !r.minLevel || me.level >= r.minLevel;
                   const benchOk = (r.minBenchTier ?? 0) <= (bench?.minTier ?? 0);
                   const disabled = !canMake || !levelOk || !benchOk;
-                  const bars = qualityChanceBar(r.qualityChance, benchBonus);
+                  const bars = qualityChanceBar(r.qualityChance, benchBonus, t);
                   return (
                     <div
                       key={r.id}
