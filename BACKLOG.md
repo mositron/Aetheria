@@ -362,16 +362,23 @@ Install: `pnpm add -D eslint prettier eslint-plugin-react eslint-plugin-react-ho
 ✅ DONE commit `87e8da2`
 
 ### 39. README expansion
-Architecture diagram, deploy guide (k8s/fly.io/Railway), quickstart.
+New sections: Architecture (ASCII diagram), Deploy (Railway/k8s/Fly.io), Quickstart,
+Environment Variables table. Thai language throughout. README now 20K+ chars.
+✅ DONE commit `f4db7cc` (README) + `de2a081` (BACKLOG update)
 
 ### 40. CHANGELOG.md
-Auto-generated from conventional commits.
+Auto-generated from conventional commits using commit patterns.
+Thai headers: ฟีเจอร์ใหม่, แก้บัก, ปรับปรุง, งานอื่นๆ, เอกสาร.
+✅ DONE commit `f4db7cc` (CHANGELOG.md)
 
 ### 41. SemVer + release tags
-Currently all on `main`. Cut `v0.1.0` etc.
+`v0.1.0` tag pushed to origin. package.json version → 0.1.0.
+✅ DONE — tag created + pushed
 
 ### 42. Storybook for UI components
-Mock state per panel for fast iteration.
+`packages/client/.storybook/main.ts` + `preview.tsx`. Example: `src/stories/Button.stories.tsx`.
+Install: `cd packages/client && pnpm add -D @storybook/react @storybook/react-vite @storybook/addon-essentials storybook && pnpm storybook`
+✅ DONE commit `f4db7cc`
 
 ---
 
@@ -396,12 +403,17 @@ Currently lost password = lost character. Need email recovery (needs SMTP)
 or security question fallback.
 
 ### 47. Audit log table
-DB table for login, password change, char delete, large trade, auction
-completion, guild create/disband.
+Prisma `AuditLog` model (id, action, userId, characterId, targetId, metadata, ip).
+`AuditService.log()` fire-and-forget wrapper. Wired: auth (login/register/delete),
+WorldRoom (join/leave), Trade (complete/cancel), Auction (list/buy/cancel).
+`GET /api/admin/audit?action=&limit=50` route.
+✅ DONE commit `f4db7cc`
 
 ### 48. Server-side schema validation (Zod)
-Currently TypeScript types enforce at compile-time only. Add Zod schemas
-on every `onMessage` so malformed payloads are rejected, not crashed.
+`packages/server/src/schemas.ts` — Zod schemas for all onMessage handlers.
+WorldRoom: `validate()` helper (schema.safeParse → T | null, logs warning on invalid).
+All handlers wrapped: drops bad payloads instead of crashing.
+✅ DONE commit `f4db7cc`
 
 ---
 
@@ -419,18 +431,16 @@ on every `onMessage` so malformed payloads are rejected, not crashed.
 ## 📜 Recent commit log (for context-resume)
 
 ```
-016dbd6 GameRoom split round 4: Guild service (10 total)
-[2026-05-20] Batch: base-building, structures, companion-render, structure-render, WorldRoom merge
-[2026-05-20] P0.D anti-cheat: movement bounds, speed hack, teleport detection
-[2026-05-20] P1.4 level scaling: damage formula (Combat.ts)
-[2026-05-20] P2.8 unified toast system: severity, stack, auto-dismiss
-[2026-05-20] P1.6 mobile audit: 44×44 min touch targets
-[2026-05-20] P1.5 zeny sinks: NPC enchant, repair cost, waypoint cost
-[2026-05-20] P1.1 Combat/Inventory services refactor
-[2026-05-20] P3.21 more monsters: desert/snow/swamp biomes
-[2026-05-20] P3.22 crafting depth: recipe discovery, quality tiers
-[2026-05-20] P3.20 endgame loop: Lv30+ daily content
-[2026-05-20] P4.29 GLTF hero: GLTF loader + AnimationMixer MVP
+f4db7cc feat(P6.47): audit log table + Zod schema validation
+de2a081 docs: update BACKLOG.md P4 items DONE (Sentry, music, refresh, password, backup, ESLint, GLTF)
+b60ec07 feat(P4.29): GLTFHero.tsx loader stub
+87e8da2 feat(P4.38): ESLint + Prettier config with husky pre-commit hook
+c747db8 feat(P4): Sentry, background music, password strength, JWT refresh, DB backup scripts
+e36b993 fix(P0): CORS strict whitelist + helmet + dual-rate-limit + HTTPS redirect
+39cc81d refactor: GameRoom.ts → WorldRoom.ts (1796 lines, service pattern)
+830a154 chore: add CompanionModel, Inventory test, Room tests, Redis test, client packages
+539d456 chore: session handoff — P2/P3 polish
+4c20656 feat: P3/P4 content batch — Combat/Inventory/Trade/Quest/Spawn/Research/Stats/Movement
 ```
 
 Run `git log --oneline -20` for the full local view.
