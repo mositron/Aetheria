@@ -44,7 +44,7 @@ export function WaypointsPanel() {
     <div data-no-screen-joy role="dialog" aria-modal="true" className="absolute inset-0 z-40 flex items-center justify-center bg-black/65 backdrop-blur-sm py-12 px-4" onClick={() => setOpen(false)}>
       <div className="w-[22rem] max-w-[94vw]" onClick={(e) => e.stopPropagation()}>
         <GameFrame title="📍 หมุดของฉัน">
-          <button onClick={() => setOpen(false)} className="absolute -top-3 -right-3 w-8 h-8 rounded-full bg-rose-700 hover:bg-rose-600 border-2 border-rose-300 text-white font-bold z-10">✕</button>
+          <button onClick={() => setOpen(false)} className="absolute -top-3 -right-3 min-w-[44px] min-h-[44px] w-11 h-11 rounded-full bg-rose-700 hover:bg-rose-600 border-2 border-rose-300 text-white font-bold z-10 flex items-center justify-center">✕</button>
 
           <div className="space-y-2 pt-1">
             {waypoint && (

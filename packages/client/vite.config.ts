@@ -54,6 +54,7 @@ export default defineConfig({
     proxy: {
       "/auth": "http://localhost:2567",
       "/leaderboard": "http://localhost:2567",
+      "/api": "http://localhost:2567",
     },
   },
   build: {

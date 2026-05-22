@@ -29,8 +29,12 @@ type S = {
   inventoryOpen: boolean;
   activeNpcId: string | null;
   botMode: boolean;
+  buildMode: boolean;
+  selectedStructItemId: string | null;
   waypoint: Waypoint | null;
   dismissedHints: string[];
+  lang: "th" | "en";
+  setLang: (lang: "th" | "en") => void;
   setWaypoint: (wp: Waypoint | null) => void;
   dismissHint: (id: string) => void;
   setAuth: (token: string, username: string, characters: CharacterSummary[]) => void;
@@ -42,6 +46,8 @@ type S = {
   pushChat: (e: ChatEntry) => void;
   setTarget: (id: string | null) => void;
   toggleInventory: () => void;
+  toggleBuildMode: () => void;
+  setSelectedStructItem: (itemId: string | null) => void;
 };
 
 export const useStore = create<S>((set, get) => ({
@@ -59,11 +65,15 @@ export const useStore = create<S>((set, get) => ({
   inventoryOpen: false,
   activeNpcId: null,
   botMode: false,
+  buildMode: false,
+  selectedStructItemId: null,
   waypoint: null,
   dismissedHints: (() => {
     try { return JSON.parse(localStorage.getItem("dismissedHints") || "[]"); }
     catch { return []; }
   })(),
+  lang: "th",
+  setLang: (lang) => set({ lang }),
   setWaypoint: (wp) => {
     if (typeof window !== "undefined") {
       window.dispatchEvent(new Event("waypoint-changed"));
@@ -101,6 +111,8 @@ export const useStore = create<S>((set, get) => ({
   },
   setRoom: (room) => set({ room, sessionId: room?.sessionId ?? null }),
   pushChat: (e) => set((s) => ({ chat: [...s.chat.slice(-50), e] })),
-  setTarget: (id) => set({ targetMonsterId: id }),
+  setTarget: (id: string | null) => set({ targetMonsterId: id }),
   toggleInventory: () => set({ inventoryOpen: !get().inventoryOpen }),
+  toggleBuildMode: () => set((s) => ({ buildMode: !s.buildMode, selectedStructItemId: s.buildMode ? null : s.selectedStructItemId })),
+  setSelectedStructItem: (itemId: string | null) => set({ selectedStructItemId: itemId, buildMode: itemId ? true : get().buildMode }),
 }));

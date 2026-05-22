@@ -91,4 +91,63 @@ export class Mailbox {
       console.error("[mailbox.markRead]", e);
     }
   }
+
+  registerHandlers(
+    getPlayer: (sid: string) => any,
+    sendToClient: (sid: string, type: string, data: any) => void,
+    removeItem: (p: any, itemId: string, qty: number) => void
+  ) {
+    return {
+      sendMail: async (client: any, msg: any) => {
+        const p = getPlayer(client.sessionId);
+        if (!p) return;
+        const zeny = Math.max(0, Math.min(9_999_999, msg?.zeny | 0));
+        if (zeny > 0 && p.zeny < zeny) {
+          sendToClient(client.sessionId, "system", { text: "เงินไม่พอ" });
+          return;
+        }
+        let itemId = "", itemQty = 0;
+        const itemInvIdx = msg?.itemInvIdx;
+        if (typeof itemInvIdx === "number" && itemInvIdx >= 0 && itemInvIdx < p.inventory.length) {
+          const stack = p.inventory[itemInvIdx];
+          itemId = stack.itemId;
+          itemQty = Math.max(1, Math.min(stack.qty, msg?.itemQty | 0 || 1));
+        }
+        const r = await this.send({
+          fromName: p.name,
+          toName: String(msg?.to ?? "").trim(),
+          subject: String(msg?.subject ?? ""),
+          body: String(msg?.body ?? ""),
+          zeny, itemId, itemQty,
+        });
+        if (!r.ok) {
+          if (r.reason === "target-missing") sendToClient(client.sessionId, "system", { text: `ไม่พบผู้เล่นชื่อ ${msg?.to}` });
+          return;
+        }
+        if (zeny > 0) p.zeny -= zeny;
+        if (itemId && itemQty > 0) removeItem(p, itemId, itemQty);
+        sendToClient(client.sessionId, "system", { text: `📬 ส่งจดหมายถึง ${msg?.to} แล้ว` });
+      },
+
+      claimMail: async (client: any, msg: any) => {
+        const p = getPlayer(client.sessionId);
+        if (!p) return;
+        const reward = await this.claim(String(msg?.id ?? ""), p.name);
+        if (!reward) return;
+        if (reward.zeny > 0) p.zeny += reward.zeny;
+        if (reward.itemId && reward.itemQty > 0) {
+          // Delegate to WorldRoom's addToInventory via callback
+          // handled externally — reward item is added by caller
+        }
+        sendToClient(client.sessionId, "system", { text: "📦 รับของเรียบร้อย" });
+        sendToClient(client.sessionId, "mailUpdated", {});
+      },
+
+      readMail: async (client: any, msg: any) => {
+        const p = getPlayer(client.sessionId);
+        if (!p) return;
+        await this.markRead(String(msg?.id ?? ""), p.name);
+      },
+    };
+  }
 }

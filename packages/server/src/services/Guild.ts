@@ -156,3 +156,82 @@ export class Guild {
     return info?.members ?? [];
   }
 }
+
+export function registerGuildHandlers(deps: {
+  prisma: PrismaClient;
+  state: { players: Map<string, any> };
+  getPlayer: (sid: string) => any;
+  sendToClient: (sid: string, type: string, data: any) => void;
+  getCharId: (sid: string) => string | undefined;
+  checkRateLimit: (sid: string, key: string, maxCount: number, windowMs: number) => boolean;
+  clients: any[];
+}) {
+  const guild = new Guild(deps.prisma);
+  const { getPlayer, sendToClient, getCharId, checkRateLimit } = deps;
+
+  return {
+    "guild:create": async (client: any, msg: any) => {
+      const me = getPlayer(client.sessionId);
+      const charId = getCharId(client.sessionId);
+      if (!me || !charId) return;
+      const r = await guild.create(charId, me.name, String(msg?.name ?? ""), String(msg?.tag ?? ""));
+      if (!r.ok) {
+        const reasonMsg = r.reason === "name-empty" ? "ตั้งชื่อกิลด์ก่อน"
+          : r.reason === "already-in-guild" ? "อยู่กิลด์อื่นแล้ว ออกก่อน"
+          : r.reason === "name-taken" ? "ชื่อนี้ถูกใช้แล้ว"
+          : "สร้างกิลด์ไม่สำเร็จ";
+        return sendToClient(client.sessionId, "system", { text: reasonMsg });
+      }
+      sendToClient(client.sessionId, "guild:info", r.info);
+    },
+
+    "guild:join": async (client: any, msg: any) => {
+      const me = getPlayer(client.sessionId);
+      const charId = getCharId(client.sessionId);
+      if (!me || !charId) return;
+      const r = await guild.join(charId, me.name, String(msg?.name ?? ""));
+      if (!r.ok) {
+        const reasonMsg = r.reason === "not-found" ? `ไม่พบกิลด์ "${msg?.name}"`
+          : r.reason === "already-in-guild" ? "อยู่กิลด์อื่นแล้ว ออกก่อน"
+          : "";
+        if (reasonMsg) sendToClient(client.sessionId, "system", { text: reasonMsg });
+        return;
+      }
+      sendToClient(client.sessionId, "guild:info", r.info);
+    },
+
+    "guild:leave": async (client: any) => {
+      const me = getPlayer(client.sessionId);
+      const charId = getCharId(client.sessionId);
+      if (!me || !charId) return;
+      const r = await guild.leave(charId, me.name);
+      if (r.ok) sendToClient(client.sessionId, "guild:info", null as any);
+    },
+
+    "guild:info": async (client: any) => {
+      const charId = getCharId(client.sessionId);
+      if (!charId) return;
+      const info = await guild.infoForChar(charId);
+      sendToClient(client.sessionId, "guild:info", info as any);
+    },
+
+    "guild:chat": async (client: any, msg: any) => {
+      const me = getPlayer(client.sessionId);
+      const charId = getCharId(client.sessionId);
+      if (!me || !charId) return;
+      if (!checkRateLimit(client.sessionId, "guild-chat", 5, 5000)) {
+        return sendToClient(client.sessionId, "system", { text: "⏸ ส่งช้าๆ" });
+      }
+      const text = String(msg?.text ?? "").slice(0, 200).trim();
+      if (!text) return;
+      const members = await guild.membersOf(charId);
+      if (members.length === 0) return;
+      for (const cl of deps.clients) {
+        const p = getPlayer(cl.sessionId);
+        if (p && members.includes(p.name)) {
+          sendToClient(cl.sessionId, "guild:chat", { from: me.name, text, ts: Date.now() });
+        }
+      }
+    },
+  };
+}

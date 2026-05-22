@@ -53,6 +53,25 @@ model Mail {
   @@index([toName, read])
 }
 
+model World {
+  id             String   @id @default(cuid())
+  name           String   @default("My World")
+  hostId         String
+  hostName       String
+  template       String   @default("forest")  // forest | desert | mountain | island
+  mode           String   @default("adventure") // adventure | co-op | pvp
+  privacy        String   @default("public")   // public | friends | private
+  maxPlayers     Int      @default(8)
+  currentPlayers Int      @default(0)
+  seed           Int      @default(0)
+  status         String   @default("open")     // open | playing | closed
+  inviteCode     String   @default("")
+  createdAt      DateTime @default(now())
+
+  @@index([status, privacy])
+  @@index([inviteCode])
+}
+
 model Character {
   id      String  @id @default(cuid())
   userId  String

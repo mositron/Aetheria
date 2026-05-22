@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import type { Room } from "colyseus.js";
 import { type Player, type WorldState, type MapId } from "@game/shared";
+import { useStore } from "../store";
 import { Minimap } from "./Minimap";
 
 /**
@@ -35,7 +36,7 @@ export function HUD({ room }: { room: Room<WorldState> }) {
           <div className="space-y-1">
             <div className="flex items-baseline justify-between" style={{ fontSize: isMobile ? 10 : 11 }}>
               <span className="text-white font-bold truncate">{me.name}</span>
-              <span className="text-cyan-200" style={{ fontSize: isMobile ? 9 : 10 }}>
+              <span className="text-cyan-100" style={{ fontSize: isMobile ? 9 : 10 }}>
                 Lv{me.level} · <span className="text-amber-300">{me.job}</span>
               </span>
             </div>
@@ -59,6 +60,8 @@ export function HUD({ room }: { room: Room<WorldState> }) {
             </div>
           )}
         </div>
+        {/* Build mode toggle */}
+        <BuildModeButton />
       </div>
 
       {/* ── TOP-RIGHT: Minimap + icon-only status chips (tooltip on hover) ── */}
@@ -133,6 +136,63 @@ function Pill({ icon, value, max = 100, color, warn, warnColor }: { icon: string
         <span style={{ fontSize: 6 }} className="drop-shadow-[0_1px_1px_rgba(0,0,0,0.9)]">{icon}</span>
         <span style={{ fontSize: 7 }} className="font-bold text-white tabular-nums drop-shadow-[0_1px_1px_rgba(0,0,0,0.9)]">{Math.floor(value)}</span>
       </div>
+    </div>
+  );
+}
+
+function BuildModeButton() {
+  const buildMode = useStore((s) => s.buildMode);
+  const selectedStructItemId = useStore((s) => s.selectedStructItemId);
+  const toggleBuildMode = useStore((s) => s.toggleBuildMode);
+  const setSelectedStructItem = useStore((s) => s.setSelectedStructItem);
+
+  return (
+    <div className="mt-1 flex flex-col gap-1">
+      {/* Toggle build mode on/off */}
+      <button
+        onClick={toggleBuildMode}
+        className={`flex items-center gap-1 px-2 py-1 rounded text-xs font-bold border transition-all ${
+          buildMode
+            ? "bg-cyan-500/30 border-cyan-400 text-cyan-300 shadow-[0_0_8px_cyan]"
+            : "bg-black/55 border-amber-400/40 text-amber-300 hover:border-amber-400/80"
+        }`}
+      >
+        🏠 {buildMode ? "ออกจากโหมดสร้าง" : "สร้างฐาน"}
+      </button>
+      {buildMode && (
+        <div className="flex gap-1">
+          <button
+            onClick={() => setSelectedStructItem(null)}
+            className={`flex-1 flex items-center justify-center gap-1 px-2 py-1 rounded text-xs font-bold border transition-all ${
+              selectedStructItemId === null
+                ? "bg-rose-500/30 border-rose-400 text-rose-300"
+                : "bg-black/55 border-slate-600 text-slate-300 hover:border-rose-400/60"
+            }`}
+          >
+            🔨 สร้าง
+          </button>
+          <button
+            onClick={() => setSelectedStructItem("__destroy__")}
+            className={`flex-1 flex items-center justify-center gap-1 px-2 py-1 rounded text-xs font-bold border transition-all ${
+              selectedStructItemId === "__destroy__"
+                ? "bg-rose-500/30 border-rose-400 text-rose-300"
+                : "bg-black/55 border-slate-600 text-slate-300 hover:border-rose-400/60"
+            }`}
+          >
+            💥 ทำลาย
+          </button>
+        </div>
+      )}
+      {buildMode && selectedStructItemId && selectedStructItemId !== "__destroy__" && (
+        <div className="text-[9px] text-cyan-300/70 px-1">
+          คลิกซ้ายพื้นเพื่อวาง · คลิกขวาบนสิ่งก่อสร้างเพื่อทำลาย
+        </div>
+      )}
+      {buildMode && selectedStructItemId === "__destroy__" && (
+        <div className="text-[9px] text-rose-300/70 px-1">
+          คลิกขวาบนสิ่งก่อสร้างเพื่อทำลาย
+        </div>
+      )}
     </div>
   );
 }

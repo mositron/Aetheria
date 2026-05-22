@@ -24,7 +24,7 @@ export function QuestTracker({ room }: { room: Room<WorldState> }) {
           border: "1px solid rgba(125, 211, 252, 0.25)",
         }}
       >
-        <div className="text-[10px] text-cyan-200/90 font-bold uppercase tracking-widest mb-1 flex items-center gap-1">
+        <div className="text-[10px] text-cyan-100/90 font-bold uppercase tracking-widest mb-1 flex items-center gap-1">
           📜 เควสต์
         </div>
         <div className="space-y-1.5">

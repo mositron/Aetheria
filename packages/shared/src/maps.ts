@@ -1,11 +1,23 @@
 import type { MonsterKind } from "./constants.js";
 
-export type MapId = "field" | "dungeon";
+export type MapId = "field" | "dungeon" | "dungeon_shadow" | "dungeon_frost";
 
 export type SpawnPoint = { kind: MonsterKind; x: number; z: number };
 export type Portal = { x: number; z: number; to: MapId; tx: number; tz: number };
 
 export type WaterSource = { x: number; z: number; radius: number };
+
+/** Dungeon definition for the Endless Tower system. */
+export type DungeonSpawn = { kind: MonsterKind; count: number };
+export type DungeonDef = {
+  id: string;
+  name: string;
+  floor: number;
+  biome: "dungeon";
+  spawns: DungeonSpawn[];
+  reward: { exp: number; zeny: number };
+  nextFloor?: string;
+};
 
 /** Fixed house plots around the village. Player buys one slot from the carpenter. */
 export const HOUSE_SLOTS: Array<{ x: number; z: number }> = [
@@ -89,15 +101,23 @@ function generateFieldSpawns(halfSize: number): SpawnPoint[] {
   place("wolf", 0, -halfSize * 0.85, 14, 3);
   place("wolf", 0, halfSize * 0.85, 14, 3);
 
-  // DESERT (SW area near -halfSize*0.5, -halfSize*0.65)
+// DESERT (SW area near -halfSize*0.5, -halfSize*0.65)
   place("scorpion", -halfSize * 0.5, -halfSize * 0.65, 16, 4);
+  place("scorpion_lord", -halfSize * 0.5, -halfSize * 0.65, 16, 1);
+  place("sand_worm", -halfSize * 0.5, -halfSize * 0.65, 18, 3);
   place("rock_node", -halfSize * 0.5, -halfSize * 0.65, 18, 4);
 
   // SNOW (NW corner near -halfSize*0.75, -halfSize*0.3)
   place("yeti", -halfSize * 0.75, -halfSize * 0.3, 14, 3);
+  place("ice_wraith", -halfSize * 0.75, -halfSize * 0.3, 16, 4);
+  place("snowman_giant", -halfSize * 0.75, -halfSize * 0.3, 16, 1);
   place("ore_node", -halfSize * 0.75, -halfSize * 0.3, 16, 3);
 
-  // ── Boss area ── deep wilderness
+  // SWAMP (south-rim band z > halfSize * 0.6, x in [-30..30])
+  place("bog_witch", 0, halfSize * 0.7, 14, 2);
+  place("swamp_serpent", 0, halfSize * 0.7, 16, 3);
+
+// ── Boss area ── deep wilderness
   out.push({ kind: "darklord", x: 0, z: -halfSize * 0.92 });
 
   // Near-spawn easy targets so new players have something to hit
@@ -159,4 +179,100 @@ export const MAPS: Record<MapId, MapDef> = {
       { x: -20, z: 0, to: "field", tx: FIELD_SIZE * 0.4, tz: -FIELD_SIZE * 0.4 },
     ],
   },
+  dungeon_shadow: {
+    id: "dungeon_shadow",
+    name: "Shadow Dungeon",
+    size: 90,
+    groundColor: "#1a1028",
+    spawns: [
+      { kind: "shadow_wolf", x: -10, z: 8 },
+      { kind: "shadow_wolf", x: 14, z: -4 },
+      { kind: "shadow_wolf", x: -6, z: 14 },
+      { kind: "shadow_wolf", x: 18, z: 6 },
+      { kind: "shadow_wolf", x: -18, z: -8 },
+      { kind: "shadow_wolf", x: 8, z: -14 },
+      { kind: "shadow_wolf", x: -14, z: 12 },
+      { kind: "shadow_wolf", x: 12, z: 10 },
+      { kind: "shadow_lord", x: 0, z: 22 },
+    ],
+    portals: [
+      { x: 0, z: 0, to: "field", tx: 0, tz: 0 },
+],
+  },
+  dungeon_frost: {
+    id: "dungeon_frost",
+    name: "Frost Dungeon",
+    size: 90,
+    groundColor: "#1e3a5f",
+    spawns: [
+      { kind: "frost_spider", x: -12, z: 6 },
+      { kind: "frost_spider", x: 16, z: -6 },
+      { kind: "frost_spider", x: -8, z: 16 },
+      { kind: "frost_spider", x: 14, z: 8 },
+      { kind: "frost_spider", x: -18, z: -10 },
+      { kind: "frost_spider", x: 6, z: -16 },
+      { kind: "frost_spider", x: -16, z: 14 },
+      { kind: "frost_spider", x: 10, z: 12 },
+      { kind: "ice_giant", x: 0, z: 24 },
+    ],
+    portals: [
+      { x: 0, z: 0, to: "field", tx: 0, tz: 0 },
+    ],
+  },
+};
+
+// ── ENDLESS TOWER DUNGEON SYSTEM ──
+
+/** Procedural dungeon floor generator. */
+export function generateDungeonFloor(floor: number): DungeonDef {
+  const monsterPool: MonsterKind[] = ["ghost", "fox", "banshee", "orc", "skeleton_captain"];
+  const bossChance = floor % 5 === 0;
+  return {
+    id: `endless_${floor}`,
+    name: `Endless Tower - Floor ${floor}`,
+    floor,
+    biome: "dungeon",
+    spawns: [
+      { kind: monsterPool[floor % monsterPool.length], count: 3 + floor },
+      ...(bossChance ? [{ kind: "shadow_lord" as MonsterKind, count: 1 }] : []),
+    ],
+    reward: { exp: 300 + floor * 200, zeny: 500 + floor * 300 },
+    nextFloor: `endless_${floor + 1}`,
+  };
+}
+
+/** Predefined first two floors + generate the rest up to floor 10. */
+export const DUNGEONS: Record<string, DungeonDef> = {
+  endless_1: {
+    id: "endless_1",
+    name: "Endless Tower - Floor 1",
+    floor: 1,
+    biome: "dungeon",
+    spawns: [
+      { kind: "slime", count: 5 },
+      { kind: "boar", count: 3 },
+    ],
+    reward: { exp: 500, zeny: 1000 },
+    nextFloor: "endless_2",
+  },
+  endless_2: {
+    id: "endless_2",
+    name: "Endless Tower - Floor 2",
+    floor: 2,
+    biome: "dungeon",
+    spawns: [
+      { kind: "bat", count: 6 },
+      { kind: "spider", count: 4 },
+      { kind: "golem", count: 1 },
+    ],
+    reward: { exp: 800, zeny: 2000 },
+    nextFloor: "endless_3",
+  },
+  // Generate floors 3-10
+  ...Object.fromEntries(
+    Array.from({ length: 8 }, (_, i) => {
+      const floor = i + 3;
+      return [generateDungeonFloor(floor).id, generateDungeonFloor(floor)];
+    })
+  ),
 };

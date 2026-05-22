@@ -49,6 +49,8 @@ export class Player extends Schema {
   @type("boolean") flying = false;
   @type("boolean") pvpFlag = false;  // opt-in PvP — can only damage other pvp-flagged players
   @type("string") decorationsJson = "[]"; // [{itemId, x, z}] — placed near owned house
+  @type("string") structuresJson = "[]"; // [{id, itemId, x, z, name}] — full structure list for housing
+  @type("boolean") houseOpen = true; // whether other players can visit this house
   @type("string") achievementsJson = "{}";
   @type("string") title = "";
   // stats
@@ -60,7 +62,17 @@ export class Player extends Schema {
   @type("number") luk = 1;
   @type("number") statPoints = 0;
   @type("number") zeny = 0;
+  @type("number") researchPoints = 0; // crafting research points (accumulates offline)
+  @type("number") skillPoints = 0;    // skill tree allocation points
+  @type("string") unlockedSkillsJson = "[]"; // ["skillId", ...] unlocked skill tree nodes
   @type([StatusEffect]) statuses = new ArraySchema<StatusEffect>();
+  // Marriage
+  @type("string") spouseId = "";
+  @type("number") marriageDate = 0; // unix timestamp
+  @type("string") sessionId = ""; // Colyseus session ID (set on join)
+  @type("string") spouseName = "";
+  @type("string") dungeonClearedJson = "[]"; // [floor numbers cleared in endless dungeon]
+  @type("string") mapId = "field"; // current map/zone
 }
 
 export class Monster extends Schema {
@@ -88,6 +100,26 @@ export class PlantNode extends Schema {
   @type("number") plantedAt = 0; // server timestamp ms
 }
 
+export class CompanionSchema extends Schema {
+  @type("string") id = "";
+  @type("string") ownerId = "";
+  @type("string") kind = "";   // "pal_flame" | "pal_grass" | "pal_aqua" | "pal_shock" | "pal_earth"
+  @type("number") x = 0;
+  @type("number") z = 0;
+  @type("number") hp = 100;
+  @type("number") maxHp = 100;
+  @type("string") state = "idle"; // "idle" | "follow" | "combat"
+}
+
+export class StructureSchema extends Schema {
+  @type("string") id = "";
+  @type("string") itemId = "";
+  @type("number") x = 0;
+  @type("number") z = 0;
+  @type("string") ownerId = "";
+  @type("number") createdAt = 0;
+}
+
 export const PLANT_GROW_MS = 3 * 60 * 1000; // 3 minutes to fully ripen
 export function plantStage(plantedAt: number, now: number): 0 | 1 | 2 | 3 {
   const t = now - plantedAt;
@@ -103,8 +135,10 @@ export class WorldState extends Schema {
   @type({ map: Monster }) monsters = new MapSchema<Monster>();
   @type({ map: GroundItem }) drops = new MapSchema<GroundItem>();
   @type({ map: PlantNode }) plants = new MapSchema<PlantNode>();
+  @type({ map: CompanionSchema }) companions = new MapSchema<CompanionSchema>();
+  @type([StructureSchema]) structures = new ArraySchema<StructureSchema>();
   @type("number") dayPhase = 0.25; // 0=midnight, 0.25=dawn, 0.5=noon, 0.75=dusk
   @type("boolean") isNight = false;
   @type("string") weather = "sunny"; // "sunny" | "cloudy" | "rainy"
-  @type("string") season = "none";   // "none" | "songkran" | "halloween" | "christmas"
+  @type("string") season = "none";   // "none" | "songkran" | "halloween" | "christmas" | "loy_krathong"
 }

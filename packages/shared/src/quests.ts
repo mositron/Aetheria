@@ -106,6 +106,38 @@ export const QUESTS: Record<string, QuestDef> = {
     objective: { kind: "kill", monster: "darklord", count: 1 },
     reward: { exp: 12000, zeny: 15000, itemId: "blade_of_dawn", qty: 1 },
   },
+  // ── Lv25+ endgame dungeons ─────────────────────────────────────────────
+  q_daily_dungeon: {
+    id: "q_daily_dungeon",
+    name: "Dungeon Descent",
+    desc: "Slay 5 monsters in any dungeon.",
+    giver: "merchant_field",
+    turnIn: "merchant_field",
+    minLevel: 20,
+    objective: { kind: "kill", monster: "shadow_wolf", count: 5 },
+    reward: { exp: 1500, zeny: 800, itemId: "hp_potion", qty: 3 },
+  },
+  q_weekly_shadow: {
+    id: "q_weekly_shadow",
+    name: "Shadow Realm",
+    desc: "Defeat the Shadow Lord in the Shadow Dungeon.",
+    giver: "merchant_field",
+    turnIn: "merchant_field",
+    minLevel: 25,
+    objective: { kind: "kill", monster: "shadow_lord", count: 1 },
+    reward: { exp: 5000, zeny: 3000, itemId: "shadow_cape", qty: 1 },
+    next: "q_weekly_frost",
+  },
+  q_weekly_frost: {
+    id: "q_weekly_frost",
+    name: "Frost Peak",
+    desc: "Defeat the Ice Giant in the Frost Dungeon.",
+    giver: "merchant_field",
+    turnIn: "merchant_field",
+    minLevel: 28,
+    objective: { kind: "kill", monster: "ice_giant", count: 1 },
+    reward: { exp: 8000, zeny: 5000, itemId: "frost_blade", qty: 1 },
+  },
 };
 
 export const QUESTS_BY_GIVER: Record<string, string[]> = (() => {

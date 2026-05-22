@@ -99,7 +99,7 @@ export function Login() {
                 <div className="game-label">⚿ รหัสผ่าน</div>
                 <input className="game-input" placeholder="••••••" type="password" value={password} onChange={(e) => setP(e.target.value)} />
               </div>
-              <label className="flex items-center gap-2 text-xs text-cyan-200 cursor-pointer select-none">
+              <label className="flex items-center gap-2 text-xs text-cyan-100 cursor-pointer select-none">
                 <input
                   type="checkbox" checked={remember}
                   onChange={(e) => setRemember(e.target.checked)}

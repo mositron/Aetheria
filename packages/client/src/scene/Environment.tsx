@@ -59,6 +59,20 @@ const PALETTES: Record<MapId, Palette> = {
     river: "#a855f7", riverDeep: "#6b21a8",
     flowerA: "#f472b6", flowerB: "#22d3ee",
   },
+  dungeon_shadow: {
+    groundA: "#2d1f4a", groundB: "#3d2a5c", groundC: "#1e1433",
+    rock: "#4a3a5c", rockDark: "#2e2240",
+    trunk: "#1a1020", leavesA: "#7c3aed", leavesB: "#a78bfa",
+    river: "#6b21a8", riverDeep: "#3b0d70",
+    flowerA: "#f472b6", flowerB: "#a855f7",
+  },
+  dungeon_frost: {
+    groundA: "#3a6ea5", groundB: "#4a82bc", groundC: "#2a5888",
+    rock: "#6b8bae", rockDark: "#4a6580",
+    trunk: "#1a3a5c", leavesA: "#38bdf8", leavesB: "#7dd3fc",
+    river: "#0ea5e9", riverDeep: "#0369a1",
+    flowerA: "#e0f2fe", flowerB: "#bae6fd",
+  },
 };
 
 type Block = { x: number; y: number; z: number; sx: number; sy: number; sz: number; color: string };

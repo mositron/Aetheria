@@ -2,7 +2,7 @@ import type { CSSProperties, ReactNode } from "react";
 
 type Props = {
   title?: string;
-  variant?: "cyan" | "violet";
+  variant?: "cyan" | "violet" | "gold";
   className?: string;
   /** Extra classes for the inner content wrapper (use for flex layouts). */
   innerClassName?: string;

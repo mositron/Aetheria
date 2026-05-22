@@ -1,9 +1,51 @@
 export type ItemSlot = "weapon" | "armor" | "consumable" | "material";
 
+export type ItemQuality = "normal" | "superior" | "rare" | "masterwork" | "legendary";
+
+export const QUALITY_COLORS: Record<ItemQuality, string> = {
+  normal: "#9ca3af",      // gray
+  superior: "#22c55e",    // green
+  rare: "#3b82f6",        // blue
+  masterwork: "#a855f7",  // purple
+  legendary: "#f59e0b",  // amber/gold
+};
+
+export const QUALITY_NAMES: Record<ItemQuality, string> = {
+  normal: "ธรรมดา",
+  superior: "เหนือกว่า",
+  rare: "หายาก",
+  masterwork: "ช่างฝีมือ",
+  legendary: "ตำนาน",
+};
+
+export interface PetSkillDef {
+  id: string;
+  name: string;
+  icon: string;
+  type: "passive";
+  effect: Record<string, number>;
+}
+
+export const PET_SKILLS: Record<string, PetSkillDef> = {
+  guard_dog:    { id: "guard_dog",    name: "Guard Dog",    icon: "🐕", type: "passive", effect: { atkBonus: 0.1 } },
+  farmhand:     { id: "farmhand",     name: "Farmhand",     icon: "🐔", type: "passive", effect: { gatherBonus: 0.3 } },
+  lucky_pet:    { id: "lucky_pet",    name: "Lucky",        icon: "🐈", type: "passive", effect: { dropBonus: 0.2 } },
+  warrior_pet:  { id: "warrior_pet",  name: "Warrior Spirit",icon: "⚔️", type: "passive", effect: { atkBonus: 0.15, defBonus: 0.05 } },
+  mage_pet:     { id: "mage_pet",     name: "Mage Spirit",   icon: "🧙", type: "passive", effect: { mpBonus: 0.25, mdefBonus: 0.1 } },
+};
+
+export const PET_EVOLUTIONS: Record<string, { chance: number; result: string; name: string }> = {
+  chicken:  { chance: 0.05, result: "phoenix_chick",  name: "ลูกฟีนิกซ์" },
+  pig:      { chance: 0.08, result: "truffle_pig",    name: "หมูทรัฟเฟิล" },
+  cow:      { chance: 0.10, result: "golden_cow",      name: "วัวทอง" },
+};
+
 export type ItemDef = {
   id: string;
   name: string;
   slot: ItemSlot;
+  /** Item type for validation — furniture/consumable/material/etc */
+  itemType?: string;
   atk?: number;
   def?: number;
   hpRestore?: number;
@@ -14,6 +56,8 @@ export type ItemDef = {
   stack?: number; // max stack (consumables/materials)
   icon?: string;  // emoji for now
   color?: string;
+  quality?: ItemQuality;
+  baseQuality?: ItemQuality; // for craftable items
 };
 
 export const ITEMS: Record<string, ItemDef> = {
@@ -66,11 +110,47 @@ export const ITEMS: Record<string, ItemDef> = {
   furniture_plant:  { id: "furniture_plant",  name: "ต้นไม้กระถาง",  slot: "material", stack: 9, icon: "🪴", color: "#4ade80" },
   furniture_rug:    { id: "furniture_rug",    name: "พรม",         slot: "material", stack: 9, icon: "🧶", color: "#f472b6" },
   // special toys
-  glider:           { id: "glider",           name: "Glider Cape", slot: "consumable", stack: 1, icon: "🪂", color: "#bae6fd" },
+glider:           { id: "glider",           name: "Glider Cape", slot: "consumable", stack: 1, icon: "🪂", color: "#bae6fd" },
   gacha_box:        { id: "gacha_box",        name: "กล่องสุ่ม",     slot: "consumable", stack: 99, icon: "🎁", color: "#f472b6" },
   // mining materials
   iron_ore:     { id: "iron_ore",     name: "Iron Ore",       slot: "material", stack: 99, icon: "🪙", color: "#94a3b8" },
   crystal:      { id: "crystal",      name: "Magic Crystal",  slot: "material", stack: 99, icon: "💎", color: "#a855f7" },
+// ── desert biome drops ────────────────────────────────────────────────────
+  desert_pearl:   { id: "desert_pearl",   name: "ไข่มุกทะเลทราย",   slot: "material", stack: 99, icon: "🌕", color: "#fcd34d" },
+  // ── snow biome drops ──────────────────────────────────────────────────────
+  ice_crystal:    { id: "ice_crystal",    name: "ผลึกน้ำแข็ง",         slot: "material", stack: 99, icon: "💎", color: "#7dd3fc" },
+  frozen_heart:   { id: "frozen_heart",   name: "หัวใจที่แข็งเย็น",   slot: "material", stack: 99, icon: "🧊", color: "#bae6fd" },
+  snowman_nose:   { id: "snowman_nose",   name: "จมูกสโนว์แมน",       slot: "material", stack: 99, icon: "🥕", color: "#f97316" },
+  winter_essence: { id: "winter_essence", name: "แก่นแห่งฤดูหนาว",   slot: "material", stack: 99, icon: "❄️", color: "#bfdbfe" },
+  // ── swamp biome drops ────────────────────────────────────────────────────
+  swamp_herb:     { id: "swamp_herb",     name: "สมุนไพรชุ่มชื้น",     slot: "material", stack: 99, icon: "🌿", color: "#84cc16" },
+  serpent_scale:  { id: "serpent_scale",  name: "เกล็ดงู",              slot: "material", stack: 99, icon: "🐍", color: "#4a7c42" },
+  serpent_venom:  { id: "serpent_venom",  name: "พิษงูบึ้ง",            slot: "material", stack: 99, icon: "💀", color: "#84cc16" },
+  witch_hat:      { id: "witch_hat",      name: "หมวกแม่มด",            slot: "material", stack: 99, icon: "🎩", color: "#1a1a2e" },
+  // ── dungeon rewards ─────────────────────────────────────────────────────
+  shadow_cape:  { id: "shadow_cape",  name: "Shadow Cape",    slot: "armor",   def: 8,  icon: "🦇", color: "#7c3aed" },
+  frost_blade:  { id: "frost_blade",  name: "Frost Blade",    slot: "weapon", atk: 18, icon: "🗡️", color: "#38bdf8" },
+  dungeon_key:  { id: "dungeon_key",  name: "Dungeon Key",    slot: "material", stack: 99, icon: "🗝️", color: "#fbbf24" },
+  // Wedding rings
+  wedding_ring_m: { id: "wedding_ring_m", name: "แหวนแต่งงาน (ชาย)", slot: "armor", def: 1, icon: "💍", color: "#f59e0b" },
+  wedding_ring_f: { id: "wedding_ring_f", name: "แหวนแต่งงาน (หญิง)", slot: "armor", def: 1, icon: "💍", color: "#f472b6" },
+  // ── Seasonal items ──────────────────────────────────────────────────────────
+  songkran_water:  { id: "songkran_water",  name: "น้ำสงกรานต์",    slot: "consumable", hpRestore: 20, mpRestore: 30, stack: 99, icon: "💦", color: "#7dd3fc" },
+  xmas_ornament:   { id: "xmas_ornament",   name: "ออร์นาเมนต์",      slot: "material",   stack: 99, icon: "🎄", color: "#22c55e" },
+  candy_cane:      { id: "candy_cane",       name: "ลูกชู้์",          slot: "consumable", hungerRestore: 30, stack: 99, icon: "🍬", color: "#ef4444" },
+  pumpkin_lantern: { id: "pumpkin_lantern",  name: "โคมฟักทอง",      slot: "material",   stack: 99, icon: "🎃", color: "#f97316" },
+  halloween_candy: { id: "halloween_candy", name: "ลูกอมฮาโลวีน",   slot: "consumable", staminaRestore: 50, stack: 99, icon: "🍭", color: "#a855f7" },
+  krathong:        { id: "krathong",         name: "กระทง",           slot: "material",   stack: 99, icon: "🪘", color: "#fde68a" },
+};
+
+// Base-building structures — consumed when placed, appear as state.structures in the world
+export const STRUCTURES: Record<string, ItemDef> = {
+  struct_tent:   { id: "struct_tent",   name: "เต็นท์",       slot: "material", stack: 99, icon: "⛺", color: "#f97316" },
+  struct_fence:  { id: "struct_fence",  name: "รั้วไม้",      slot: "material", stack: 99, icon: "🪵", color: "#92400e" },
+  struct_torch:  { id: "struct_torch",  name: "คบเพลิง",      slot: "material", stack: 99, icon: "🔥", color: "#fb923c" },
+  struct_sign:   { id: "struct_sign",   name: "ป้ายบอกทาง",   slot: "material", stack: 99, icon: "🪧", color: "#a16207" },
+  struct_tower:  { id: "struct_tower",  name: "หอคอย",        slot: "material", stack: 99, icon: "🏰", color: "#64748b" },
+  struct_barrel: { id: "struct_barrel", name: "ถังน้ำ",        slot: "material", stack: 99, icon: "🛢", color: "#a3a3a3" },
 };
 
 /** Item IDs that come from resource gathering (trees/rocks/bushes).
@@ -174,7 +254,7 @@ export const MONSTER_DROPS: Record<string, DropEntry[]> = {
     { itemId: "berry", chance: 0.3 },
     { itemId: "mp_potion", chance: 0.2 },
   ],
-  golem: [
+golem: [
     { itemId: "stone_chunk", chance: 1.0, min: 3, max: 6 },
     { itemId: "crystal", chance: 0.6 },
     { itemId: "iron_ore", chance: 0.5, min: 1, max: 3 },
@@ -185,5 +265,46 @@ export const MONSTER_DROPS: Record<string, DropEntry[]> = {
     { itemId: "raw_meat", chance: 0.8 },
     { itemId: "wolf_fang", chance: 0.3 },
     { itemId: "berry", chance: 0.3 },
+  ],
+  // ── desert biome ─────────────────────────────────────────────────────────
+  sand_worm: [
+    { itemId: "iron_ore", chance: 0.25, min: 1, max: 2 },
+    { itemId: "desert_pearl", chance: 0.08 },
+    { itemId: "hp_potion", chance: 0.2 },
+  ],
+  scorpion_lord: [
+    { itemId: "rare_fish", chance: 0.5 },
+    { itemId: "dark_crystal", chance: 0.7 },
+    { itemId: "zeny", chance: 0.8, min: 200, max: 500 },
+    { itemId: "blade_of_dawn", chance: 0.05 },
+    { itemId: "dragon_plate", chance: 0.05 },
+    { itemId: "hp_potion", chance: 1.0, min: 5, max: 10 },
+  ],
+  // ── snow biome ───────────────────────────────────────────────────────────
+  ice_wraith: [
+    { itemId: "ice_crystal", chance: 0.3, min: 1, max: 2 },
+    { itemId: "frozen_heart", chance: 0.1 },
+    { itemId: "mp_potion", chance: 0.4 },
+    { itemId: "crystal", chance: 0.25 },
+  ],
+  snowman_giant: [
+    { itemId: "snowman_nose", chance: 0.6, min: 2, max: 4 },
+    { itemId: "winter_essence", chance: 0.2 },
+    { itemId: "hp_potion", chance: 0.8, min: 3, max: 6 },
+    { itemId: "frost_blade", chance: 0.08 },
+    { itemId: "chainmail", chance: 0.05 },
+  ],
+  // ── swamp biome ───────────────────────────────────────────────────────────
+  bog_witch: [
+    { itemId: "swamp_herb", chance: 0.35 },
+    { itemId: "witch_hat", chance: 0.08 },
+    { itemId: "magic_scroll", chance: 0.12 },
+    { itemId: "mp_potion", chance: 0.25 },
+  ],
+  swamp_serpent: [
+    { itemId: "serpent_scale", chance: 0.4 },
+    { itemId: "serpent_venom", chance: 0.2 },
+    { itemId: "rare_ring", chance: 0.03 },
+    { itemId: "hp_potion", chance: 0.3 },
   ],
 };

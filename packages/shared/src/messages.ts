@@ -46,3 +46,12 @@ export type ToggleFlyMsg = {};
 export type PlaceFurnitureMsg = { itemId: string };
 export type RemoveFurnitureMsg = { index: number };
 export type ServerEmoteMsg = { playerId: string; emote: string; ts: number };
+// Endless Dungeon
+export type EnterDungeonMsg = { floor: number };
+export type ClaimDungeonRewardMsg = {};
+export type DescendDungeonMsg = {};
+// Marriage
+export type ProposeMsg = { type: "propose"; targetName: string };
+export type AcceptProposalMsg = { type: "accept_proposal"; proposerName: string };
+export type DeclineProposalMsg = { type: "decline_proposal"; proposerName: string };
+export type DivorceMsg = { type: "divorce" };

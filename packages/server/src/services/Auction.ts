@@ -113,6 +113,89 @@ export class Auction {
       return null;
     }
   }
+
+  registerHandlers(
+    getPlayer: (sid: string) => any,
+    sendToClient: (sid: string, type: string, data: any) => void,
+    addToInventory: (p: any, itemId: string, qty: number) => boolean,
+    sendMail: (input: any) => Promise<void>
+  ) {
+    return {
+      "auction:list": async (client: any, msg: any) => {
+        const p = getPlayer(client.sessionId);
+        if (!p) return;
+        const invIndex = msg?.invIndex | 0;
+        if (!Number.isInteger(invIndex) || invIndex < 0 || invIndex >= p.inventory.length) return;
+        const stack = p.inventory[invIndex];
+        const qty = msg?.qty | 0;
+        const pricePer = msg?.pricePer | 0;
+        const v = this.validateList(qty, pricePer);
+        if (!v.ok) {
+          const reasonMsg = v.reason === "qty" ? "จำนวนไม่ถูกต้อง (1-99)"
+            : v.reason === "price" ? "ราคาเกินขีดสูงสุด (10M zeny)"
+            : "ราคารวมสูงเกิน (เกินขีดสูงสุด 999M zeny)";
+          return sendToClient(client.sessionId, "system", { text: reasonMsg });
+        }
+        if (!stack || stack.qty < qty) return sendToClient(client.sessionId, "system", { text: "ของไม่พอ" });
+        if (p.zeny < v.fee) return sendToClient(client.sessionId, "system", { text: `ต้องมีเงิน ${v.fee}z สำหรับค่าธรรมเนียมประกาศ` });
+        const created = await this.create({ sellerName: p.name, itemId: stack.itemId, qty, pricePer });
+        if (!created) return sendToClient(client.sessionId, "system", { text: "⚠ ลงประกาศไม่สำเร็จ" });
+        p.zeny -= v.fee;
+        stack.qty -= qty;
+        if (stack.qty <= 0) p.inventory.splice(invIndex, 1);
+        sendToClient(client.sessionId, "system", { text: `📢 ลงประกาศ ${qty} ชิ้น @${pricePer}z` });
+      },
+
+      "auction:browse": async (client: any, msg: any) => {
+        const listings = await this.browse(String(msg?.search ?? ""));
+        sendToClient(client.sessionId, "auction:browse", { listings });
+      },
+
+      "auction:buy": async (client: any, msg: any) => {
+        const p = getPlayer(client.sessionId);
+        if (!p) return;
+        const r = await this.claimForBuy(String(msg?.id ?? ""), p.name);
+        if (!r.ok) {
+          const reasonMsg = r.reason === "missing" ? "ของถูกซื้อหรือลบไปแล้ว"
+            : r.reason === "self-buy" ? "ซื้อของตัวเองไม่ได้"
+            : r.reason === "lost-race" ? "ของถูกคนอื่นซื้อไปแล้ว"
+            : "⚠ เกิดข้อผิดพลาดในการซื้อ";
+          return sendToClient(client.sessionId, "system", { text: reasonMsg });
+        }
+        if (p.zeny < r.total) {
+          await this.relist(r.listing);
+          return sendToClient(client.sessionId, "system", { text: `เงินไม่พอ (ต้อง ${r.total}z)` });
+        }
+        const ok = addToInventory(p, r.listing.itemId, r.listing.qty);
+        if (!ok) {
+          await this.relist(r.listing);
+          return sendToClient(client.sessionId, "system", { text: "กระเป๋าเต็ม — ของถูก re-list" });
+        }
+        p.zeny -= r.total;
+        await sendMail({
+          fromName: "AUCTION", toName: r.listing.sellerName,
+          subject: `ขายแล้ว: ${r.listing.itemId} ×${r.listing.qty}`,
+          body: `ขาย ${r.listing.itemId} ${r.listing.qty} ชิ้น ราคารวม ${r.total}z`,
+          zeny: r.total,
+        });
+        sendToClient(client.sessionId, "system", { text: `✅ ซื้อ ${r.listing.itemId} ×${r.listing.qty} (-${r.total}z)` });
+      },
+
+      "auction:cancel": async (client: any, msg: any) => {
+        const p = getPlayer(client.sessionId);
+        if (!p) return;
+        const listing = await this.cancel(String(msg?.id ?? ""), p.name);
+        if (!listing) return;
+        await sendMail({
+          fromName: "AUCTION", toName: p.name,
+          subject: `ยกเลิก: ${listing.itemId} ×${listing.qty}`,
+          body: "คุณยกเลิกการประกาศ",
+          zeny: 0, itemId: listing.itemId, itemQty: listing.qty,
+        });
+        sendToClient(client.sessionId, "system", { text: "ยกเลิกประกาศแล้ว" });
+      },
+    };
+  }
 }
 
 export { MAX_QTY, MAX_PRICE, MAX_TOTAL, LIST_FEE_RATIO };

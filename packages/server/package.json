@@ -5,8 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/index.ts",
-    "build": "tsc",
-    "start": "node dist/index.js",
+    "build": "tsc -p tsconfig.json --skipLibCheck",
+    "start": "node dist/src/index.js",
     "db:push": "prisma db push",
     "db:migrate": "prisma migrate dev",
     "db:deploy": "prisma migrate deploy",
@@ -21,11 +21,13 @@
     "@colyseus/schema": "^3.0.0",
     "@colyseus/ws-transport": "^0.16.5",
     "@game/shared": "workspace:*",
-    "@prisma/client": "^5.22.0",
+    "@prisma/client": "5.22.0",
     "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
     "express": "^4.21.1",
+    "express-rate-limit": "^8.5.2",
+    "helmet": "^8.1.0",
     "jsonwebtoken": "^9.0.2"
   },
   "devDependencies": {
@@ -34,6 +36,7 @@
     "@types/express": "^4.17.21",
     "@types/jsonwebtoken": "^9.0.7",
     "@types/node": "^22.9.0",
+    "colyseus.js": "^0.16.0",
     "prisma": "^5.22.0",
     "tsx": "^4.19.2",
     "typescript": "^5.6.3",

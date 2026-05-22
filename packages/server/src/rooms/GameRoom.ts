@@ -32,6 +32,12 @@ import { Friend } from "../services/Friend.js";
 import { Mailbox } from "../services/Mailbox.js";
 import { Auction } from "../services/Auction.js";
 import { Guild } from "../services/Guild.js";
+import { Combat } from "../services/Combat.js";
+import { Inventory } from "../services/Inventory.js";
+import { Trade } from "../services/Trade.js";
+import { Quest } from "../services/Quest.js";
+import { Spawn } from "../services/Spawn.js";
+
 
 type Intent = { mx: number; mz: number; rotY: number };
 type CharRow = {
@@ -70,12 +76,19 @@ export class GameRoom extends Room<WorldState> {
   auctionSvc = new Auction(prisma);
   // Guild (create / join / leave / chat) with transactional integrity
   guildSvc = new Guild(prisma);
+  combatSvc!: Combat;
+  inventorySvc!: Inventory;
+  tradeSvc!: Trade;
+  questSvc!: Quest;
+  spawnSvc!: Spawn;
   monsterSpawn = new Map<string, { x: number; z: number; kind: MonsterKind }>();
   sessionToCharId = new Map<string, string>(); // sid -> Character.id (for DB writes)
   chunkSpawnAcc = 0;                            // tick accumulator for chunk spawning
   spawnedChestChunks = new Set<string>();       // chunks that have already had a chest roll
   spawnedResourceChunks = new Set<string>();    // chunks that already have resource nodes
-  tradeSessions = new Map<string, { partnerSid: string; items: Array<{ invIndex: number; qty: number }>; zeny: number; confirmed: boolean }>();
+  get tradeSessions() {
+    return this.tradeSvc.sessions;
+  }
   mpRegenAcc = 0;
   autoSaveAcc = 0;
   bossEventAcc = 0;
@@ -94,9 +107,91 @@ export class GameRoom extends Room<WorldState> {
   }
 
   onCreate(opts: { mapId?: MapId }) {
+    require("fs").appendFileSync("debug.txt", "onCreate start\n");
     const mapId: MapId = (opts?.mapId ?? "field") as MapId;
-    this.setState(new WorldState());
+    const state = new WorldState();
+    require("fs").appendFileSync("debug.txt", "after new WorldState\n");
+    this.setState(state);
+    require("fs").appendFileSync("debug.txt", "after setState\n");
     this.state.mapId = mapId;
+
+    require("fs").appendFileSync("debug.txt", "onCreate before combat\n");
+    this.combatSvc = new Combat(
+      this.state,
+      this.lastAttack,
+      this.lastSkill,
+      this.statusTickAcc,
+      this.botIds,
+      this.clock,
+      {
+        broadcast: (type, data) => this.broadcast(type, data),
+        grantExp: (p, amount) => this.grantExp(p, amount),
+        onMonsterKilled: (sid, kind) => this.questSvc.onMonsterKilled(sid, kind),
+        bumpAchievement: (sid, counter, amount) => this.bumpAchievement(sid, counter, amount),
+        bumpDailyChallenge: (sid, kind, amount) => this.bumpDailyChallenge(sid, kind, amount),
+        dropLoot: (m) => this.dropLoot(m),
+        monsterSpawn: this.monsterSpawn
+      }
+    );
+
+    require("fs").appendFileSync("debug.txt", "onCreate before inv\n");
+    this.inventorySvc = new Inventory(
+      this.state,
+      this.lastAttack,
+      this.botIds,
+      prisma,
+      {
+        broadcast: (type, data) => this.broadcast(type, data),
+        recalcStats: (p) => this.combatSvc.recalcStats(p),
+        spawnGroundItem: (itemId, qty, x, z) => this.spawnGroundItem(itemId, qty, x, z),
+        sendToClient: (sid, type, data) => {
+          const c = this.clients.find((cl) => cl.sessionId === sid);
+          c?.send(type as any, data);
+        }
+      }
+    );
+
+    require("fs").appendFileSync("debug.txt", "onCreate before trade\n");
+    this.tradeSvc = new Trade(
+      this.state,
+      {
+        sendToClient: (sid, type, data) => {
+          const c = this.clients.find((cl) => cl.sessionId === sid);
+          c?.send(type as any, data);
+        },
+        addToInventory: (p, itemId, qty) => this.inventorySvc.addToInventory(p, itemId, qty)
+      }
+    );
+
+    require("fs").appendFileSync("debug.txt", "onCreate before quest\n");
+    this.questSvc = new Quest(
+      this.state,
+      this.playerQuests,
+      {
+        sendToClient: (sid, type, data) => {
+          const c = this.clients.find((cl) => cl.sessionId === sid);
+          c?.send(type as any, data);
+        },
+        grantExp: (p, amount) => this.grantExp(p, amount),
+        addToInventoryOrMail: (p, itemId, qty, source) => this.inventorySvc.addToInventoryOrMail(p, itemId, qty, source)
+      }
+    );
+
+    require("fs").appendFileSync("debug.txt", "onCreate before spawn\n");
+    this.spawnSvc = new Spawn(
+      this.state,
+      this.monsterSpawn,
+      this.spawnedResourceChunks,
+      this.spawnedChestChunks,
+      this.botIds,
+      this.lastAttack,
+      this.statusTickAcc,
+      this.tameProgress,
+      {
+        spawnGroundItem: (itemId, qty, x, z) => this.spawnGroundItem(itemId, qty, x, z)
+      }
+    );
+    require("fs").appendFileSync("debug.txt", "onCreate before map init\n");
     // Detect current season by month
     const month = new Date().getMonth() + 1;
     this.state.season =
@@ -107,6 +202,7 @@ export class GameRoom extends Room<WorldState> {
     this.setPatchRate(1000 / 20);
     this.setSimulationInterval((dt) => this.tick(dt), 1000 / GAME_CONFIG.TICK_RATE);
 
+    require("fs").appendFileSync("debug.txt", "onCreate before dungeon check\n");
     // Dungeon: randomize mob spawns + scatter treasure chests every visit
     if (mapId === "dungeon") {
       const def = MAPS[mapId];
@@ -631,159 +727,24 @@ export class GameRoom extends Room<WorldState> {
 
     // ── P2P Trading: A → B request, both add items/zeny, confirm, transfer ──
     this.onMessage("trade:request", (client, msg: any) => {
-      const a = this.state.players.get(client.sessionId);
-      if (!a) return;
-      const targetSid = String(msg?.toSid ?? "");
-      const b = this.state.players.get(targetSid);
-      if (!b || a === b) return;
-      if (this.tradeSessions.has(client.sessionId) || this.tradeSessions.has(targetSid)) {
-        return client.send("system", { text: "ฝั่งใดฝั่งหนึ่งกำลังเทรดอยู่" });
-      }
-      const targetClient = this.clients.find((c) => c.sessionId === targetSid);
-      if (!targetClient) return;
-      targetClient.send("trade:invite" as any, { fromSid: client.sessionId, fromName: a.name });
-      client.send("system", { text: `📩 ส่งคำขอเทรดให้ ${b.name}` });
+      this.tradeSvc.handleRequest(client.sessionId, msg?.toSid);
     });
 
     this.onMessage("trade:accept", (client, msg: any) => {
-      const b = this.state.players.get(client.sessionId);
-      if (!b) return;
-      const fromSid = String(msg?.fromSid ?? "");
-      const a = this.state.players.get(fromSid);
-      if (!a) return;
-      // Open the session
-      this.tradeSessions.set(client.sessionId, { partnerSid: fromSid, items: [], zeny: 0, confirmed: false });
-      this.tradeSessions.set(fromSid,            { partnerSid: client.sessionId, items: [], zeny: 0, confirmed: false });
-      const sendBoth = () => {
-        const s1 = this.tradeSessions.get(fromSid); const s2 = this.tradeSessions.get(client.sessionId);
-        if (!s1 || !s2) return;
-        const c1 = this.clients.find((c) => c.sessionId === fromSid);
-        const c2 = client;
-        c1?.send("trade:state" as any, { meItems: s1.items, meZeny: s1.zeny, meConfirmed: s1.confirmed, themItems: s2.items, themZeny: s2.zeny, themConfirmed: s2.confirmed, partner: b.name });
-        c2.send("trade:state" as any, { meItems: s2.items, meZeny: s2.zeny, meConfirmed: s2.confirmed, themItems: s1.items, themZeny: s1.zeny, themConfirmed: s1.confirmed, partner: a.name });
-      };
-      sendBoth();
+      this.tradeSvc.handleAccept(client.sessionId, msg?.fromSid);
     });
 
     this.onMessage("trade:offer", (client, msg: any) => {
-      const me = this.state.players.get(client.sessionId);
-      const sess = this.tradeSessions.get(client.sessionId);
-      if (!me || !sess) return;
-      // Validate items belong to me (not already offered double)
-      const items: Array<{ invIndex: number; qty: number }> = Array.isArray(msg?.items) ? msg.items : [];
-      const zeny = Math.max(0, Math.min(me.zeny, msg?.zeny | 0));
-      const cleaned: typeof items = [];
-      for (const it of items) {
-        const stack = me.inventory[it.invIndex];
-        if (!stack) continue;
-        const qty = Math.max(1, Math.min(stack.qty, it.qty));
-        cleaned.push({ invIndex: it.invIndex, qty });
-      }
-      sess.items = cleaned;
-      sess.zeny = zeny;
-      sess.confirmed = false; // any change unlocks
-      const partner = this.tradeSessions.get(sess.partnerSid);
-      if (partner) partner.confirmed = false;
-      // Re-broadcast both sides
-      const me2 = me; const partnerSid = sess.partnerSid;
-      const partnerPlayer = this.state.players.get(partnerSid);
-      const c1 = client;
-      const c2 = this.clients.find((c) => c.sessionId === partnerSid);
-      c1.send("trade:state" as any, { meItems: sess.items, meZeny: sess.zeny, meConfirmed: sess.confirmed, themItems: partner?.items ?? [], themZeny: partner?.zeny ?? 0, themConfirmed: partner?.confirmed ?? false, partner: partnerPlayer?.name ?? "?" });
-      if (c2 && partner) c2.send("trade:state" as any, { meItems: partner.items, meZeny: partner.zeny, meConfirmed: partner.confirmed, themItems: sess.items, themZeny: sess.zeny, themConfirmed: sess.confirmed, partner: me2.name });
+      this.tradeSvc.handleOffer(client.sessionId, msg?.items, msg?.zeny);
     });
 
     this.onMessage("trade:confirm", (client) => {
-      const sess = this.tradeSessions.get(client.sessionId);
-      if (!sess) return;
-      sess.confirmed = true;
-      const partner = this.tradeSessions.get(sess.partnerSid);
-      if (!partner) return;
-      // Both confirmed → execute trade atomically
-      if (sess.confirmed && partner.confirmed) {
-        const a = this.state.players.get(client.sessionId);
-        const b = this.state.players.get(sess.partnerSid);
-        if (!a || !b) { this.cancelTrade(client.sessionId); return; }
-        // Validate balances + inventory
-        if (a.zeny < sess.zeny || b.zeny < partner.zeny) { this.cancelTrade(client.sessionId); return; }
-        // Collect items to transfer (process from highest index)
-        function takeFrom(p: Player, list: Array<{ invIndex: number; qty: number }>) {
-          const taken: Array<{ itemId: string; qty: number }> = [];
-          const sorted = list.slice().sort((x, y) => y.invIndex - x.invIndex);
-          for (const it of sorted) {
-            const stack = p.inventory[it.invIndex];
-            if (!stack || stack.qty < it.qty) throw new Error("invalid");
-            taken.push({ itemId: stack.itemId, qty: it.qty });
-            stack.qty -= it.qty;
-            if (stack.qty <= 0) p.inventory.splice(it.invIndex, 1);
-          }
-          return taken;
-        }
-        // Pre-flight: validate inventory caps so we can refuse before
-        // mutating either side. INVENTORY_SIZE = 200. After A gives N items
-        // away, A's free slots grow by however many stacks fully empty.
-        // Conservative check: each player must have room for partner's
-        // unique items (assuming no merge).
-        const aFreeAfter = (INVENTORY_SIZE - a.inventory.length) + sess.items.length;
-        const bFreeAfter = (INVENTORY_SIZE - b.inventory.length) + partner.items.length;
-        if (aFreeAfter < partner.items.length || bFreeAfter < sess.items.length) {
-          this.cancelTrade(client.sessionId);
-          const c1 = this.clients.find((c) => c.sessionId === client.sessionId);
-          const c2 = this.clients.find((c) => c.sessionId === sess.partnerSid);
-          c1?.send("system", { text: "⚠ ฝั่งใดฝั่งหนึ่งกระเป๋าจะเต็ม — เทรดถูกยกเลิก" });
-          c2?.send("system", { text: "⚠ ฝั่งใดฝั่งหนึ่งกระเป๋าจะเต็ม — เทรดถูกยกเลิก" });
-          return;
-        }
-        // Snapshot inventory + zeny in case we need to roll back
-        const aSnapshot = a.inventory.map((s) => ({ itemId: s.itemId, qty: s.qty }));
-        const bSnapshot = b.inventory.map((s) => ({ itemId: s.itemId, qty: s.qty }));
-        const aZenyPre = a.zeny;
-        const bZenyPre = b.zeny;
-        try {
-          const aGives = takeFrom(a, sess.items);
-          const bGives = takeFrom(b, partner.items);
-          // Items first (so we know if either side overflows)
-          for (const it of bGives) {
-            if (!this.addToInventory(a, it.itemId, it.qty)) throw new Error("inv-full-a");
-          }
-          for (const it of aGives) {
-            if (!this.addToInventory(b, it.itemId, it.qty)) throw new Error("inv-full-b");
-          }
-          // Zeny swap only after items succeed
-          a.zeny = aZenyPre - sess.zeny + partner.zeny;
-          b.zeny = bZenyPre - partner.zeny + sess.zeny;
-          const c1 = this.clients.find((c) => c.sessionId === client.sessionId);
-          const c2 = this.clients.find((c) => c.sessionId === sess.partnerSid);
-          c1?.send("trade:done" as any, {}); c1?.send("system", { text: "✅ เทรดสำเร็จ" });
-          c2?.send("trade:done" as any, {}); c2?.send("system", { text: "✅ เทรดสำเร็จ" });
-        } catch (err: any) {
-          // Roll back both inventories + zeny to pre-trade snapshot
-          a.inventory.splice(0, a.inventory.length);
-          for (const s of aSnapshot) a.inventory.push({ itemId: s.itemId, qty: s.qty } as any);
-          b.inventory.splice(0, b.inventory.length);
-          for (const s of bSnapshot) b.inventory.push({ itemId: s.itemId, qty: s.qty } as any);
-          a.zeny = aZenyPre; b.zeny = bZenyPre;
-          const c1 = this.clients.find((c) => c.sessionId === client.sessionId);
-          const c2 = this.clients.find((c) => c.sessionId === sess.partnerSid);
-          // Don't leak internal error codes — translate to user-safe message
-          const safeMsg = err?.message === "inv-full-a" || err?.message === "inv-full-b"
-            ? "กระเป๋าของฝ่ายใดฝั่งหนึ่งเต็ม"
-            : "ของไม่พอ หรือสถานะเปลี่ยน";
-          console.error("[trade] failed", err);
-          c1?.send("system", { text: `⚠ เทรดล้มเหลว: ${safeMsg}` });
-          c2?.send("system", { text: `⚠ เทรดล้มเหลว: ${safeMsg}` });
-        } finally {
-          this.tradeSessions.delete(client.sessionId);
-          this.tradeSessions.delete(sess.partnerSid);
-        }
-      } else {
-        // Only one side confirmed — notify
-        const c2 = this.clients.find((c) => c.sessionId === sess.partnerSid);
-        c2?.send("trade:partner-confirmed" as any, {});
-      }
+      this.tradeSvc.handleConfirm(client.sessionId);
     });
 
-    this.onMessage("trade:cancel", (client) => this.cancelTrade(client.sessionId));
+    this.onMessage("trade:cancel", (client) => {
+      this.tradeSvc.cancelTrade(client.sessionId);
+    });
 
     this.onMessage("togglePvp", (client) => {
       const p = this.state.players.get(client.sessionId);
@@ -960,7 +921,7 @@ export class GameRoom extends Room<WorldState> {
       };
       const reward = rewards[day];
       p.zeny += reward.zeny;
-      for (const it of reward.items) this.addToInventoryOrMail(p, it.id, it.qty, "DAILY_LOGIN");
+      for (const it of reward.items) await this.addToInventoryOrMail(p, it.id, it.qty, "DAILY_LOGIN");
       // Persist via savePlayer's withExtras
       (p as any)._newLoginDate = today;
       (p as any)._newLoginStreak = streak;
@@ -1246,71 +1207,15 @@ export class GameRoom extends Room<WorldState> {
   }
 
   handleQuestAccept(client: Client, questId: string) {
-    const q = QUESTS[questId];
-    const p = this.state.players.get(client.sessionId);
-    const qs = this.playerQuests.get(client.sessionId);
-    if (!q || !p || !qs) return;
-    if (qs.active[questId] !== undefined) return;
-    if (qs.completed.includes(questId)) return;
-    if (p.level < q.minLevel) return;
-    qs.active[questId] = 0;
-    // pre-fill collect progress
-    if (q.objective.kind === "collect") {
-      qs.active[questId] = countItem(p, q.objective.itemId);
-    }
-    client.send("questUpdate", qs);
+    this.questSvc.handleQuestAccept(client.sessionId, questId);
   }
 
   handleQuestTurnIn(client: Client, questId: string) {
-    const q = QUESTS[questId];
-    const p = this.state.players.get(client.sessionId);
-    const qs = this.playerQuests.get(client.sessionId);
-    if (!q || !p || !qs) return;
-    const prog = qs.active[questId];
-    if (prog === undefined) return;
-    const goal = q.objective.kind === "kill" ? q.objective.count : q.objective.count;
-    let progress = prog;
-    if (q.objective.kind === "collect") progress = countItem(p, q.objective.itemId);
-    if (progress < goal) return;
-    // remove collected items
-    if (q.objective.kind === "collect") {
-      removeItem(p, q.objective.itemId, q.objective.count);
-    }
-    // grant reward
-    p.zeny += q.reward.zeny;
-    this.grantExp(p, q.reward.exp);
-    if (q.reward.itemId && q.reward.qty) {
-      this.addToInventoryOrMail(p, q.reward.itemId, q.reward.qty, "QUEST");
-    }
-    delete qs.active[questId];
-    if (!qs.completed.includes(questId)) qs.completed.push(questId);
-    client.send("questReward", { questId, ...q.reward });
-    // Quest chain: if this quest has a `next`, auto-start it.
-    const nextId = (q as any).next as string | undefined;
-    if (nextId && QUESTS[nextId] && !qs.completed.includes(nextId) && !(nextId in qs.active)) {
-      qs.active[nextId] = 0;
-      client.send("system", { text: `📜 เควสต์ใหม่: ${QUESTS[nextId].title}` });
-    }
-    client.send("questUpdate", qs);
+    this.questSvc.handleQuestTurnIn(client.sessionId, questId);
   }
 
   onMonsterKilled(killerSid: string, monsterKind: string) {
-    const qs = this.playerQuests.get(killerSid);
-    if (!qs) return;
-    let dirty = false;
-    for (const questId of Object.keys(qs.active)) {
-      const q = QUESTS[questId];
-      if (!q || q.objective.kind !== "kill") continue;
-      if (q.objective.monster !== monsterKind) continue;
-      if (qs.active[questId] < q.objective.count) {
-        qs.active[questId] += 1;
-        dirty = true;
-      }
-    }
-    if (dirty) {
-      const client = this.clients.find((c) => c.sessionId === killerSid);
-      client?.send("questUpdate", qs);
-    }
+    this.questSvc.onMonsterKilled(killerSid, monsterKind);
   }
 
   handleShopBuy(client: Client, msg: ShopBuyMsg) {
@@ -1439,254 +1344,35 @@ export class GameRoom extends Room<WorldState> {
   }
 
   handleAttack(attackerId: string, targetId: string) {
-    const attacker = this.state.players.get(attackerId);
-    if (!attacker || attacker.dead) return;
-    const d = derived({ str: attacker.str, agi: attacker.agi, vit: attacker.vit, int: attacker.int, dex: attacker.dex, luk: attacker.luk }, attacker.level);
-    const cooldown = GAME_CONFIG.ATTACK_COOLDOWN_MS * d.aspdMult;
-    const now = Date.now();
-    const last = this.lastAttack.get(attackerId) ?? 0;
-    if (now - last < cooldown) return;
-
-    const target = this.state.monsters.get(targetId);
-    if (!target || target.dead) return;
-    // Bots may NEVER damage resource nodes or passive animals — gathering is for humans only.
-    if (this.botIds.has(attackerId)) {
-      const tcfg = (MONSTERS as any)[target.kind];
-      if (!tcfg || tcfg.aggroRange <= 0) return;
-    }
-    const dx = target.pos.x - attacker.pos.x;
-    const dz = target.pos.z - attacker.pos.z;
-    // Ranged jobs (mage, archer, sniper, wizard) use a longer auto-attack
-    // range — basic shot/bolt is free (no MP), just slower than skills.
-    const RANGED_JOBS = new Set(["mage", "archer", "sniper", "wizard"]);
-    const isRangedJob = RANGED_JOBS.has(attacker.job);
-    const attackReach = isRangedJob ? 8 : GAME_CONFIG.ATTACK_RANGE + 0.5;
-    if (Math.hypot(dx, dz) > attackReach) return;
-
-    this.lastAttack.set(attackerId, now);
-    // hit roll vs flee — thirsty/hungry players have worse accuracy
-    const flee = 5 + Math.floor(MONSTERS[target.kind as MonsterKind].speed * 2);
-    let hitChance = Math.max(0.05, Math.min(0.99, 0.8 + (d.hit - flee) * 0.03));
-    if (attacker.thirst <= 0) hitChance *= 0.55;   // see double, miss a lot
-    else if (attacker.thirst < 25) hitChance *= 0.85;
-    if (attacker.hunger <= 0) hitChance *= 0.75;
-    if (Math.random() > hitChance) {
-      this.broadcast("damage", { targetId: target.id, amount: 0, from: attacker.id });
-      return;
-    }
-    const isCrit = Math.random() * 100 < d.crit;
-    let dmg = attacker.atk + d.atkBonus;
-    if (attacker.hunger < 25) dmg = Math.floor(dmg * 0.85);
-    if (attacker.hunger <= 0) dmg = Math.floor(dmg * 0.65);   // weak from hunger
-    // Tool bonus: axe vs wood, pickaxe vs stone
-    if (attacker.weapon === "wood_axe" && target.kind === "tree_node") dmg = Math.floor(dmg * 3);
-    if (attacker.weapon === "iron_pickaxe" && (target.kind === "rock_node" || target.kind === "ore_node" || target.kind === "crystal_node")) dmg = Math.floor(dmg * 3);
-    if (isCrit) dmg = Math.floor(dmg * 2);
-    this.dealDamageToMonster(target, attacker, dmg, isCrit);
+    this.combatSvc.handleAttack(attackerId, targetId);
   }
 
   handleSkill(attackerId: string, skillId: string, targetId?: string) {
-    const attacker = this.state.players.get(attackerId);
-    if (!attacker || attacker.dead) return;
-    if (this.isStunned(attacker)) return;
-    const job = JOBS[attacker.job as JobId];
-    const skill = job.skills.find((s) => s.id === skillId);
-    if (!skill) return;
-    if (attacker.mp < skill.manaCost) return;
-    const key = attackerId + ":" + skillId;
-    const now = Date.now();
-    const last = this.lastSkill.get(key) ?? 0;
-    if (now - last < skill.cooldownMs) return;
-
-    // Self-targeting heal
-    if (skill.healMult && skill.range === 0) {
-      this.lastSkill.set(key, now);
-      attacker.mp = Math.max(0, attacker.mp - skill.manaCost);
-      this.broadcast("skillCast", { skillId: skill.id, fromId: attacker.id, tx: attacker.pos.x, tz: attacker.pos.z, aoeRadius: 0 });
-      const heal = Math.floor(attacker.atk * (skill.healMult ?? 1) + 10);
-      attacker.hp = Math.min(attacker.maxHp, attacker.hp + heal);
-      this.broadcast("damage", { targetId: attacker.id, amount: heal, from: attacker.id, heal: true });
-      if (skill.selfStatus) this.applyStatusToPlayer(attacker, skill.selfStatus.kind as StatusKind, skill.selfStatus.durationMs);
-      return;
-    }
-
-    if (!targetId) return;
-    const target = this.state.monsters.get(targetId);
-    if (!target || target.dead) return;
-    const dx = target.pos.x - attacker.pos.x;
-    const dz = target.pos.z - attacker.pos.z;
-    if (Math.hypot(dx, dz) > skill.range + 0.5) return;
-
-    this.lastSkill.set(key, now);
-    attacker.mp = Math.max(0, attacker.mp - skill.manaCost);
-    this.broadcast("skillCast", { skillId: skill.id, fromId: attacker.id, tx: target.pos.x, tz: target.pos.z, aoeRadius: skill.aoeRadius ?? 0 });
-
-    const dmg = Math.max(1, Math.floor(attacker.atk * skill.damageMult));
-    this.dealDamageToMonster(target, attacker, dmg);
-    if (skill.status && (skill.status.chance ?? 1) > Math.random()) {
-      this.applyStatusToMonster(target, skill.status.kind as StatusKind, skill.status.durationMs);
-    }
-    if (skill.selfStatus) this.applyStatusToPlayer(attacker, skill.selfStatus.kind as StatusKind, skill.selfStatus.durationMs);
-
-    if (skill.aoeRadius) {
-      for (const [, m] of this.state.monsters) {
-        if (m.id === target.id || m.dead) continue;
-        if (Math.hypot(m.pos.x - target.pos.x, m.pos.z - target.pos.z) <= skill.aoeRadius) {
-          this.dealDamageToMonster(m, attacker, Math.floor(dmg * 0.7));
-          if (skill.status && (skill.status.chance ?? 1) > Math.random()) {
-            this.applyStatusToMonster(m, skill.status.kind as StatusKind, skill.status.durationMs);
-          }
-        }
-      }
-    }
+    this.combatSvc.handleSkill(attackerId, skillId, targetId);
   }
 
-  // ---------- status effects ----------
   isStunned(p: Player | Monster): boolean {
-    const now = Date.now();
-    for (const s of p.statuses.values()) {
-      if (s.endAt > now && STATUS_DEFS[s.kind as StatusKind]?.preventAction) return true;
-    }
-    return false;
+    return this.combatSvc.isStunned(p);
   }
 
   speedMultOf(p: Player | Monster): number {
-    let mult = 1;
-    const now = Date.now();
-    for (const s of p.statuses.values()) {
-      if (s.endAt <= now) continue;
-      const def = STATUS_DEFS[s.kind as StatusKind];
-      if (def?.speedMult !== undefined) mult *= def.speedMult;
-    }
-    // Mount bonus: +30% speed when riding a pet
-    if ("mounted" in p && (p as any).mounted) mult *= 1.3;
-    // Hunger penalty: -25% when hungry
-    if ("hunger" in p && (p as any).hunger < 25) mult *= 0.75;
-    return mult;
+    return this.combatSvc.speedMultOf(p);
   }
 
   applyStatusToMonster(m: Monster, kind: StatusKind, durationMs: number, fromId = "") {
-    const existing = m.statuses.find((s) => s.kind === kind);
-    const endAt = Date.now() + durationMs;
-    if (existing) { existing.endAt = Math.max(existing.endAt, endAt); existing.fromId = fromId; return; }
-    const eff = new StatusEffect();
-    eff.kind = kind; eff.endAt = endAt; eff.fromId = fromId;
-    m.statuses.push(eff);
+    this.combatSvc.applyStatusToMonster(m, kind, durationMs, fromId);
   }
 
   applyStatusToPlayer(p: Player, kind: StatusKind, durationMs: number, fromId = "") {
-    const existing = p.statuses.find((s) => s.kind === kind);
-    const endAt = Date.now() + durationMs;
-    if (existing) { existing.endAt = Math.max(existing.endAt, endAt); existing.fromId = fromId; return; }
-    const eff = new StatusEffect();
-    eff.kind = kind; eff.endAt = endAt; eff.fromId = fromId;
-    p.statuses.push(eff);
+    this.combatSvc.applyStatusToPlayer(p, kind, durationMs, fromId);
   }
 
   tickStatuses() {
-    const now = Date.now();
-    // players
-    for (const [sid, p] of this.state.players) {
-      for (let i = p.statuses.length - 1; i >= 0; i--) {
-        const s = p.statuses[i];
-        if (s.endAt <= now) { p.statuses.splice(i, 1); continue; }
-        const def = STATUS_DEFS[s.kind as StatusKind];
-        if (!def?.tickMs || def.tickDmg === undefined) continue;
-        const key = sid + ":" + s.kind;
-        const last = this.statusTickAcc.get(key) ?? now;
-        if (now - last >= def.tickMs) {
-          this.statusTickAcc.set(key, now);
-          if (def.tickDmg > 0) {
-            p.hp = Math.max(0, p.hp - def.tickDmg);
-            this.broadcast("damage", { targetId: p.id, amount: def.tickDmg, from: s.fromId || s.kind });
-            if (p.hp === 0 && !p.dead) {
-              p.dead = true;
-              this.clock.setTimeout(() => {
-                const pp = this.state.players.get(sid);
-                if (!pp) return;
-                pp.hp = pp.maxHp; pp.dead = false;
-                if (pp.houseSlot >= 0 && pp.houseSlot < HOUSE_SLOTS.length) {
-                  const h = HOUSE_SLOTS[pp.houseSlot];
-                  pp.pos.x = h.x; pp.pos.z = h.z;
-                } else { pp.pos.x = 0; pp.pos.z = 0; }
-                pp.statuses.clear();
-              }, GAME_CONFIG.RESPAWN_MS);
-            }
-          } else {
-            p.hp = Math.min(p.maxHp, p.hp - def.tickDmg); // negative = heal
-            this.broadcast("damage", { targetId: p.id, amount: -def.tickDmg, from: s.fromId || s.kind, heal: true });
-          }
-        }
-      }
-    }
-    // monsters
-    for (const [, m] of this.state.monsters) {
-      for (let i = m.statuses.length - 1; i >= 0; i--) {
-        const s = m.statuses[i];
-        if (s.endAt <= now) { m.statuses.splice(i, 1); continue; }
-        const def = STATUS_DEFS[s.kind as StatusKind];
-        if (!def?.tickMs || def.tickDmg === undefined || def.tickDmg <= 0) continue;
-        const key = m.id + ":" + s.kind;
-        const last = this.statusTickAcc.get(key) ?? now;
-        if (now - last >= def.tickMs) {
-          this.statusTickAcc.set(key, now);
-          m.hp = Math.max(0, m.hp - def.tickDmg);
-          this.broadcast("damage", { targetId: m.id, amount: def.tickDmg, from: s.fromId || s.kind });
-          if (m.hp === 0 && !m.dead) {
-            m.dead = true;
-            m.statuses.clear();
-            const killer = this.state.players.get(s.fromId);
-            if (killer) {
-              const mdef = MONSTERS[m.kind as MonsterKind];
-              this.grantExp(killer, mdef.exp);
-              this.onMonsterKilled(killer.id, m.kind);
-            }
-            this.dropLoot(m);
-            const spawn = this.monsterSpawn.get(m.id);
-            this.clock.setTimeout(() => {
-              const mon = this.state.monsters.get(m.id);
-              if (!mon || !spawn) return;
-              const md = MONSTERS[spawn.kind];
-              mon.hp = md.hp; mon.maxHp = md.hp; mon.dead = false;
-              mon.pos.x = spawn.x; mon.pos.z = spawn.z; mon.targetId = "";
-              mon.statuses.clear();
-            }, GAME_CONFIG.RESPAWN_MS);
-          }
-        }
-      }
-    }
+    this.combatSvc.tickStatuses();
   }
 
   dealDamageToMonster(target: Monster, attacker: Player, dmg: number, crit = false) {
-    target.hp = Math.max(0, target.hp - dmg);
-    target.targetId = attacker.id;
-    this.broadcast("damage", { targetId: target.id, amount: dmg, from: attacker.id, crit });
-    if (target.hp === 0 && !target.dead) {
-      target.dead = true;
-      const def = MONSTERS[target.kind as MonsterKind];
-      this.grantExp(attacker, def.exp);
-      this.onMonsterKilled(attacker.id, target.kind);
-      // Achievement tracking
-      const sid = attacker.id;
-      const tcfg = (MONSTERS as any)[target.kind];
-      if (tcfg?.aggroRange > 0) {
-        this.bumpAchievement(sid, "kills");
-        this.bumpDailyChallenge(sid, "kills");
-      }
-      if (target.kind === "tree_node") { this.bumpAchievement(sid, "trees"); this.bumpDailyChallenge(sid, "harvest"); }
-      if (target.kind === "rock_node" || target.kind === "ore_node" || target.kind === "crystal_node") { this.bumpAchievement(sid, "rocks"); this.bumpDailyChallenge(sid, "harvest"); }
-      if (target.kind === "darklord") this.bumpAchievement(sid, "darklord");
-      this.dropLoot(target);
-      const spawn = this.monsterSpawn.get(target.id);
-      const delay = spawn?.kind === "darklord" ? GAME_CONFIG.BOSS_RESPAWN_MS : GAME_CONFIG.RESPAWN_MS;
-      this.clock.setTimeout(() => {
-        const mon = this.state.monsters.get(target.id);
-        if (!mon || !spawn) return;
-        const md = MONSTERS[spawn.kind];
-        mon.hp = md.hp; mon.maxHp = md.hp; mon.dead = false;
-        mon.pos.x = spawn.x; mon.pos.z = spawn.z; mon.targetId = "";
-      }, delay);
-    }
+    this.combatSvc.dealDamageToMonster(target, attacker, dmg, crit);
   }
 
   // ---------- drops / inventory ----------
@@ -2073,24 +1759,7 @@ export class GameRoom extends Room<WorldState> {
   }
 
   handlePickup(sid: string, dropId: string) {
-    const p = this.state.players.get(sid);
-    const g = this.state.drops.get(dropId);
-    if (!p || !g) return;
-    if (Math.hypot(p.pos.x - g.pos.x, p.pos.z - g.pos.z) > 2.5) return;
-    if (!this.addToInventory(p, g.itemId, g.qty)) {
-      // Inventory full — tell the player (throttled by client-side spam by checking last time)
-      const client = this.clients.find((c) => c.sessionId === sid);
-      // Throttle inv-full messages via map key
-      const key = "invfull:" + sid;
-      const last = this.lastAttack.get(key) ?? 0;
-      const now = Date.now();
-      if (now - last > 3000 && client && !this.botIds.has(sid)) {
-        this.lastAttack.set(key, now);
-        client.send("system", { text: "🎒 กระเป๋าเต็ม — ใช้/ขาย/ทิ้งของบางอย่างก่อน" });
-      }
-      return;
-    }
-    this.state.drops.delete(dropId);
+    this.inventorySvc.handlePickup(sid, dropId);
   }
 
   /**
@@ -2103,137 +1772,27 @@ export class GameRoom extends Room<WorldState> {
 
   /** Add items, falling back to mail delivery if inventory is full. Reward paths use this. */
   async addToInventoryOrMail(p: Player, itemId: string, qty: number, source = "REWARD") {
-    if (this.addToInventory(p, itemId, qty)) return;
-    // Inventory full — mail it instead
-    try {
-      await prisma.mail.create({
-        data: {
-          toName: p.name, fromName: source,
-          subject: `${itemId} ×${qty}`,
-          body: `กระเป๋าเต็ม — รางวัลถูกส่งไปไว้ในจดหมาย`,
-          zeny: 0, itemId, itemQty: qty,
-        },
-      });
-      const cli = this.clients.find((c) => c.sessionId === p.id);
-      cli?.send("system", { text: `📬 ${itemId} ×${qty} ส่งเป็นจดหมาย (กระเป๋าเต็ม)` });
-    } catch (e) {
-      console.error("[addToInventoryOrMail] mail failed", e);
-    }
+    await this.inventorySvc.addToInventoryOrMail(p, itemId, qty, source);
   }
 
   addToInventory(p: Player, itemId: string, qty: number): boolean {
-    const def = ITEMS[itemId];
-    if (!def) return false;
-    const stackable = (def.stack ?? 1) > 1;
-    if (stackable) {
-      for (const s of p.inventory.values()) {
-        if (s.itemId === itemId && s.qty < (def.stack ?? 1)) {
-          const room = (def.stack ?? 1) - s.qty;
-          const add = Math.min(room, qty);
-          s.qty += add;
-          qty -= add;
-          if (qty <= 0) return true;
-        }
-      }
-    }
-    while (qty > 0) {
-      if (p.inventory.length >= INVENTORY_SIZE) return false;
-      const stack = new ItemStack();
-      stack.itemId = itemId;
-      stack.qty = stackable ? Math.min(qty, def.stack ?? 1) : 1;
-      p.inventory.push(stack);
-      qty -= stack.qty;
-    }
-    return true;
+    return this.inventorySvc.addToInventory(p, itemId, qty);
   }
 
   handleEquip(sid: string, invIndex: number) {
-    const p = this.state.players.get(sid);
-    if (!p) return;
-    if (!Number.isInteger(invIndex) || invIndex < 0 || invIndex >= p.inventory.length) return;
-    const stack = p.inventory[invIndex];
-    if (!stack) return;
-    const def = ITEMS[stack.itemId];
-    if (!def) return;
-    if (def.slot !== "weapon" && def.slot !== "armor") return;
-    const slot = def.slot;
-    const prevId = slot === "weapon" ? p.weapon : p.armor;
-    if (slot === "weapon") p.weapon = stack.itemId;
-    else p.armor = stack.itemId;
-    // remove from inventory
-    p.inventory.splice(invIndex, 1);
-    // put previous back
-    if (prevId) this.addToInventory(p, prevId, 1);
-    this.recalcStats(p);
+    this.inventorySvc.handleEquip(sid, invIndex);
   }
 
   handleUnequip(sid: string, slot: "weapon" | "armor") {
-    const p = this.state.players.get(sid);
-    if (!p) return;
-    const id = slot === "weapon" ? p.weapon : p.armor;
-    if (!id) return;
-    if (!this.addToInventory(p, id, 1)) return; // inventory full
-    if (slot === "weapon") p.weapon = "";
-    else p.armor = "";
-    this.recalcStats(p);
+    this.inventorySvc.handleUnequip(sid, slot);
   }
 
   handleUseItem(sid: string, invIndex: number) {
-    const p = this.state.players.get(sid);
-    if (!p || p.dead) return;
-    if (!Number.isInteger(invIndex) || invIndex < 0 || invIndex >= p.inventory.length) return;
-    const stack = p.inventory[invIndex];
-    if (!stack) return;
-    const def = ITEMS[stack.itemId];
-    if (!def) return;
-    if (def.slot !== "consumable") return;
-    if (def.hpRestore) p.hp = Math.min(p.maxHp, p.hp + def.hpRestore);
-    if (def.mpRestore) p.mp = Math.min(p.maxMp, p.mp + def.mpRestore);
-    if (def.hungerRestore) p.hunger = Math.min(100, p.hunger + def.hungerRestore);
-    if (def.thirstRestore) p.thirst = Math.min(100, p.thirst + def.thirstRestore);
-    if (def.staminaRestore) p.stamina = Math.min(p.maxStamina, p.stamina + def.staminaRestore);
-    // Gacha box: roll random cosmetic / useful drop
-    if (stack.itemId === "gacha_box") {
-      const rolls = [
-        { id: "hp_potion", qty: 10, weight: 30 },
-        { id: "cooked_meat", qty: 5, weight: 20 },
-        { id: "energy_tonic", qty: 3, weight: 15 },
-        { id: "wood_log", qty: 20, weight: 15 },
-        { id: "stone_chunk", qty: 15, weight: 12 },
-        { id: "iron_sword", qty: 1, weight: 4 },
-        { id: "leather_armor", qty: 1, weight: 4 },
-        { id: "glider", qty: 1, weight: 1 }, // rare!
-        { id: "blade_of_dawn", qty: 1, weight: 0.5 },
-        { id: "dragon_plate", qty: 1, weight: 0.5 },
-      ];
-      const total = rolls.reduce((a, r) => a + r.weight, 0);
-      let r = Math.random() * total;
-      const sid = (p as any).id;
-      const cli = this.clients.find((c) => c.sessionId === sid);
-      for (const roll of rolls) {
-        r -= roll.weight;
-        if (r <= 0) {
-          this.addToInventory(p, roll.id, roll.qty);
-          const idef = ITEMS[roll.id];
-          cli?.send("system", { text: `🎁 ได้ ${idef?.icon ?? ""} ${idef?.name ?? roll.id} ×${roll.qty}!` });
-          break;
-        }
-      }
-    }
-    stack.qty -= 1;
-    if (stack.qty <= 0) p.inventory.splice(invIndex, 1);
+    this.inventorySvc.handleUseItem(sid, invIndex);
   }
 
   handleDrop(sid: string, invIndex: number, qty?: number) {
-    const p = this.state.players.get(sid);
-    if (!p) return;
-    if (!Number.isInteger(invIndex) || invIndex < 0 || invIndex >= p.inventory.length) return;
-    const stack = p.inventory[invIndex];
-    if (!stack) return;
-    const dropQty = Math.max(1, Math.min(stack.qty, qty ?? stack.qty));
-    this.spawnGroundItem(stack.itemId, dropQty, p.pos.x + (Math.random() - 0.5), p.pos.z + (Math.random() - 0.5));
-    stack.qty -= dropQty;
-    if (stack.qty <= 0) p.inventory.splice(invIndex, 1);
+    this.inventorySvc.handleDrop(sid, invIndex, qty);
   }
 
   handleChangeJob(sid: string, job: any) {
@@ -2325,179 +1884,15 @@ export class GameRoom extends Room<WorldState> {
   // ---------- map mgmt ----------
   /** Multiplier for monster HP based on current map + party — dungeons scale with player count. */
   monsterHpMultiplier(kind: MonsterKind): number {
-    let mult = 1;
-    if (this.state.mapId === "dungeon") {
-      const realPlayers = this.state.players.size - this.botIds.size;
-      mult *= Math.max(1, 1 + (realPlayers - 1) * 0.4); // +40% HP per extra player
-    }
-    // Weekly raid: Saturday → darklord HP × 2
-    if (kind === "darklord" && new Date().getDay() === 6) mult *= 2;
-    return mult;
+    return this.spawnSvc.monsterHpMultiplier(kind);
   }
 
-  // Periodic chunk-aware spawner: every 8 seconds, look at chunks around all
-  // active (non-bot) players. If a chunk has fewer than CHUNK_MOB_CAP mobs,
-  // try to spawn 1 mob inside it. Mobs far from any player are despawned.
-  // Also: night doubles spawn pressure; spawn area (origin) stays mob-free.
   tickChunkSpawns(dt: number) {
-    if (this.state.mapId !== "field") return;
-    this.chunkSpawnAcc += dt;
-    if (this.chunkSpawnAcc < 8) return;
-    this.chunkSpawnAcc = 0;
-
-    const CHUNK_SIZE = 32;
-    const SPAWN_RADIUS = 18;
-    const PLAYER_RADIUS = 60;          // spawn within this distance of any player
-    const DESPAWN_RADIUS = 120;        // mobs further than this from all players despawn
-    const CHUNK_MOB_CAP = 3;           // max mobs per chunk
-    const isNight = this.state.isNight;
-
-    // Live player positions (real humans only — bots don't anchor spawns)
-    const anchors: Array<{ x: number; z: number }> = [];
-    for (const [sid, p] of this.state.players) {
-      if (this.botIds.has(sid)) continue;
-      anchors.push({ x: p.pos.x, z: p.pos.z });
-    }
-    if (anchors.length === 0) return;
-
-    // Despawn distant mobs
-    for (const [id, m] of this.state.monsters) {
-      if (m.dead) continue;
-      // Resource nodes are persistent — never despawn
-      const cfg = (MONSTERS as any)[m.kind];
-      if (!cfg || cfg.aggroRange === -2) continue;
-      let nearest = Infinity;
-      for (const a of anchors) nearest = Math.min(nearest, Math.hypot(m.pos.x - a.x, m.pos.z - a.z));
-      if (nearest > DESPAWN_RADIUS) {
-        this.state.monsters.delete(id);
-        // Clean up per-monster session state to prevent leaks
-        this.lastAttack.delete(id);
-        this.monsterSpawn.delete(id);
-        for (const k of this.statusTickAcc.keys()) if (k.endsWith(":" + id)) this.statusTickAcc.delete(k);
-        for (const k of this.tameProgress.keys()) if (k.endsWith(":" + id)) this.tameProgress.delete(k);
-      }
-    }
-
-    // Count mobs per chunk
-    const chunkMobs = new Map<string, number>();
-    for (const [, m] of this.state.monsters) {
-      if (m.dead) continue;
-      const cx = Math.floor(m.pos.x / CHUNK_SIZE);
-      const cz = Math.floor(m.pos.z / CHUNK_SIZE);
-      const k = `${cx},${cz}`;
-      chunkMobs.set(k, (chunkMobs.get(k) ?? 0) + 1);
-    }
-
-    const candidates = new Set<string>();
-    const cellsR = Math.ceil(PLAYER_RADIUS / CHUNK_SIZE);
-    for (const a of anchors) {
-      const pcx = Math.floor(a.x / CHUNK_SIZE);
-      const pcz = Math.floor(a.z / CHUNK_SIZE);
-      for (let dx = -cellsR; dx <= cellsR; dx++) {
-        for (let dz = -cellsR; dz <= cellsR; dz++) {
-          candidates.add(`${pcx + dx},${pcz + dz}`);
-        }
-      }
-    }
-
-    // Per-biome spawn tables. Distance from origin scales danger.
-    const TABLES: Record<string, { day: string[]; night: string[] }> = {
-      plains:  { day: ["slime", "slime", "wolf", "fox"],     night: ["wolf", "wolf", "fox", "slime"] },
-      forest:  { day: ["spider", "boar", "wolf", "slime"],   night: ["spider", "spider", "wolf", "bat"] },
-      desert:  { day: ["scorpion", "scorpion", "slime"],     night: ["scorpion", "ghost", "bat"] },
-      snow:    { day: ["yeti", "wolf", "wolf"],              night: ["yeti", "wolf", "ghost"] },
-      swamp:   { day: ["spider", "orc", "slime"],            night: ["spider", "ghost", "ghost"] },
-    };
-    function biomeAtServer(x: number, z: number): keyof typeof TABLES {
-      // Mirror chunkWorld.getBiome simplified — same noise classification.
-      // Since server doesn't import client code, use coarse banding by xz.
-      const n = (Math.sin(x * 0.013) + Math.cos(z * 0.011)) * 0.5 + 0.5;
-      const d = Math.hypot(x, z);
-      const far = Math.min(1, d / 250);
-      if (n < 0.30) return far > 0.5 ? "snow" : "plains";
-      if (n < 0.50) return "forest";
-      if (n < 0.70) return "plains";
-      if (n < 0.85) return far > 0.4 ? "desert" : "plains";
-      return "swamp";
-    }
-
-    for (const k of candidates) {
-      const have = chunkMobs.get(k) ?? 0;
-      if (have >= CHUNK_MOB_CAP) continue;
-      const [cx, cz] = k.split(",").map(Number);
-      // Random point inside the chunk
-      const sx = (cx + Math.random()) * CHUNK_SIZE;
-      const sz = (cz + Math.random()) * CHUNK_SIZE;
-      // Keep spawn area clear
-      if (Math.hypot(sx, sz) < SPAWN_RADIUS + 4) continue;
-      const biome = biomeAtServer(sx, sz);
-      const tbl = TABLES[biome];
-      const arr = isNight ? tbl.night : tbl.day;
-      const kind = arr[Math.floor(Math.random() * arr.length)] as MonsterKind;
-      // Only spawn occasionally — keeps density low and feels natural
-      if (Math.random() < 0.35) this.spawnMonster(kind, sx, sz);
-    }
-
-    // ── Procedural resource nodes: each chunk gets a few harvestable
-    //    tree/rock/berry_bush nodes, one-time spawn. They auto-respawn via
-    //    the monsterSpawn map after RESPAWN_MS just like init resources.
-    for (const k of candidates) {
-      if (this.spawnedResourceChunks.has(k)) continue;
-      const [cx, cz] = k.split(",").map(Number);
-      const chunkCx = (cx + 0.5) * CHUNK_SIZE;
-      const chunkCz = (cz + 0.5) * CHUNK_SIZE;
-      const distToOrigin = Math.hypot(chunkCx, chunkCz);
-      if (distToOrigin < SPAWN_RADIUS + 6) { this.spawnedResourceChunks.add(k); continue; }
-      // 2-4 nodes per chunk depending on biome
-      const nodeCount = 2 + Math.floor(Math.random() * 3);
-      const biome = biomeAtServer(chunkCx, chunkCz);
-      const nodeKinds: MonsterKind[] = biome === "forest" ? ["tree_node", "tree_node", "berry_bush"]
-        : biome === "snow" ? ["rock_node", "rock_node", "ore_node"]
-        : biome === "desert" ? ["rock_node", "rock_node", "crystal_node"]
-        : ["tree_node", "rock_node", "berry_bush"];
-      for (let n = 0; n < nodeCount; n++) {
-        const sx = (cx + 0.1 + Math.random() * 0.8) * CHUNK_SIZE;
-        const sz = (cz + 0.1 + Math.random() * 0.8) * CHUNK_SIZE;
-        if (Math.hypot(sx, sz) < SPAWN_RADIUS + 4) continue;
-        const kind = nodeKinds[Math.floor(Math.random() * nodeKinds.length)];
-        this.spawnMonster(kind, sx, sz);
-      }
-      this.spawnedResourceChunks.add(k);
-    }
-
-    // ── Procedural treasure chests: spawn once per chunk for chunks beyond
-    //    the spawn radius. Better loot the further the chunk is from origin.
-    for (const k of candidates) {
-      if (this.spawnedChestChunks.has(k)) continue;
-      const [cx, cz] = k.split(",").map(Number);
-      const chunkCx = (cx + 0.5) * CHUNK_SIZE;
-      const chunkCz = (cz + 0.5) * CHUNK_SIZE;
-      const distToOrigin = Math.hypot(chunkCx, chunkCz);
-      if (distToOrigin < SPAWN_RADIUS + 20) { this.spawnedChestChunks.add(k); continue; }
-      // 1/12 chance per chunk
-      if (Math.random() > 1 / 12) { this.spawnedChestChunks.add(k); continue; }
-      const sx = (cx + 0.2 + Math.random() * 0.6) * CHUNK_SIZE;
-      const sz = (cz + 0.2 + Math.random() * 0.6) * CHUNK_SIZE;
-      const tier = Math.min(3, Math.floor(distToOrigin / 80));
-      const loot = ["hp_potion", "mp_potion", tier > 0 ? "iron_sword" : "wood_sword", tier > 1 ? "crystal" : "wood"];
-      const item = loot[Math.floor(Math.random() * loot.length)];
-      const qty = tier > 0 ? 2 + Math.floor(Math.random() * 3) : 1;
-      this.spawnGroundItem(item, qty, sx, sz);
-      this.spawnedChestChunks.add(k);
-    }
+    this.spawnSvc.tickChunkSpawns(dt);
   }
 
   spawnMonster(kind: MonsterKind, x: number, z: number) {
-    const def = MONSTERS[kind];
-    const id = `m_${Math.random().toString(36).slice(2, 9)}`;
-    const m = new Monster();
-    m.id = id; m.kind = kind;
-    m.pos.x = x; m.pos.z = z;
-    const hpMult = this.monsterHpMultiplier(kind);
-    const scaledHp = Math.floor(def.hp * hpMult);
-    m.hp = scaledHp; m.maxHp = scaledHp;
-    this.state.monsters.set(id, m);
-    this.monsterSpawn.set(id, { x, z, kind });
+    this.spawnSvc.spawnMonster(kind, x, z);
   }
 
   // ---------- tick ----------

@@ -11,6 +11,7 @@ export function FriendList({ room }: { room: Room<WorldState> }) {
   const [open, setOpen] = useState(false);
   const [friends, setFriends] = useState<Friend[]>([]);
   const [addName, setAddName] = useState("");
+  const [busyAdd, setBusyAdd] = useState(false);
   const refreshed = useRef(false);
 
   useEffect(() => {
@@ -19,9 +20,13 @@ export function FriendList({ room }: { room: Room<WorldState> }) {
     const off = room.onMessage("friend:list" as any, (m: any) => {
       setFriends(m.friends ?? []);
     });
+    const offAddOk = room.onMessage("friend:add:ok" as any, () => { setBusyAdd(false); setAddName(""); });
+    const offAddErr = room.onMessage("friend:add:err" as any, () => setBusyAdd(false));
     return () => {
       window.removeEventListener("toggle-friends", onToggle);
       off?.();
+      offAddOk?.();
+      offAddErr?.();
     };
   }, [room]);
 
@@ -46,8 +51,8 @@ export function FriendList({ room }: { room: Room<WorldState> }) {
                 e.preventDefault();
                 const n = addName.trim();
                 if (!n) return;
+                setBusyAdd(true);
                 room.send("friend:add" as any, { name: n });
-                setAddName("");
               }}
               className="flex gap-1"
             >
@@ -57,8 +62,9 @@ export function FriendList({ room }: { room: Room<WorldState> }) {
                 placeholder="ชื่อตัวละครที่อยากเพิ่ม"
                 className="flex-1 bg-slate-900/80 border border-cyan-400/40 rounded px-2 py-1 text-xs text-white"
                 maxLength={20}
+                disabled={busyAdd}
               />
-              <button type="submit" className="bg-cyan-600 hover:bg-cyan-500 rounded px-3 py-1 text-xs font-bold text-white">+ เพิ่ม</button>
+              <button type="submit" disabled={busyAdd} className="bg-cyan-600 hover:bg-cyan-500 disabled:bg-slate-700 disabled:text-slate-500 rounded px-3 py-1 text-xs font-bold text-white">{busyAdd ? "..." : "+ เพิ่ม"}</button>
             </form>
 
             <div className="max-h-64 overflow-y-auto game-scroll space-y-1">

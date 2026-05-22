@@ -1,6 +1,9 @@
+// TODO i18n: strings should use useT() hook
 import { useEffect, useState } from "react";
+import FocusTrap from "focus-trap-react";
 import { useStore } from "../store";
 import { keyEq } from "../utils/keyMatch";
+import { useTooltip } from "../hooks/useTooltip";
 
 /** Tiny icon row top-right (next to map/gold) — opens panels as overlays. */
 export function MenuBar() {
@@ -28,21 +31,22 @@ export function MenuBar() {
   //    collapsed (☰) AND expanded (✕). Map (110px) sits to its right.
   //    Open: grid uses direction:rtl so ✕ lands at TOP-RIGHT (same spot as ☰).
   const ANCHOR = { top: "0.5rem", right: "8rem" };
-  if (collapsed) {
+if (collapsed) {
     if (!open) {
       return (
         <div className="absolute select-none touch-none z-30" style={ANCHOR} data-no-screen-joy>
-          <IconBtn label="☰" title="เมนู" onClick={() => setOpen(true)} />
+          <IconBtn label="☰" title="เมนู" onClick={() => setOpen(true)} ariaLabel="เปิดเมนู" />
         </div>
       );
     }
     return (
+      <FocusTrap focusTrapOptions={{ allowOutsideClick: true }}>
       <div
         className="absolute select-none touch-none grid grid-cols-5 gap-1 z-30"
         style={{ ...ANCHOR, direction: "rtl" }}
         data-no-screen-joy
       >
-        <IconBtn label="✕" title="ปิด" onClick={() => setOpen(false)} variant="rose" />
+        <IconBtn label="✕" title="ปิด" onClick={() => setOpen(false)} variant="rose" ariaLabel="ปิดเมนู" />
         <IconBtn label="📦" name="กระเป๋า" title="Inventory (I)" onClick={toggleInv} />
         <IconBtn label="🔨" name="คราฟต์" title="Crafting (K)" onClick={() => window.dispatchEvent(new Event("toggle-craft"))} />
         <IconBtn label="📊" name="สเตตัส" title="Stats (C)" onClick={() => window.dispatchEvent(new Event("toggle-stats"))} />
@@ -55,14 +59,17 @@ export function MenuBar() {
         <IconBtn label="🤝" name="เพื่อน" title="Friends" onClick={() => window.dispatchEvent(new Event("toggle-friends"))} />
         <IconBtn label="⚔" name="กิลด์" title="Guild" onClick={() => window.dispatchEvent(new Event("toggle-guild"))} />
         <IconBtn label="🏛" name="ตลาด" title="Auction House" onClick={() => window.dispatchEvent(new Event("toggle-auction"))} />
+        <IconBtn label="🌍" name="โลก" title="โลกของฉัน" onClick={() => window.dispatchEvent(new Event("toggle-worlds"))} />
         <IconBtn label="📍" name="หมุด" title="Waypoints" onClick={() => window.dispatchEvent(new Event("toggle-waypoints"))} />
         <IconBtn label="💬" name="แชต" title="Chat (Enter)" onClick={() => window.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" }))} />
-        <IconBtn label="😊" name="อิโมท" title="Emote (T)" onClick={() => window.dispatchEvent(new Event("toggle-emote"))} />
+<IconBtn label="😊" name="อิโมท" title="Emote (T)" onClick={() => window.dispatchEvent(new Event("toggle-emote"))} />
+        <IconBtn label="💍" name="สมรส" title="แต่งงาน" onClick={() => window.dispatchEvent(new Event("toggle-marriage"))} />
         <IconBtn label="📸" name="ถ่ายภาพ" title="Photo (P)" onClick={() => window.dispatchEvent(new Event("toggle-photo"))} />
         <IconBtn label="⚙" name="ตั้งค่า" title="Settings" onClick={() => window.dispatchEvent(new Event("toggle-settings"))} />
-        <IconBtn label="👤" name="ตัวละคร" title="เลือกตัวละคร" onClick={exitToSelect} variant="violet" />
-        <IconBtn label="⏻" name="ออก" title="ออกจากระบบ" onClick={logout} variant="rose" />
+<IconBtn label="👤" name="ตัวละคร" title="เลือกตัวละคร" onClick={exitToSelect} variant="violet" ariaLabel="เลือกตัวละคร" />
+        <IconBtn label="⏻" name="ออก" title="ออกจากระบบ" onClick={logout} variant="rose" ariaLabel="ออกจากระบบ" />
       </div>
+      </FocusTrap>
     );
   }
 
@@ -79,7 +86,8 @@ export function MenuBar() {
       <IconBtn label="🐾" name="สัตว์" title="Pets" onClick={() => window.dispatchEvent(new Event("toggle-pets"))} />
       <IconBtn label="👥" name="ปาร์ตี้" title="Party" onClick={() => window.dispatchEvent(new Event("toggle-party"))} />
       <IconBtn label="💬" name="แชต" title="Chat (Enter)" onClick={() => window.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" }))} />
-      <IconBtn label="😊" name="อิโมท" title="Emote (T)" onClick={() => window.dispatchEvent(new Event("toggle-emote"))} />
+<IconBtn label="😊" name="อิโมท" title="Emote (T)" onClick={() => window.dispatchEvent(new Event("toggle-emote"))} />
+      <IconBtn label="💍" name="สมรส" title="แต่งงาน" onClick={() => window.dispatchEvent(new Event("toggle-marriage"))} />
       <IconBtn label="📸" name="ถ่ายภาพ" title="Photo (P)" onClick={() => window.dispatchEvent(new Event("toggle-photo"))} />
       <IconBtn label="⚙" name="ตั้งค่า" title="Settings" onClick={() => window.dispatchEvent(new Event("toggle-settings"))} />
       <IconBtn label="👤" name="ตัวละคร" title="เลือกตัวละคร" onClick={exitToSelect} variant="violet" />
@@ -88,7 +96,8 @@ export function MenuBar() {
   );
 }
 
-function IconBtn({ label, name, title, onClick, variant, active }: { label: string; name?: string; title: string; onClick: () => void; variant?: "violet" | "rose" | "emerald"; active?: boolean }) {
+function IconBtn({ label, name, title, onClick, variant, active, ariaLabel }: { label: string; name?: string; title: string; onClick: () => void; variant?: "violet" | "rose" | "emerald"; active?: boolean; ariaLabel?: string }) {
+  const { tooltip, handlers } = useTooltip(title);
   // More-transparent background (text stays opaque because we lower the bg alpha
   // rather than setting opacity on the whole button).
   const palette: Record<string, { bg: string }> = {
@@ -99,21 +108,33 @@ function IconBtn({ label, name, title, onClick, variant, active }: { label: stri
   };
   const p = palette[variant ?? "default"];
   return (
-    <button
-      onClick={onClick}
-      onTouchStart={(e) => { e.preventDefault(); onClick(); }}
-      title={title}
-      className={`mobile-icon-btn relative w-12 h-12 flex flex-col items-center justify-center backdrop-blur-md active:scale-90 transition ${active ? "ring-2 ring-emerald-400/60" : ""}`}
-      style={{
-        background: active ? "rgba(16, 185, 129, 0.2)" : p.bg,
-        border: "none",
-        borderRadius: 7,
-        boxShadow: "0 1px 3px rgba(0,0,0,0.28), 0 1px 1px rgba(0,0,0,0.32)",
-      }}
-    >
-      <span className={`text-base leading-none ${active ? "animate-pulse" : ""}`}>{label}</span>
-      {name && <span className="text-[8px] text-white/85 font-bold leading-tight mt-0.5 tracking-tighter">{name}</span>}
-      {active && <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 text-[8px] text-emerald-300 font-bold tracking-widest">ON</span>}
-    </button>
+    <>
+      <button
+        {...handlers}
+        onClick={onClick}
+        onTouchStart={(e) => { e.preventDefault(); onClick(); }}
+        title={title}
+        aria-label={ariaLabel || title}
+        className={`mobile-icon-btn relative w-12 h-12 flex flex-col items-center justify-center backdrop-blur-md active:scale-90 transition ${active ? "ring-2 ring-emerald-400/60" : ""}`}
+        style={{
+          background: active ? "rgba(16, 185, 129, 0.2)" : p.bg,
+          border: "none",
+          borderRadius: 7,
+          boxShadow: "0 1px 3px rgba(0,0,0,0.28), 0 1px 1px rgba(0,0,0,0.32)",
+        }}
+      >
+        <span className={`text-base leading-none ${active ? "animate-pulse" : ""}`}>{label}</span>
+        {name && <span className="text-[8px] text-white/85 font-bold leading-tight mt-0.5 tracking-tighter">{name}</span>}
+        {active && <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 text-[8px] text-emerald-300 font-bold tracking-widest">ON</span>}
+      </button>
+      {tooltip.visible && (
+        <div
+          className="fixed z-[9999] pointer-events-none px-2 py-1 rounded bg-slate-800 border border-cyan-400/40 text-cyan-100 text-xs whitespace-nowrap shadow-lg"
+          style={{ left: tooltip.x, top: tooltip.y }}
+        >
+          {tooltip.content}
+        </div>
+      )}
+    </>
   );
 }

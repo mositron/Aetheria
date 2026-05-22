@@ -3,6 +3,7 @@
 
 import { useEffect, useState } from "react";
 import type { Room } from "colyseus.js";
+import FocusTrap from "focus-trap-react";
 import { ITEMS, type Player, type WorldState } from "@game/shared";
 import { GameFrame } from "./GameFrame";
 
@@ -13,14 +14,19 @@ export function AuctionHouse({ room }: { room: Room<WorldState> }) {
   const [tab, setTab] = useState<"browse" | "sell">("browse");
   const [listings, setListings] = useState<Listing[]>([]);
   const [search, setSearch] = useState("");
+  const [busyBuy, setBusyBuy] = useState(false);
 
   useEffect(() => {
     const onToggle = () => setOpen((o) => !o);
     window.addEventListener("toggle-auction", onToggle);
-    const off = room.onMessage("auction:browse" as any, (m: any) => setListings(m.listings ?? []));
+    const offBrowse = room.onMessage("auction:browse" as any, (m: any) => setListings(m.listings ?? []));
+    const offBuyOk = room.onMessage("auction:buy:ok" as any, () => setBusyBuy(false));
+    const offBuyErr = room.onMessage("auction:buy:err" as any, () => setBusyBuy(false));
     return () => {
       window.removeEventListener("toggle-auction", onToggle);
-      off?.();
+      offBrowse?.();
+      offBuyOk?.();
+      offBuyErr?.();
     };
   }, [room]);
 
@@ -31,10 +37,11 @@ export function AuctionHouse({ room }: { room: Room<WorldState> }) {
   if (!open) return null;
   const me = room.state.players.get(room.sessionId) as Player | undefined;
   return (
+    <FocusTrap focusTrapOptions={{ allowOutsideClick: true }}>
     <div data-no-screen-joy role="dialog" aria-modal="true" className="absolute inset-0 z-40 flex items-center justify-center bg-black/65 backdrop-blur-sm py-12 px-4" onClick={() => setOpen(false)}>
       <div className="w-[28rem] max-w-[94vw]" onClick={(e) => e.stopPropagation()}>
         <GameFrame title="🏛 ตลาดประมูล">
-          <button onClick={() => setOpen(false)} className="absolute -top-3 -right-3 w-8 h-8 rounded-full bg-rose-700 hover:bg-rose-600 border-2 border-rose-300 text-white font-bold z-10">✕</button>
+          <button onClick={() => setOpen(false)} aria-label="ปิด" className="absolute -top-3 -right-3 w-8 h-8 rounded-full bg-rose-700 hover:bg-rose-600 border-2 border-rose-300 text-white font-bold z-10">✕</button>
 
           <div className="flex gap-1 mb-2">
             <button onClick={() => setTab("browse")} className={`flex-1 py-1 rounded text-xs font-bold ${tab === "browse" ? "bg-amber-600 text-white" : "bg-slate-800 text-slate-300"}`}>🔍 ดูประกาศ</button>
@@ -73,10 +80,10 @@ export function AuctionHouse({ room }: { room: Room<WorldState> }) {
                           >ยกเลิก</button>
                         ) : (
                           <button
-                            onClick={() => { if (confirm(`ซื้อ ${def?.name} ×${l.qty} ${total}z?`)) room.send("auction:buy" as any, { id: l.id }); }}
-                            disabled={(me?.zeny ?? 0) < total}
+                            onClick={() => { if (confirm(`ซื้อ ${def?.name} ×${l.qty} ${total}z?`)) { setBusyBuy(true); room.send("auction:buy" as any, { id: l.id }); } }}
+                            disabled={busyBuy || (me?.zeny ?? 0) < total}
                             className="bg-emerald-700 hover:bg-emerald-600 disabled:bg-slate-700 disabled:text-slate-500 rounded px-2 py-0.5 text-[10px] font-bold text-white mt-0.5"
-                          >💰 ซื้อ</button>
+                          >{busyBuy ? "..." : "💰 ซื้อ"}</button>
                         )}
                       </div>
                     </div>
@@ -92,6 +99,7 @@ export function AuctionHouse({ room }: { room: Room<WorldState> }) {
         </GameFrame>
       </div>
     </div>
+    </FocusTrap>
   );
 }
 

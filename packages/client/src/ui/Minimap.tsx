@@ -149,7 +149,7 @@ export function Minimap({ room, mapId }: { room: Room<WorldState>; mapId: MapId 
           marginBottom: -1, // tuck into canvas top edge
         }}
       >
-        <span className="text-cyan-200 font-semibold tracking-wider truncate">📍 {mapDef.name}</span>
+        <span className="text-cyan-100 font-semibold tracking-wider truncate">📍 {mapDef.name}</span>
         {waypoint && (
           <button
             onClick={() => setWaypoint(null)}

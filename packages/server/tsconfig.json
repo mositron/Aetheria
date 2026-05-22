@@ -4,9 +4,10 @@
     "outDir": "dist",
     "module": "ESNext",
     "moduleResolution": "Bundler",
-    "rootDir": "src",
+    "rootDir": "../../",
     "experimentalDecorators": true,
     "useDefineForClassFields": false
   },
-  "include": ["src", "../shared/src"]
+  "include": ["src", "../shared/src"],
+  "exclude": ["src/__tests__/**", "../shared/src/__tests__/**", "src/**/*.test.ts", "../shared/src/**/*.test.ts"]
 }

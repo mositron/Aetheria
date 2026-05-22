@@ -78,6 +78,45 @@ export class Friend {
       return { ok: false, reason: "error" };
     }
   }
+
+  registerHandlers(
+    isOnline: (name: string) => boolean,
+    sendToClient: (sid: string, type: string, data: any) => void,
+    getCharId: (sid: string) => string | undefined,
+    getPlayer: (sid: string) => any
+  ) {
+    return {
+      "friend:add": async (client: any, msg: any) => {
+        const me = getPlayer(client.sessionId);
+        const charId = getCharId(client.sessionId);
+        if (!me || !charId) return;
+        const r = await this.add(charId, me.name, String(msg?.name ?? ""));
+        if (!r.ok) {
+          const reasonMsg = r.reason === "self" ? ""
+            : r.reason === "missing" ? `ไม่พบตัวละครชื่อ "${msg?.name}"`
+            : r.reason === "full" ? "เพื่อนเต็ม (สูงสุด 100 คน) — ลบบางคนออกก่อน"
+            : "";
+          if (reasonMsg) sendToClient(client.sessionId, "system", { text: reasonMsg });
+          return;
+        }
+        sendToClient(client.sessionId, "friend:list", { friends: r.friends.map((n) => ({ name: n, online: isOnline(n) })) });
+      },
+
+      "friend:remove": async (client: any, msg: any) => {
+        const charId = getCharId(client.sessionId);
+        if (!charId) return;
+        const r = await this.remove(charId, String(msg?.name ?? "").trim());
+        if (r.ok) sendToClient(client.sessionId, "friend:list", { friends: r.friends.map((n) => ({ name: n, online: isOnline(n) })) });
+      },
+
+      "friend:list": async (client: any) => {
+        const charId = getCharId(client.sessionId);
+        if (!charId) return;
+        const friends = await this.list(charId);
+        sendToClient(client.sessionId, "friend:list", { friends: friends.map((n) => ({ name: n, online: isOnline(n) })) });
+      },
+    };
+  }
 }
 
 export { MAX_FRIENDS, MAX_NAME };

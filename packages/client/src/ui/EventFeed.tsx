@@ -2,25 +2,27 @@ import { useEffect, useState } from "react";
 import type { Room } from "colyseus.js";
 import type { WorldState } from "@game/shared";
 
-type Entry = { id: number; text: string; color: string; born: number };
+type Entry = { id: number; text: string; color: string; born: number; severity: "info" | "warn" | "error" };
 let UID = 0;
 
 export function EventFeed({ room }: { room: Room<WorldState> }) {
   const [entries, setEntries] = useState<Entry[]>([]);
 
   useEffect(() => {
-    const add = (text: string, color: string) => {
-      setEntries((arr) => [...arr.slice(-7), { id: ++UID, text, color, born: Date.now() }]);
+    const add = (text: string, color: string, severity: Entry["severity"] = "info") => {
+      setEntries((arr) => [...arr.slice(-7), { id: ++UID, text, color, born: Date.now(), severity }]);
     };
     const off1 = room.onMessage("levelup" as any, (m: any) => {
       const name = m.name ?? (m.playerId === room.sessionId ? "You" : "Someone");
-      add(`⭐ ${name} reached Lv ${m.level}!`, "#fde047");
+      add(`⭐ ${name} reached Lv ${m.level}!`, "#fde047", "info");
     });
     const off2 = room.onMessage("questReward" as any, (m: any) => {
-      add(`📜 Quest complete! +${m.exp}xp +${m.zeny}z`, "#86efac");
+      add(`📜 Quest complete! +${m.exp}xp +${m.zeny}z`, "#86efac", "info");
     });
     const off3 = room.onMessage("system" as any, (m: any) => {
-      add(m.text ?? "", "#67e8f9");
+      const sev = m.severity ?? "info";
+      const color = sev === "error" ? "#f87171" : sev === "warn" ? "#fbbf24" : "#67e8f9";
+      add(m.text ?? "", color, sev);
     });
     return () => { off1?.(); off2?.(); off3?.(); };
   }, [room]);
@@ -34,8 +36,8 @@ export function EventFeed({ room }: { room: Room<WorldState> }) {
   }, []);
 
   if (entries.length === 0) return null;
-  return (
-    <div className="absolute top-2 left-1/2 -translate-x-1/2 space-y-0.5 pointer-events-none">
+return (
+    <div aria-live="polite" className="absolute top-2 left-1/2 -translate-x-1/2 space-y-0.5 pointer-events-none">
       {entries.map((e) => {
         const age = (Date.now() - e.born) / 6000;
         return (

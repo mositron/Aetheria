@@ -19,7 +19,10 @@ export const GAME_CONFIG = {
 
 export const ROOM_NAME = "world";
 
-export const MONSTERS = {
+export const MONSTERS: Record<string, {
+  name: string; hp: number; atk: number; exp: number;
+  speed: number; aggroRange: number; boss?: boolean; def?: number;
+}> = {
   slime: { name: "Slime", hp: 30, atk: 4, exp: 10, speed: 2, aggroRange: 6 },
   wolf: { name: "Wolf", hp: 60, atk: 8, exp: 25, speed: 3.5, aggroRange: 8 },
   orc: { name: "Orc Warrior", hp: 140, atk: 14, exp: 80, speed: 2.5, aggroRange: 7 },
@@ -43,6 +46,20 @@ export const MONSTERS = {
   chicken: { name: "Chicken", hp: 8, atk: 0, exp: 1, speed: 2.5, aggroRange: -1 },
   pig:     { name: "Pig",     hp: 24, atk: 0, exp: 3, speed: 2, aggroRange: -1 },
   cow:     { name: "Cow",     hp: 40, atk: 0, exp: 5, speed: 1.5, aggroRange: -1 },
+  // ── Desert biome ────────────────────────────────────────────────────────────
+  sand_worm:    { name: "หนอนทราย",     hp: 180, atk: 38, exp: 95,  speed: 1.8, aggroRange: 5 },
+  scorpion_lord:{ name: "แมงป่องผู้นำ", hp: 3200,atk: 115,exp: 1400,speed: 1.5, aggroRange: 6, boss: true },
+  // ── Snow biome ──────────────────────────────────────────────────────────────
+  ice_wraith:   { name: "วิญญาณน้ำแข็ง", hp: 220, atk: 55, exp: 150, speed: 2.2, aggroRange: 7 },
+  snowman_giant:{ name: "สโนว์แมนยักษ์", hp: 5000,atk: 95, exp: 800, speed: 1.2, aggroRange: 5, boss: true },
+// ── Swamp biome ───────────────────────────────────────────────────────────
+  bog_witch:     { name: "แม่มดลำธาร", hp: 450, atk: 85, def: 30, exp: 380, speed: 1.4, aggroRange: 6 },
+  swamp_serpent:  { name: "งูพิษบึ้ง", hp: 600, atk: 110, def: 25, exp: 520, speed: 2.0, aggroRange: 5 },
+  // ── Lv25+ dungeon monsters ────────────────────────────────────────────────
+  shadow_lord:  { name: "Shadow Lord",  hp: 800,  atk: 22, exp: 1500, speed: 1.6, aggroRange: 8 },
+  ice_giant:    { name: "Ice Giant",    hp: 1000, atk: 20, exp: 1800, speed: 1.2, aggroRange: 6 },
+  shadow_wolf:  { name: "Shadow Wolf",  hp: 90,   atk: 13, exp: 60,   speed: 4.0, aggroRange: 8 },
+  frost_spider: { name: "Frost Spider", hp: 70,   atk: 12, exp: 45,   speed: 3.5, aggroRange: 7 },
 } as const;
 
 export const PASSIVE_ANIMAL_KINDS: ReadonlyArray<MonsterKind> = ["chicken", "pig", "cow"];

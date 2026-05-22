@@ -55,6 +55,10 @@ const FriendList = lazy(() => import("./ui/FriendList").then((m) => ({ default: 
 const GuildPanel = lazy(() => import("./ui/GuildPanel").then((m) => ({ default: m.GuildPanel })));
 const AuctionHouse = lazy(() => import("./ui/AuctionHouse").then((m) => ({ default: m.AuctionHouse })));
 const TradeWindow = lazy(() => import("./ui/TradeWindow").then((m) => ({ default: m.TradeWindow })));
+const WorldLobby = lazy(() => import("./ui/WorldLobby").then((m) => ({ default: m.WorldLobby })));
+const SkillTreeUI = lazy(() => import("./ui/SkillTreeUI").then((m) => ({ default: m.SkillTreeUI })));
+const MarriageUI = lazy(() => import("./ui/MarriageUI").then((m) => ({ default: m.MarriageUI })));
+const WorldCompanionPanel = lazy(() => import("./ui/WorldCompanionPanel").then((m) => ({ default: m.WorldCompanionPanel })));
 
 const SERVER_WS = `ws://${location.hostname}:2567`;
 
@@ -65,6 +69,8 @@ export function Game() {
   const [ready, setReady] = useState(false);
   const [mapId, setMapId] = useState<MapId>("field");
   const [error, setError] = useState<string | null>(null);
+  const [showWorldLobby, setShowWorldLobby] = useState(false);
+  const [showCompanion, setShowCompanion] = useState(false);
   const clientRef = useRef<Client | null>(null);
   const settings = useSettings();
   const isTouch = typeof window !== "undefined" && matchMedia("(hover: none) and (pointer: coarse)").matches;
@@ -79,7 +85,8 @@ export function Game() {
     async function connect(targetMap: MapId) {
       try {
         // safety: if joinOrCreate hangs > 12s, throw so we show an error instead of staring at the loading screen forever
-        const join = client.joinOrCreate<WorldState>(`map_${targetMap}`, { token, characterId, mapId: targetMap });
+        // one WorldRoom handles all mapIds — warp via state.mapId changes
+        const join = client.joinOrCreate<WorldState>("world", { token, characterId, mapId: targetMap });
         const r = await Promise.race([
           join,
           new Promise<never>((_, rej) => setTimeout(() => rej(new Error("เซิร์ฟเวอร์ไม่ตอบสนอง (timeout) — ลองรีสตาร์ทเซิร์ฟเวอร์")), 12000)),
@@ -97,8 +104,17 @@ export function Game() {
         setReady(true);
         r.onMessage("chat", (m: any) => pushChat(m));
         r.onMessage("whisper" as any, (m: any) => pushChat({ from: `🔒 ${m.from}`, text: m.text, ts: m.ts }));
+        r.onMessage("proposal_received", ({ fromName }: any) => {
+          if (confirm(`💍 ${fromName} ขอแต่งงานกับคุณ! ยอมรับหรือไม่?`)) {
+            r.send("accept_proposal", { proposerName: fromName });
+          } else {
+            r.send("decline_proposal", { proposerName: fromName });
+          }
+        });
+        // WorldRoom: warp is state.mapId change → Colyseus state sync handles scene reload
+        // The "warp" message is kept for any legacy code that still sends it
         r.onMessage("warp", async (m: any) => {
-          await r.leave();
+          // For world room, mapId changes via state — just update local mapId to trigger re-render
           setMapId(m.mapId);
         });
         r.onLeave(() => { if (currentRoom === r) { setRoom(null); setReady(false); } });
@@ -129,6 +145,20 @@ export function Game() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token, characterId, mapId]);
 
+// World companion panel toggle
+  useEffect(() => {
+    const onToggle = () => setShowCompanion((v) => !v);
+    window.addEventListener("toggle-companions", onToggle);
+    return () => window.removeEventListener("toggle-companions", onToggle);
+  }, []);
+
+  // World lobby toggle
+  useEffect(() => {
+    const onToggle = () => setShowWorldLobby((v) => !v);
+    window.addEventListener("toggle-worlds", onToggle);
+    return () => window.removeEventListener("toggle-worlds", onToggle);
+  }, []);
+
   if (error) {
     return <LoadingScreen title="การเชื่อมต่อขัดข้อง" subtitle={error} onLogout={logout} retrying />;
   }
@@ -141,8 +171,11 @@ export function Game() {
   const useShadows = settings.shadows && !isTouch;
   const useHighQ = settings.highQuality && !isTouch;
 
-  return (
-    <div className="w-full h-full relative">
+return (
+    <div id="game-canvas" className="w-full h-full relative">
+      <a href="#game-canvas" className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-[9999] focus:px-4 focus:py-2 focus:bg-cyan-600 focus:text-white focus:rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-300">
+        ข้ามไปเนื้อหาหลัก
+      </a>
       <Canvas
         shadows={useShadows ? { type: 1, enabled: true } : false}
         gl={{ antialias: useHighQ, powerPreference: "high-performance" }}
@@ -173,7 +206,8 @@ export function Game() {
         <CraftingPanel room={room} />
         <AchievementsPanel room={room} />
         <PhotoMode />
-        <PetBox room={room} />
+<PetBox room={room} />
+        <SkillTreeUI room={room} />
         <Leaderboard />
         <Mailbox room={room} />
         <FriendList room={room} />
@@ -192,7 +226,8 @@ export function Game() {
       <TargetDisplay room={room} />
       <JobAdvancement room={room} />
       <Onboarding room={room} />
-      <WaypointsPanel />
+<WaypointsPanel />
+      <MarriageUI room={room} />
       <Chat room={room} />
       <Inventory room={room} />
       <Hotbar room={room} />
@@ -208,6 +243,28 @@ export function Game() {
       <BossBar room={room} />
       <LowHpVignette room={room} />
       <SettingsPanel />
+<Suspense fallback={null}>
+        {showCompanion && <WorldCompanionPanel room={room} />}
+      </Suspense>
+      {showWorldLobby && (
+        <WorldLobby
+          onJoin={async (worldId: string, inviteCode: string) => {
+            setShowWorldLobby(false);
+            if (inviteCode && !worldId) {
+              // Resolve invite code first
+              try {
+                const res = await fetch(`/api/worlds/by-code/${inviteCode}`);
+                if (!res.ok) { console.error("invalid invite code"); return; }
+                const data = await res.json();
+                clientRef.current?.joinOrCreate("world", { worldId: data.worldId, token, characterId });
+              } catch (e) { console.error("resolve code failed", e); }
+            } else if (worldId) {
+              clientRef.current?.joinOrCreate("world", { worldId, token, characterId });
+            }
+          }}
+          onClose={() => setShowWorldLobby(false)}
+        />
+      )}
     </div>
   );
 }

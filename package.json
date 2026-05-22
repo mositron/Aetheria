@@ -7,9 +7,12 @@
     "dev:server": "pnpm --filter @game/server dev",
     "dev:client": "pnpm --filter @game/client dev",
     "build": "pnpm -r build",
-    "db:push": "pnpm --filter @game/server db:push"
+    "db:push": "pnpm --filter @game/server db:push",
+    "test:harness": "tsx tools/harness-runner.ts",
+    "loadtest": "k6 run tools/k6/loadtest-room.js"
   },
   "devDependencies": {
+    "ioredis-mock": "^8.13.1",
     "typescript": "^5.6.3"
   },
   "packageManager": "pnpm@10.32.1",

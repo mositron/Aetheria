@@ -48,7 +48,7 @@ export function InteractionPrompt({ room }: { room: Room<WorldState> }) {
   // re-render during cast for progress
   useEffect(() => {
     if (fishing !== "casting") return;
-    const id = setInterval(() => { if (tickRef.current !== null) tickRef.current++; setCastEnd((v) => v); }, 100);
+    const id = setInterval(() => { if (tickRef.current !== null) tickRef.current++; setCastEnd((v) => v); }, 250);
     return () => clearInterval(id);
   }, [fishing]);
 
@@ -74,7 +74,7 @@ export function InteractionPrompt({ room }: { room: Room<WorldState> }) {
     <div className="absolute bottom-32 left-1/2 -translate-x-1/2 pointer-events-none select-none flex flex-col items-center gap-2">
       {fishing === "casting" ? (
         <div className="pointer-events-auto flex flex-col items-center gap-2">
-          <div className="text-cyan-200 text-xs uppercase tracking-widest animate-pulse">🎣 รอปลากัดเบ็ด...</div>
+          <div className="text-cyan-100 text-xs uppercase tracking-widest animate-pulse">🎣 รอปลากัดเบ็ด...</div>
           <div className="w-48 h-2 bg-black/70 border border-cyan-400/40 rounded-full overflow-hidden">
             <div
               className="h-full transition-all"
@@ -97,7 +97,7 @@ export function InteractionPrompt({ room }: { room: Room<WorldState> }) {
         <div className="text-amber-300 font-bold text-lg animate-bounce">🎉 ตกได้แล้ว!</div>
       ) : near === "water" && (
         <div className="pointer-events-auto flex flex-col items-center gap-1.5">
-          <div className="text-cyan-200 text-xs uppercase tracking-widest animate-pulse">น้ำใสสะอาด</div>
+          <div className="text-cyan-100 text-xs uppercase tracking-widest animate-pulse">น้ำใสสะอาด</div>
           <div className="flex gap-2">
             <button
               onClick={() => room.send("drink", {})}

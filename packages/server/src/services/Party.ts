@@ -103,4 +103,75 @@ export class Party {
   }
 }
 
+// ─── Standalone message handlers ────────────────────────────────────────────
+
+export function registerPartyHandlers(deps: {
+  state: { players: Map<string, any> };
+  getPlayer: (sid: string) => any;
+  sendToClient: (sid: string, type: string, data: any) => void;
+  getCharId: (sid: string) => string | undefined;
+  partySvc: Party;
+  clients: any[];
+}) {
+  const { state, getPlayer, sendToClient, partySvc, clients } = deps;
+
+  function broadcastPartyUpdate(pid: string) {
+    const memberSids = partySvc.members(pid);
+    if (memberSids.length === 0) return;
+    const leader = state.players.get(memberSids[0]);
+    const members = memberSids.map((sid) => {
+      const p = state.players.get(sid);
+      return p ? { id: p.id, name: p.name, hp: p.hp, maxHp: p.maxHp, level: p.level } : null;
+    }).filter(Boolean);
+    for (const sid of memberSids) {
+      const c = clients.find((c: any) => c.sessionId === sid);
+      c?.send("partyUpdate", { leaderId: leader?.id ?? "", members });
+    }
+  }
+
+  return {
+    partyInvite: (client: any, msg: any) => {
+      const inviter = getPlayer(client.sessionId);
+      if (!inviter) return;
+      let target: any = null;
+      let targetPlayer: any = null;
+      for (const c of clients) {
+        const p = state.players.get(c.sessionId);
+        if (p?.name === msg?.targetName && p.id !== inviter.id) { target = c; targetPlayer = p; break; }
+      }
+      if (!target || !targetPlayer) return;
+      if (!partySvc.invite(client.sessionId, target.sessionId)) return;
+      sendToClient(target.sessionId, "partyInvite", { fromId: inviter.id, fromName: inviter.name });
+    },
+
+    partyAccept: (client: any, msg: any) => {
+      const sid = client.sessionId;
+      let inviterSid = "";
+      for (const c of clients) {
+        const p = state.players.get(c.sessionId);
+        if (p?.id === msg?.fromId) { inviterSid = c.sessionId; break; }
+      }
+      if (!inviterSid) return;
+      const change = partySvc.accept(sid, inviterSid);
+      if (change.kind === "joined") broadcastPartyUpdate(change.pid);
+    },
+
+    partyLeave: (client: any) => {
+      const sid = client.sessionId;
+      const change = partySvc.leave(sid);
+      if (change.kind === "noop") return;
+      if (change.kind === "disbanded") {
+        for (const m of change.formerMembers) {
+          const c = clients.find((c: any) => c.sessionId === m);
+          c?.send("partyUpdate", { leaderId: "", members: [] });
+        }
+      } else if (change.kind === "left") {
+        const leaver = clients.find((c: any) => c.sessionId === sid);
+        leaver?.send("partyUpdate", { leaderId: "", members: [] });
+        broadcastPartyUpdate(change.pid);
+      }
+    },
+  };
+}
+
 export { MAX_PARTY_SIZE };

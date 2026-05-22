@@ -1,17 +1,20 @@
 import { useEffect, useRef, useState } from "react";
 import type { Room } from "colyseus.js";
+import FocusTrap from "focus-trap-react";
 import { ITEMS, type Player, type WorldState } from "@game/shared";
 import { useStore } from "../store";
 import { GameFrame } from "./GameFrame";
 import { keyEq } from "../utils/keyMatch";
+import { ConfirmDialog } from "./ConfirmDialog";
 
-type FilterKey = "all" | "weapon" | "armor" | "consumable" | "material" | "furniture";
+type FilterKey = "all" | "weapon" | "armor" | "consumable" | "material" | "structure";
 
 export function Inventory({ room }: { room: Room<WorldState> }) {
   const open = useStore((s) => s.inventoryOpen);
   const toggle = useStore((s) => s.toggleInventory);
   const [, setTick] = useState(0);
   const [filter, setFilter] = useState<FilterKey>("all");
+  const [confirmUnequip, setConfirmUnequip] = useState<{ slot: "weapon" | "armor"; itemId: string } | null>(null);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -38,28 +41,37 @@ export function Inventory({ room }: { room: Room<WorldState> }) {
     if (filter === "all") return true;
     const def = ITEMS[s.itemId];
     if (!def) return false;
-    if (filter === "furniture") return s.itemId.startsWith("furniture_");
+    if (filter === "structure") return s.itemId.startsWith("struct_");
     return def.slot === filter;
   });
 
-  return (
-    <div data-no-screen-joy role="dialog" aria-modal="true" className="absolute inset-0 z-40 flex items-center justify-center bg-black/65 backdrop-blur-sm py-16 px-4" onClick={toggle}>
-      <div className="w-[22rem] max-w-[92vw] flex flex-col min-h-0" style={{ maxHeight: "calc(100vh - 8rem)" }} onClick={(e) => e.stopPropagation()}>
-        <GameFrame
-          title="กระเป๋า"
-          className="flex flex-col min-h-0"
-          innerClassName="flex flex-col flex-1 min-h-0"
+return (
+    <div onClick={toggle}>
+      <FocusTrap focusTrapOptions={{ allowOutsideClick: true }}>
+        <div
+          data-no-screen-joy
+          role="dialog"
+          aria-modal="true"
+          className="absolute inset-0 z-40 flex items-center justify-center bg-black/65 backdrop-blur-sm py-16 px-4"
+          onClick={(e) => e.stopPropagation()}
         >
-          <button
-            onClick={toggle}
-            className="absolute -top-3 -right-3 w-8 h-8 rounded-full bg-rose-700 hover:bg-rose-600 border-2 border-rose-300 text-white font-bold z-10"
-          >
-            ✕
-          </button>
+          <div className="w-[22rem] max-w-[92vw] flex flex-col min-h-0" style={{ maxHeight: "calc(100vh - 8rem)" }}>
+            <GameFrame
+              title="กระเป๋า"
+              className="flex flex-col min-h-0"
+              innerClassName="flex flex-col flex-1 min-h-0"
+            >
+              <button
+                onClick={toggle}
+                aria-label="ปิด"
+                className="absolute -top-3 -right-3 min-w-[44px] min-h-[44px] w-11 h-11 rounded-full bg-rose-700 hover:bg-rose-600 border-2 border-rose-300 text-white font-bold z-10 flex items-center justify-center"
+              >
+                ✕
+              </button>
           <div className="space-y-3 pt-1 overflow-y-auto game-scroll flex-1 pr-1" style={{ minHeight: 0 }}>
             <div className="grid grid-cols-2 gap-2">
-              <EquipSlot label="อาวุธ" itemId={me.weapon} onUnequip={() => room.send("unequip", { slot: "weapon" })} />
-              <EquipSlot label="ชุดเกราะ" itemId={me.armor} onUnequip={() => room.send("unequip", { slot: "armor" })} />
+              <EquipSlot label="อาวุธ" itemId={me.weapon} onUnequip={() => setConfirmUnequip({ slot: "weapon", itemId: me.weapon })} />
+              <EquipSlot label="ชุดเกราะ" itemId={me.armor} onUnequip={() => setConfirmUnequip({ slot: "armor", itemId: me.armor })} />
             </div>
 
             {/* Filter chips */}
@@ -70,7 +82,7 @@ export function Inventory({ room }: { room: Room<WorldState> }) {
                 { id: "armor", label: "เกราะ", icon: "🛡" },
                 { id: "consumable", label: "ใช้", icon: "🧪" },
                 { id: "material", label: "วัสดุ", icon: "🪵" },
-                { id: "furniture", label: "เฟอร์", icon: "🪑" },
+                { id: "structure", label: "สร้าง", icon: "🏗️" },
               ] as { id: FilterKey; label: string; icon: string }[]).map((f) => (
                 <button
                   key={f.id}
@@ -98,6 +110,11 @@ export function Inventory({ room }: { room: Room<WorldState> }) {
                       if (!def) return;
                       if (def.slot === "weapon" || def.slot === "armor") room.send("equip", { invIndex: realIdx });
                       else if (def.slot === "consumable") room.send("useItem", { invIndex: realIdx });
+                      else if (stack.itemId.startsWith("struct_")) {
+                        // Enter build mode with this structure item
+                        useStore.getState().toggleInventory();
+                        useStore.getState().setSelectedStructItem(stack.itemId);
+                      }
                     }}
                     onDrop={() => {
                       if (stack) room.send("dropItem", { invIndex: realIdx });
@@ -109,9 +126,23 @@ export function Inventory({ room }: { room: Room<WorldState> }) {
             <div className="text-[10px] text-slate-400 text-center">
               แตะใช้/สวม · กดค้างเพื่อทิ้ง
             </div>
+</div>
+          </GameFrame>
           </div>
-        </GameFrame>
-      </div>
+        </div>
+      </FocusTrap>
+      <ConfirmDialog
+      open={confirmUnequip !== null}
+      title="ถอดออก?"
+      message={`ถอด ${ITEMS[confirmUnequip?.itemId ?? ""]?.name ?? "ไอเทม"} ออกจากช่องสวมใส่?`}
+      severity={confirmUnequip?.itemId.startsWith("rare_") ? "warning" : "info"}
+      confirmLabel="ถอด"
+      onConfirm={() => {
+        if (confirmUnequip) room.send("unequip", { slot: confirmUnequip.slot });
+        setConfirmUnequip(null);
+      }}
+onCancel={() => setConfirmUnequip(null)}
+      />
     </div>
   );
 }

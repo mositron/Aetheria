@@ -1,7 +1,9 @@
+// TODO i18n: strings should use useT() hook
 import { useEffect, useState } from "react";
 import { getSfxVolume, setSfxVolume, stopAmbient } from "../sfx/sfx";
 import { GameFrame } from "./GameFrame";
 import { keyEq } from "../utils/keyMatch";
+import { useStore } from "../store";
 
 type Settings = {
   ambient: boolean;
@@ -29,6 +31,8 @@ export function SettingsPanel() {
   const [open, setOpen] = useState(false);
   const [vol, setVol] = useState(getSfxVolume());
   const [settings, setSettings] = useState<Settings>(load());
+  const lang = useStore((s) => s.lang);
+  const setLang = useStore((s) => s.setLang);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -58,7 +62,7 @@ export function SettingsPanel() {
     <div data-no-screen-joy role="dialog" aria-modal="true" className="absolute inset-0 z-40 flex items-center justify-center bg-black/65 backdrop-blur-sm py-16 px-4" onClick={() => setOpen(false)}>
       <div className="w-[22rem] max-w-[94vw]" onClick={(e) => e.stopPropagation()}>
         <GameFrame title="ตั้งค่า">
-          <button onClick={() => setOpen(false)} className="absolute -top-3 -right-3 w-8 h-8 rounded-full bg-rose-700 hover:bg-rose-600 border-2 border-rose-300 text-white font-bold z-10">✕</button>
+          <button onClick={() => setOpen(false)} className="absolute -top-3 -right-3 min-w-[44px] min-h-[44px] w-11 h-11 rounded-full bg-rose-700 hover:bg-rose-600 border-2 border-rose-300 text-white font-bold z-10 flex items-center justify-center">✕</button>
 
           <div className="space-y-3 pt-1">
             <Section icon="🔊" label="เสียงเอฟเฟกต์">
@@ -68,7 +72,7 @@ export function SettingsPanel() {
                   onChange={(e) => { const v = parseFloat(e.target.value); setVol(v); setSfxVolume(v); }}
                   className="flex-1 cursor-pointer"
                 />
-                <span className="text-xs text-cyan-200 w-10 text-right">{Math.round(vol * 100)}%</span>
+                <span className="text-xs text-cyan-100 w-10 text-right">{Math.round(vol * 100)}%</span>
               </div>
             </Section>
 
@@ -76,6 +80,27 @@ export function SettingsPanel() {
             <Toggle icon="🌑" label="เงา (Shadows)" value={settings.shadows} onChange={(v) => update({ shadows: v })} desc="ปิดเพื่อเล่นได้ลื่นขึ้น" />
             <Toggle icon="✨" label="อนุภาคพิเศษ" value={settings.particles} onChange={(v) => update({ particles: v })} desc="ฝน, สปาร์กเกิล, ฯลฯ" />
             <Toggle icon="🖼" label="กราฟิกสูง" value={settings.highQuality} onChange={(v) => update({ highQuality: v })} desc="ปิดเพื่อลด DPR ในมือถือ" />
+
+            <Section icon="🌐" label="ภาษา">
+              <div className="flex items-center gap-2 p-2 bg-slate-900/50 rounded-xl border border-cyan-400/20">
+                <span className="text-lg">🌐</span>
+                <div className="flex-1 text-sm font-bold text-white">ภาษา / Language</div>
+                <div className="flex gap-1">
+                  <button
+                    onClick={() => setLang("th")}
+                    className={`px-3 py-1 rounded-full text-xs font-bold transition-colors ${lang === "th" ? "bg-cyan-600 text-white" : "bg-slate-700 text-slate-300"}`}
+                  >
+                    ภาษาไทย
+                  </button>
+                  <button
+                    onClick={() => setLang("en")}
+                    className={`px-3 py-1 rounded-full text-xs font-bold transition-colors ${lang === "en" ? "bg-cyan-600 text-white" : "bg-slate-700 text-slate-300"}`}
+                  >
+                    English
+                  </button>
+                </div>
+              </div>
+            </Section>
 
             <div className="pt-2 border-t border-cyan-400/20 text-[10px] text-slate-400 text-center">
               กด <kbd className="px-1 bg-slate-700 rounded">O</kbd> เพื่อเปิด/ปิด · <kbd className="px-1 bg-slate-700 rounded">Esc</kbd> ปิด

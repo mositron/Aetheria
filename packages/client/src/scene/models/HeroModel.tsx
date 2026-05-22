@@ -1,4 +1,5 @@
 import { useRef } from "react";
+import React from "react";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import { DEFAULT_APPEARANCE, type Appearance } from "@game/shared";
@@ -124,7 +125,7 @@ export function HeroModel({ bodyColor, appearance, isMoving, isAttacking, isCast
       if (castLight.current) castLight.current.visible = false;
     }
 
-    // ── Flying pose override (superman pose) ──
+    // -- Flying pose override (superman pose) --
     if (isFlying?.()) {
       // Arms forward (raised up so when body tilts horizontal, arms point ahead)
       const armPose = -Math.PI * 0.85; // nearly straight forward
@@ -138,7 +139,7 @@ export function HeroModel({ bodyColor, appearance, isMoving, isAttacking, isCast
       if (root.current && castPhase.current <= 0) root.current.position.y = 0;
     }
 
-    // ── Cute blinking eyes ──
+    // -- Cute blinking eyes --
     const now = performance.now();
     if (blinkPhase.current > 0) {
       blinkPhase.current -= dt * 8; // blink lasts ~0.12s
@@ -208,7 +209,7 @@ export function HeroModel({ bodyColor, appearance, isMoving, isAttacking, isCast
       </mesh>
       <pointLight ref={castLight} position={[0, 1.2, 0]} color="#22d3ee" intensity={2} distance={5} visible={false} />
 
-      {/* head — chibi sized (bigger than torso) */}
+      {/* head -- chibi sized (bigger than torso) */}
       <mesh position={[0, headY + 0.05, 0]}>
         <boxGeometry args={[0.6, 0.6, 0.6]} />
         <meshStandardMaterial color={skin} />
@@ -222,7 +223,7 @@ export function HeroModel({ bodyColor, appearance, isMoving, isAttacking, isCast
         <boxGeometry args={[0.11, 0.13, 0.01]} />
         <meshBasicMaterial color="#ffffff" />
       </mesh>
-      {/* eyes (pupils — blink) */}
+      {/* eyes (pupils -- blink) */}
       <mesh ref={leftEye} position={[-0.13, headY + 0.05, 0.31]}>
         <boxGeometry args={[0.07, 0.09, 0.01]} />
         <meshBasicMaterial color={eye} />
@@ -255,7 +256,7 @@ export function HeroModel({ bodyColor, appearance, isMoving, isAttacking, isCast
         <meshBasicMaterial color="#9a3412" />
       </mesh>
 
-      {/* hair — wrap in scaled group so hair fits the bigger chibi head */}
+      {/* hair -- wrap in scaled group so hair fits the bigger chibi head */}
       <group scale={[1.25, 1.05, 1.25]} position={[0, headY * 0.04, 0]}>
         <Hair style={ap.hairStyle} color={hair} y={headY + 0.02} />
       </group>
