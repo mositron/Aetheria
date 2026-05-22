@@ -5,11 +5,13 @@ import { useEffect, useRef, useState } from "react";
 import type { Room } from "colyseus.js";
 import type { WorldState } from "@game/shared";
 import { GameFrame } from "./GameFrame";
+import { useT } from "../../locales/useT";
 
 type GuildInfo = { id: string; name: string; tag: string; leader: string; members: string[] } | null;
 type ChatMsg = { from: string; text: string; ts: number };
 
 export function GuildPanel({ room }: { room: Room<WorldState> }) {
+  const t = useT();
   const [open, setOpen] = useState(false);
   const [info, setInfo] = useState<GuildInfo>(null);
   const [createName, setCreateName] = useState("");
@@ -51,8 +53,8 @@ export function GuildPanel({ room }: { room: Room<WorldState> }) {
 
           {!info ? (
             <div className="space-y-3 pt-1">
-              <div className="text-xs text-slate-300">
-                ยังไม่อยู่ในกิลด์ — สร้างใหม่หรือเข้าร่วมกิลด์ที่มีอยู่
+<div className="text-xs text-slate-300">
+                {t("guild.noGuild")}
               </div>
 
               <form

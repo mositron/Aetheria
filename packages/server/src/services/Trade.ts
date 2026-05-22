@@ -111,7 +111,7 @@ export class Trade {
       if (a.zeny < sess.zeny || b.zeny < partner.zeny) { this.cancelTrade(sid); return; }
 
       const self = this;
-      function takeFrom(p: Player, list: Array<{ invIndex: number; qty: number }>) {
+      const takeFrom = (p: Player, list: Array<{ invIndex: number; qty: number }>) => {
         const taken: Array<{ itemId: string; qty: number }> = [];
         const sorted = list.slice().sort((x, y) => y.invIndex - x.invIndex);
         for (const it of sorted) {
@@ -122,7 +122,7 @@ export class Trade {
           if (stack.qty <= 0) p.inventory.splice(it.invIndex, 1);
         }
         return taken;
-      }
+      };
 
       const aFreeAfter = (INVENTORY_SIZE - a.inventory.length) + sess.items.length;
       const bFreeAfter = (INVENTORY_SIZE - b.inventory.length) + partner.items.length;
@@ -133,8 +133,8 @@ export class Trade {
         return;
       }
 
-      const aSnapshot = a.inventory.map((s) => ({ itemId: s.itemId, qty: s.qty }));
-      const bSnapshot = b.inventory.map((s) => ({ itemId: s.itemId, qty: s.qty }));
+      const aSnapshot = a.inventory.map((s: any) => ({ itemId: s.itemId, qty: s.qty }));
+      const bSnapshot = b.inventory.map((s: any) => ({ itemId: s.itemId, qty: s.qty }));
       const aZenyPre = a.zeny;
       const bZenyPre = b.zeny;
 

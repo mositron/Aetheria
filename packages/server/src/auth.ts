@@ -338,10 +338,10 @@ authRouter.delete("/characters/:id", authMiddleware, async (req: any, res) => {
   res.json({ ok: true });
 });
 
-export function verifyToken(token: string): { uid: string; username: string } | null {
+export function verifyToken(token: string): { uid: string; username: string; type?: string } | null {
   try {
-    const payload = jwt.verify(token, SECRET) as { uid: string; username: string };
-    return { uid: payload.uid, username: payload.username };
+    const payload = jwt.verify(token, SECRET) as { uid: string; username: string; type?: string };
+    return { uid: payload.uid, username: payload.username, type: payload.type };
   } catch {
     return null;
   }

@@ -170,7 +170,7 @@ export const th = {
   "chat.placeholder": "พิมพ์... (Esc=ปิด · /w ชื่อ ข้อความ=กระซิบ)",
   "chat.clickToType": "คลิกเพื่อพิมพ์ (Enter)",
 
-// ── Inventory ───────────────────────────────────────────────
+  // ── Inventory ───────────────────────────────────────────────
   "inv.title": "กระเป๋า",
   "inv.weapon": "อาวุธ",
   "inv.armor": "ชุดเกราะ",
@@ -230,12 +230,12 @@ export const th = {
   "npc.buy": "ซื้อ",
   "npc.sell": "ขาย",
   "npc.quests": "เควส",
-  "npc.walkCloser": "Walk closer to interact.",
+  "npc.walkCloser": "เดินเข้าใกล้กว่านี้เพื่อคุย",
   "npc.noQuests": "ไม่มีเควสจาก NPC นี้",
   "npc.walkCloserThai": "เดินเข้าใกล้กว่านี้เพื่อคุย",
   "npc.sellAllMaterials": "ขาย material ทั้งหมด",
   "npc.sellAllJunk": "ขายของรกๆ",
-  "npc.inventoryEmpty": "Inventory is empty.",
+  "npc.inventoryEmpty": "ไม่มีของในกระเป๋า",
   "npc.completed": "✓ สำเร็จ",
   "npc.accept": "รับ",
   "npc.turnIn": "ส่งมอบ",
@@ -256,7 +256,7 @@ export const th = {
   "npc.tipHouseBody": "คุยช่างไม้ Bren → 20 ไม้ + 10 หิน + 500z",
   "npc.tipPets": "เลี้ยงสัตว์",
   "npc.tipPetsBody": "ป้อน berry กับ ไก่/หมู/วัว 3-7 ครั้ง → จับเป็นสัตว์เลี้ยง → ขี่ได้",
-  "npc.tipCrafting": "Crafting",
+  "npc.tipCrafting": "คราฟต์",
   "npc.tipCraftingBody": "กดปุ่ม 🔨 หรือ K → ทำของจากทรัพยากร",
   "npc.tipNight": "กลางคืน",
   "npc.tipNightBody": "มอนสเตอร์แรงขึ้น 1.5× → ระวังให้ดี",
@@ -281,11 +281,11 @@ export const th = {
   "npc.sellItemConfirm": "ขาย {item}?",
 
   // ── HUD ──────────────────────────────────────────────────────
-  "hud.online": "online",
+  "hud.online": "ออนไลน์",
   "hud.worldModePvp": "PvP",
   "hud.worldModeCoop": "Co-op",
-  "hud.worldModeAdv": "Adv",
-  "hud.statPoints": "stat",
+  "hud.worldModeAdv": "ผจญ",
+  "hud.statPoints": "แต้ม",
   "hud.night": "กลางคืน · มอนแรง",
   "hud.christmas": "เทศกาลคริสต์มาส",
   "hud.halloween": "ฮาโลวีน",
@@ -293,7 +293,7 @@ export const th = {
   "hud.rainy": "ฝนตก · stamina ฟื้นเร็ว",
   "hud.hungry": "หิวจัด!",
   "hud.thirsty": "กระหายน้ำ!",
-  "hud.buildMode": "Build Mode",
+  "hud.buildMode": "โหมดสร้าง",
   "hud.buildEnter": "สร้างฐาน",
   "hud.buildExit": "ออกจากโหมดสร้าง",
   "hud.buildPlace": "คลิกซ้ายพื้นเพื่อวาง · คลิกขวาบนสิ่งก่อสร้างเพื่อทำลาย",
@@ -327,8 +327,8 @@ export const th = {
   "guild.send": "ส่ง",
 
   // ── Party ────────────────────────────────────────────────────
-  "party.title": "Party",
-  "party.leave": "Leave",
+  "party.title": "ปาร์ตี้",
+  "party.leave": "ออก",
   "party.invite": "เชิญ",
   "party.kick": "เตะ",
   "party.member": "สมาชิก",
@@ -361,10 +361,10 @@ export const th = {
   "auction.total": "รวม",
   "auction.fee": "ค่าธรรมเนียม",
   "auction.listForSale": "ลงประกาศขาย",
-  "auction.postListing": "📢 ลงประกาลขาย",
+  "auction.postListing": "📢 ลงประกาศขาย",
   "auction.selected": "เลือก:",
   "auction.have": "มี {count}",
-  "auction.post": "📢 ลงประกาลขาย",
+  "auction.post": "📢 ลงประกาศขาย",
   "auction.buyConfirm": "ซื้อ {item} ×{qty} {price}z?",
   "auction.pricePerUnit": "/ชิ้น",
   "auction.bySeller": "โดย {seller} · {price}z/ชิ้น",
@@ -382,8 +382,11 @@ export const th = {
   "confirm.cancel": "ยกเลิก",
   "confirm.yes": "ใช่",
   "confirm.no": "ไม่",
+  "confirm.warning": "คำเตือน",
+  "confirm.danger": "อันตราย",
+  "confirm.info": "ข้อมูล",
 
-// ── Auto Potion ───────────────────────────────────────────────
+  // ── Auto Potion ───────────────────────────────────────────────
   "autopotion.title": "ยาแท่งอัตโนมัติ",
   "autopotion.enabled": "เปิดใช้งานอัตโนมัติ",
   "autopotion.hpLabel": "เมื่อ HP ต่ำกว่า {pct}%",
@@ -501,7 +504,7 @@ export const th = {
   "world.private": "ส่วนตัว",
   "world.pvp": "PvP",
   "world.coop": "Co-op",
-  "world.adventure": "Adventure",
+  "world.adventure": "ผจญภัย",
   "world.browse": "สำรวจโลก",
   "world.loading": "กำลังโหลด…",
   "world.noPublicWorlds": "ยังไม่มีโลกสาธารณะ ลองสร้างโลกใหม่ดูสิ!",
@@ -531,13 +534,5 @@ export const th = {
   "dungeon.locked": "ล็อก",
   "dungeon.recommendedLevel": "เลเวลแนะนำ",
 
-  // ── Confirm Dialog Defaults ───────────────────────────────────
-  "confirm.ok": "ตกลง",
-  "confirm.cancel": "ยกเลิก",
-  "confirm.yes": "ใช่",
-  "confirm.no": "ไม่",
-  "confirm.warning": "คำเตือน",
-  "confirm.danger": "อันตราย",
-  "confirm.info": "ข้อมูล",
 } as const;
 export type LocaleKey = keyof typeof th;

@@ -132,8 +132,9 @@ export class Auction {
         const pricePer = msg?.pricePer | 0;
         const v = this.validateList(qty, pricePer);
         if (!v.ok) {
-          const reasonMsg = v.reason === "qty" ? "จำนวนไม่ถูกต้อง (1-99)"
-            : v.reason === "price" ? "ราคาเกินขีดสูงสุด (10M zeny)"
+          const reason = (v as { ok: false; reason: string }).reason;
+          const reasonMsg = reason === "qty" ? "จำนวนไม่ถูกต้อง (1-99)"
+            : reason === "price" ? "ราคาเกินขีดสูงสุด (10M zeny)"
             : "ราคารวมสูงเกิน (เกินขีดสูงสุด 999M zeny)";
           return sendToClient(client.sessionId, "system", { text: reasonMsg });
         }

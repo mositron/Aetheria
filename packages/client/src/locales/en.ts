@@ -382,8 +382,11 @@ export const en = {
   "confirm.cancel": "Cancel",
   "confirm.yes": "Yes",
   "confirm.no": "No",
+  "confirm.warning": "Warning",
+  "confirm.danger": "Danger",
+  "confirm.info": "Info",
 
-// ── Auto Potion ───────────────────────────────────────────────
+  // ── Auto Potion ───────────────────────────────────────────────
   "autopotion.title": "Auto-Potion",
   "autopotion.enabled": "Enable auto-use",
   "autopotion.hpLabel": "When HP below {pct}%",
@@ -531,13 +534,5 @@ export const en = {
   "dungeon.locked": "Locked",
   "dungeon.recommendedLevel": "Recommended Level",
 
-  // ── Confirm Dialog Defaults ───────────────────────────────────
-  "confirm.ok": "OK",
-  "confirm.cancel": "Cancel",
-  "confirm.yes": "Yes",
-  "confirm.no": "No",
-  "confirm.warning": "Warning",
-  "confirm.danger": "Danger",
-  "confirm.info": "Info",
 } as const;
 export type LocaleKey = keyof typeof en;
