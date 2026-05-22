@@ -51,8 +51,7 @@ export default defineConfig({
   ],
   server: {
     port: 5173,
-    proxy: {
-      "/auth": "http://localhost:2567",
+proxy: {
       "/leaderboard": "http://localhost:2567",
       "/api": "http://localhost:2567",
     },
