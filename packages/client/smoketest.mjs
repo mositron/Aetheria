@@ -3,7 +3,7 @@ import { Client } from "colyseus.js";
 const SERVER_HTTP = "http://localhost:2567";
 const SERVER_WS = "ws://localhost:2567";
 const USER = `bot_${Date.now().toString(36)}`;
-const PASS = "pw1234";
+const PASS = "TestPw1234";
 
 async function main() {
   // 1) register
