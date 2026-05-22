@@ -422,6 +422,7 @@ export const th = {
   "pets.releaseConfirmTitle": "ปล่อยเพื่อน?",
   "pets.releaseConfirmMsg": "{name} จะถูกปล่อยไป คุณแน่ใจหรือไม่?",
   "pets.releaseBtn": "ปล่อย",
+  "pets.special": "พิเศษ",
 
   // ── Photo Mode ───────────────────────────────────────────────
   "photo.title": "📸 โหมดถ่ายภาพ",

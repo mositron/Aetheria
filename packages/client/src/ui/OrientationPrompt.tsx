@@ -2,8 +2,10 @@
 // Auto-dismisses after 4 seconds and remembers dismissal. Never blocks gameplay.
 
 import { useEffect, useState } from "react";
+import { useT } from "../locales/useT";
 
 export function OrientationHint() {
+  const t = useT();
   const [show, setShow] = useState(false);
 
   useEffect(() => {
@@ -37,8 +39,8 @@ export function OrientationHint() {
       <div className="bg-slate-900/95 border-2 border-cyan-400/60 rounded-xl px-4 py-3 shadow-2xl flex items-center gap-3 backdrop-blur-md">
         <div className="text-3xl">📱➡</div>
         <div>
-          <div className="text-sm font-bold text-cyan-300">เล่นแนวนอนดีกว่า</div>
-          <div className="text-[10px] text-slate-300">หมุนเครื่องเพื่อ UX ที่ดีที่สุด · แตะเพื่อปิด</div>
+          <div className="text-sm font-bold text-cyan-300">{t("orientation.landscapeHintTitle")}</div>
+          <div className="text-[10px] text-slate-300">{t("orientation.landscapeHintBody")}</div>
         </div>
       </div>
     </div>

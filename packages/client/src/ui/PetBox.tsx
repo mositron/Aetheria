@@ -2,17 +2,16 @@ import { useEffect, useState } from "react";
 import type { Room } from "colyseus.js";
 import FocusTrap from "focus-trap-react";
 import type { Player, WorldState } from "@game/shared";
+import { useT } from "../locales/useT";
 import { GameFrame } from "./GameFrame";
 import { ConfirmDialog } from "./ConfirmDialog";
 
 const KIND_ICONS: Record<string, string> = {
   chicken: "🐔", pig: "🐷", cow: "🐮",
 };
-const KIND_NAMES: Record<string, string> = {
-  chicken: "ไก่", pig: "หมู", cow: "วัว",
-};
 
 export function PetBox({ room }: { room: Room<WorldState> }) {
+  const t = useT();
   const [open, setOpen] = useState(false);
   const [, setTick] = useState(0);
   const [breedA, setBreedA] = useState<string | null>(null);
@@ -49,15 +48,15 @@ export function PetBox({ room }: { room: Room<WorldState> }) {
           onClick={(e) => e.stopPropagation()}
         >
           <div className="w-[26rem] max-w-[94vw] flex flex-col min-h-0" style={{ maxHeight: "calc(100vh - 8rem)" }}>
-            <GameFrame
-              title={`สวนสัตว์ ${pets.length}/8`}
+<GameFrame
+              title={t("pets.title") + ` ${pets.length}/${t("pets.max")}`}
               variant="violet"
               className="flex flex-col min-h-0"
               innerClassName="flex flex-col flex-1 min-h-0"
             >
               <button
                 onClick={() => setOpen(false)}
-                aria-label="ปิด"
+                aria-label={t("common.close")}
                 className="absolute -top-3 -right-3 min-w-[44px] min-h-[44px] w-11 h-11 rounded-full bg-rose-700 hover:bg-rose-600 border-2 border-rose-300 text-white font-bold z-10 flex items-center justify-center"
               >
                 ✕
@@ -65,16 +64,16 @@ export function PetBox({ room }: { room: Room<WorldState> }) {
 
             {pets.length >= 2 && (
               <div className="mb-2 p-2 rounded-xl bg-violet-900/30 border border-violet-400/40">
-                <div className="text-[10px] text-violet-200 font-bold mb-1 uppercase tracking-wider">🥚 ผสมพันธุ์ (200 zeny)</div>
+<div className="text-[10px] text-violet-200 font-bold mb-1 uppercase tracking-wider">{t("pets.breedCost")}</div>
                 <div className="flex items-center gap-1">
                   <select
                     value={breedA ?? ""}
                     onChange={(e) => setBreedA(e.target.value || null)}
                     className="flex-1 bg-slate-900 border border-violet-400/40 rounded px-1.5 py-1 text-xs text-white"
                   >
-                    <option value="">— เลือกตัวที่ 1 —</option>
+                    <option value="">{t("pets.select1")}</option>
                     {pets.map((p) => (
-                      <option key={p.id} value={p.id}>{KIND_ICONS[p.kind]} {KIND_NAMES[p.kind]}{p.rare ? " ✨" : ""} ({p.id.slice(-4)})</option>
+                      <option key={p.id} value={p.id}>{KIND_ICONS[p.kind]} {t(`pets.kind${p.kind.charAt(0).toUpperCase() + p.kind.slice(1)}` as any)}{p.rare ? " ✨" : ""} ({p.id.slice(-4)})</option>
                     ))}
                   </select>
                   <span className="text-violet-300">+</span>
@@ -83,9 +82,9 @@ export function PetBox({ room }: { room: Room<WorldState> }) {
                     onChange={(e) => setBreedB(e.target.value || null)}
                     className="flex-1 bg-slate-900 border border-violet-400/40 rounded px-1.5 py-1 text-xs text-white"
                   >
-                    <option value="">— เลือกตัวที่ 2 —</option>
+                    <option value="">{t("pets.select2")}</option>
                     {pets.filter((p) => p.id !== breedA && (!breedA || p.kind === pets.find((q) => q.id === breedA)?.kind)).map((p) => (
-                      <option key={p.id} value={p.id}>{KIND_ICONS[p.kind]} {KIND_NAMES[p.kind]}{p.rare ? " ✨" : ""} ({p.id.slice(-4)})</option>
+                      <option key={p.id} value={p.id}>{KIND_ICONS[p.kind]} {t(`pets.kind${p.kind.charAt(0).toUpperCase() + p.kind.slice(1)}` as any)}{p.rare ? " ✨" : ""} ({p.id.slice(-4)})</option>
                     ))}
                   </select>
                   <button
@@ -93,7 +92,7 @@ export function PetBox({ room }: { room: Room<WorldState> }) {
                     onClick={() => { room.send("breedPets", { aId: breedA, bId: breedB }); setBreedA(null); setBreedB(null); }}
                     className="px-2 py-1 rounded-full bg-pink-500 hover:bg-pink-400 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold text-xs"
                   >
-                    ผสม
+                    {t("pets.breed")}
                   </button>
                 </div>
               </div>
@@ -101,8 +100,8 @@ export function PetBox({ room }: { room: Room<WorldState> }) {
 
             <div className="space-y-2 overflow-y-auto game-scroll violet flex-1 pr-1 pt-1" style={{ minHeight: 0 }}>
               {pets.length === 0 && (
-                <div className="text-center text-slate-400 py-6 text-sm">
-                  ยังไม่มีสัตว์เลี้ยง — หาไก่/หมู/วัวแล้วป้อนเบอร์รี่!
+<div className="text-center text-slate-400 py-6 text-sm">
+                  {t("pets.empty")}
                 </div>
               )}
               {pets.map((p) => {
@@ -122,9 +121,9 @@ export function PetBox({ room }: { room: Room<WorldState> }) {
                     >
                       {KIND_ICONS[p.kind] ?? "🐾"}
                     </div>
-                    <div className="flex-1">
+<div className="flex-1">
                       <div className="font-bold text-white text-sm">
-                        {p.rare && "✨ "}{KIND_NAMES[p.kind] ?? p.kind}{p.rare && " (พิเศษ)"}
+                        {p.rare && "✨ "}{t(`pets.kind${p.kind.charAt(0).toUpperCase() + p.kind.slice(1)}` as any)}{p.rare && ` (${t("pets.special")})`}
                       </div>
                       <div className="text-[10px] text-slate-400">
                         ID: {p.id.slice(-6)}
@@ -135,12 +134,12 @@ export function PetBox({ room }: { room: Room<WorldState> }) {
                         onClick={() => room.send("setActivePet", { petId: p.id })}
                         className={`text-[10px] px-2.5 py-1 rounded-full font-bold border-2 ${isActive ? "border-amber-300 bg-amber-500/40 text-white" : "border-emerald-400 bg-emerald-500/30 hover:bg-emerald-500/50 text-white"}`}
                       >
-                        {isActive ? "✓ ใช้อยู่" : "ใช้ตัวนี้"}
+                        {isActive ? t("pets.inUse") : t("pets.useThis")}
                       </button>
                       <button
                         onClick={() => { setConfirmPet({ id: p.id, kind: p.kind }); }}
                         className="text-[10px] px-2 py-0.5 rounded-full bg-rose-700/60 hover:bg-rose-600 text-white"
-                      >ปล่อย</button>
+                      >{t("pets.release")}</button>
                     </div>
                   </div>
                 );
@@ -150,12 +149,12 @@ export function PetBox({ room }: { room: Room<WorldState> }) {
           </div>
         </div>
       </FocusTrap>
-      <ConfirmDialog
+<ConfirmDialog
         open={confirmPet !== null}
-        title="ปล่อยเพื่อน?"
-        message={`${KIND_NAMES[confirmPet?.kind ?? ""] ?? "สัตว์เลี้ยง"} จะถูกปล่อยไป คุณแน่ใจหรือไม่?`}
+        title={t("pets.releaseConfirmTitle")}
+        message={t("pets.releaseConfirmMsg", { name: t(`pets.kind${(confirmPet?.kind ?? "").charAt(0).toUpperCase() + (confirmPet?.kind ?? "").slice(1)}` as any) })}
         severity="danger"
-        confirmLabel="ปล่อย"
+        confirmLabel={t("pets.releaseBtn")}
         onConfirm={() => {
           if (confirmPet) room.send("releasePet", { petId: confirmPet.id });
           setConfirmPet(null);

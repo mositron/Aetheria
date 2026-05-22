@@ -422,6 +422,7 @@ export const en = {
   "pets.releaseConfirmTitle": "Release friend?",
   "pets.releaseConfirmMsg": "{name} will be released. Are you sure?",
   "pets.releaseBtn": "Release",
+  "pets.special": "special",
 
   // ── Photo Mode ───────────────────────────────────────────────
   "photo.title": "📸 Photo Mode",
