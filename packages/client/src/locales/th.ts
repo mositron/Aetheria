@@ -27,9 +27,12 @@ export const th = {
   chat: "แชท",
   settings: "ตั้งค่า",
 
-  // ── Combat ───────────────────────────────────────────────────
+// ── Combat ───────────────────────────────────────────────────
   attack: "โจมตี",
   defend: "ป้องกัน",
+
+  // ── Target Display ──────────────────────────────────────────
+  "targetDisplay.monster": "มอนสเตอร์",
 
   // ── Auth / Login ────────────────────────────────────────────
   "auth.login": "เข้าสู่โลก",
@@ -229,10 +232,12 @@ export const th = {
   "craft.craftBtnText": "สร้าง",
   "craft.notEnoughMaterialsText": "ขาดวัตถุดิบ",
 
-  // ── NPC Dialog ───────────────────────────────────────────────
+// ── NPC Dialog ───────────────────────────────────────────────
   "npc.buy": "ซื้อ",
   "npc.sell": "ขาย",
   "npc.quests": "เควส",
+  "npc.shop": "ร้านค้า",
+  "npc.quest": "เควสต์",
   "npc.walkCloser": "เดินเข้าใกล้กว่านี้เพื่อคุย",
   "npc.noQuests": "ไม่มีเควสจาก NPC นี้",
   "npc.walkCloserThai": "เดินเข้าใกล้กว่านี้เพื่อคุย",
@@ -344,6 +349,7 @@ export const th = {
   "daily.title": "Daily Login",
   "daily.todayGift": "ของขวัญวันนี้!",
   "daily.streakDays": "{streak} วัน",
+  "daily.streakLabel": "เข้าเกมต่อเนื่อง",
   "daily.reward": "รางวัล",
   "daily.claim": "รับเลย!",
 

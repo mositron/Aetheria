@@ -1,11 +1,11 @@
 /**
  * World Lobby — browser-accessible world browser + creation entry point.
- * Shown when the player clicks "โลกของฉัน" / "My Worlds" in the main menu.
+ * Shown when the player clicks "My Worlds" in the main menu.
  *
  * Shows:
  * - Player's own worlds (host badge)
  * - Public worlds they can join
- * - "สร้างโลกใหม่" → WorldCreate
+ * - "Create New World" → WorldCreate
  * - Invite-code join shortcut
  */
 import { useEffect, useState } from "react";

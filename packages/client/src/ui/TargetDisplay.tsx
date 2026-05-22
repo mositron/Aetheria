@@ -8,6 +8,7 @@ import { useEffect, useState } from "react";
 import type { Room } from "colyseus.js";
 import { MONSTERS, NPCS, type WorldState, type MapId, type Monster, type Player } from "@game/shared";
 import { useStore } from "../store";
+import { useT } from "../locales/useT";
 
 type TargetInfo =
   | { kind: "mob"; name: string; level: number; hp: number; maxHp: number; icon: string }
@@ -16,6 +17,7 @@ type TargetInfo =
   | null;
 
 export function TargetDisplay({ room }: { room: Room<WorldState> }) {
+  const t = useT();
   const targetMonsterId = useStore((s) => s.targetMonsterId);
   const activeNpcId = useStore((s) => s.activeNpcId);
   const targetPlayerId = useStore((s) => s.targetPlayerId);
@@ -96,9 +98,9 @@ export function TargetDisplay({ room }: { room: Room<WorldState> }) {
           <div className="flex-1 min-w-0">
             <div className="text-[11px] font-bold text-white truncate leading-tight">{info.name}</div>
             <div className="text-[9px] text-slate-300 leading-tight">
-              {info.kind === "mob" && `Lv${info.level} · มอนสเตอร์`}
+              {info.kind === "mob" && `Lv${info.level} · ${t('targetDisplay.monster')}`}
               {info.kind === "player" && `Lv${info.level} · ${info.job}`}
-              {info.kind === "npc" && (info.role === "shop" ? "🏪 ร้านค้า" : info.role === "questgiver" ? "📜 เควสต์" : info.role)}
+              {info.kind === "npc" && (info.role === "shop" ? `🏪 ${t('npc.shop')}` : info.role === "questgiver" ? `📜 ${t('npc.quest')}` : info.role)}
             </div>
           </div>
         </div>

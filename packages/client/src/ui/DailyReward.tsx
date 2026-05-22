@@ -45,7 +45,7 @@ export function DailyReward({ room }: { room: Room<WorldState> }) {
         <div className="text-amber-700 text-xs font-bold tracking-widest uppercase mb-1">{t("daily.title")}</div>
         <div className="text-4xl font-black text-amber-900 mb-1">{t("daily.todayGift")}</div>
         <div className="text-sm text-amber-800 mb-4">
-          เข้าเกมต่อเนื่อง <span className="font-bold text-rose-600">{t("daily.streakDays", { streak: reward.streak })}</span> 🔥
+          {t("daily.streakLabel")} <span className="font-bold text-rose-600">{t("daily.streakDays", { streak: reward.streak })}</span> 🔥
         </div>
 
         {/* 7-day streak indicator */}

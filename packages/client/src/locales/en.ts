@@ -27,9 +27,12 @@ export const en = {
   chat: "Chat",
   settings: "Settings",
 
-  // ── Combat ───────────────────────────────────────────────────
+// ── Combat ───────────────────────────────────────────────────
   attack: "Attack",
   defend: "Defend",
+
+  // ── Target Display ──────────────────────────────────────────
+  "targetDisplay.monster": "Monster",
 
   // ── Auth / Login ────────────────────────────────────────────
   "auth.login": "Enter World",
@@ -230,9 +233,11 @@ export const en = {
   "craft.notEnoughMaterialsText": "Missing materials",
 
   // ── NPC Dialog ───────────────────────────────────────────────
-  "npc.buy": "Buy",
+"npc.buy": "Buy",
   "npc.sell": "Sell",
   "npc.quests": "Quests",
+  "npc.shop": "Shop",
+  "npc.quest": "Quest",
   "npc.walkCloser": "Walk closer to interact.",
   "npc.noQuests": "No quests from this NPC",
   "npc.walkCloserThai": "เดินเข้าใกล้กว่านี้เพื่อคุย",
@@ -357,6 +362,7 @@ export const en = {
   "daily.title": "Daily Login",
   "daily.todayGift": "Today's Gift!",
   "daily.streakDays": "{streak} days",
+  "daily.streakLabel": "Playing continuously for",
   "daily.reward": "Reward",
   "daily.claim": "Claim!",
 

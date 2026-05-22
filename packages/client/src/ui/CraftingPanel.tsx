@@ -101,17 +101,17 @@ export function CraftingPanel({ room }: { room: Room<WorldState> }) {
                 tab === "craft" ? "border-violet-400 bg-violet-500/20 text-white" : "border-slate-700 bg-slate-900/70 text-slate-300"
               }`}
             >
-              🔨 คราฟต์
+              🔨 {t("craft.craft")}
             </button>
             <button
               onClick={() => setTab("research")}
               className={`py-2 text-xs uppercase tracking-wider border-2 transition flex flex-col items-center ${
                 tab === "research" ? "border-amber-400 bg-amber-500/20 text-white" : "border-slate-700 bg-slate-900/70 text-slate-300"
               }`}
-            >
-              <span>📜 วิจัย</span>
-              <span className="text-[9px] opacity-70">({(me as any).researchPoints ?? 0} แต้ม)</span>
-            </button>
+>
+                <span>📜 {t("craft.research")}</span>
+                <span className="text-[9px] opacity-70">({(me as any).researchPoints ?? 0} {t("craft.points")})</span>
+              </button>
           </div>
 
           {tab === "craft" ? (
@@ -153,7 +153,7 @@ export function CraftingPanel({ room }: { room: Room<WorldState> }) {
               {/* Recipe list */}
               <div className="space-y-2 overflow-y-auto game-scroll violet flex-1 pr-1" style={{ minHeight: 0 }}>
                 {filtered.length === 0 && (
-                  <div className="text-center text-slate-400 text-sm py-6">ไม่มีสูตรในหมวดนี้</div>
+                  <div className="text-center text-slate-400 text-sm py-6">{t("craft.noRecipes")}</div>
                 )}
                 {filtered.map((r) => {
                   const outDef = ITEMS[r.output.itemId];

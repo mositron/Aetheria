@@ -171,7 +171,7 @@ export function TutorialFinger({ room }: { room: Room<WorldState> }) {
             <button
               onClick={finish}
               className="text-[11px] px-2 py-0.5 rounded-full bg-amber-200 hover:bg-amber-300 text-amber-900 font-bold"
-            >ข้าม</button>
+            >{t('skip')}</button>
             <button
               onClick={next}
               className="text-[11px] px-2.5 py-0.5 rounded-full bg-gradient-to-b from-rose-400 to-pink-600 text-white font-bold"

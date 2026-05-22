@@ -58,7 +58,7 @@ export function Chat({ room }: { room: Room<WorldState> }) {
       style={{
         left: "50%",
         transform: "translateX(-50%)",
-        bottom: 11 * 16,   // 11rem — above utility row (auto/บิน/เก็บ/โพชั่น)
+        bottom: 11 * 16,   // 11rem — above utility row (auto/fly/pickup/potion)
         width: 280,
         ...drag.style,
       }}

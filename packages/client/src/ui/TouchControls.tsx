@@ -309,7 +309,7 @@ function ActionButtons({ room }: { room: Room<WorldState> }) {
   }
 
   // 3-zone right-side layout (no overlap):
-  //   • bottom-[13rem]: utility row (Auto + บิน/เก็บ/โพชั่น) — far above Attack
+  //   • bottom-[13rem]: utility row (Auto + fly/pickup/potion) — far above Attack
   //   • arc around Attack (skills from Hotbar.tsx)
   //   • bottom-6 right-6: Attack alone
   return (
