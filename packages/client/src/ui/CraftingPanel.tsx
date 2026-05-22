@@ -209,14 +209,14 @@ export function CraftingPanel({ room }: { room: Room<WorldState> }) {
                           );
                         })}
                       </div>
-                      {!levelOk && <div className="text-[10px] text-rose-300 mb-1">ต้องเลเวล {r.minLevel}</div>}
-                      {!benchOk && <div className="text-[10px] text-amber-300 mb-1">ต้องใช้เตาหลอม: {CRAFTING_BENCHES[r.minBenchTier ?? 0]?.nameTh}</div>}
+{!levelOk && <div className="text-[10px] text-rose-300 mb-1">{t("craft.needsLevel", { level: r.minLevel })}</div>}
+                      {!benchOk && <div className="text-[10px] text-amber-300 mb-1">{t("craft.needsBench", { bench: CRAFTING_BENCHES[r.minBenchTier ?? 0]?.nameTh ?? "" })}</div>}
                       <button
                         onClick={() => room.send("craft", { recipeId: r.id, benchTier: bench?.minTier ?? 0 })}
                         disabled={disabled}
                         className="w-full py-1.5 rounded font-bold text-sm bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-500 hover:to-fuchsia-500 disabled:opacity-40 disabled:cursor-not-allowed"
                       >
-                        {disabled ? (!levelOk ? `🔒 Lv ${r.minLevel}` : !benchOk ? `🔒 ${CRAFTING_BENCHES[r.minBenchTier ?? 0]?.nameTh}` : "ขาดวัตถุดิบ") : "🔨 สร้าง"}
+                        {disabled ? (!levelOk ? `🔒 Lv ${r.minLevel}` : !benchOk ? `🔒 ${CRAFTING_BENCHES[r.minBenchTier ?? 0]?.nameTh}` : t("craft.missingMaterials")) : t("craft.make")}
                       </button>
                     </div>
                   );

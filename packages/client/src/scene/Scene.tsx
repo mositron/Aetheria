@@ -346,38 +346,53 @@ export function Scene({ room }: { room: Room<WorldState> }) {
         mz = -right * sin + fwd * cos;
       }
 
-      // ── Client-side collision (terrain cliffs + obstacle objects).
-      //    Strict: any climb > 1 step requires jumping; 0→raised requires jump.
-      //    Multi-sample along the path so fast input can't tunnel through walls.
+// ── Client-side collision (terrain cliffs + obstacle objects).
+      //    Multi-sample: 5 points along path so fast speeds can't tunnel.
+      //    Slide logic: full → X only → Z only → ±90° alternatives → full stop.
       if ((mx || mz) && !me.flying) {
-        const LOOKAHEAD = 1.5;                 // total distance to check ahead
-        const SAMPLES = 3;                     // sample points along the path
-        const MAX_STEP = TERRAIN_CONFIG.STEP * 1.0; // walking climb limit = 1 step
+        const LOOKAHEAD = 1.5;
+        const SAMPLES = 5;
         const fromH = terrainHeight(me.pos.x, me.pos.z);
 
         function canStepTo(nx: number, nz: number): boolean {
           if (isObstacle(nx, nz)) return false;
           const toH = terrainHeight(nx, nz);
           const delta = toH - fromH;
-          if (delta <= MAX_STEP) return true;
-          // Jumping clears short ledges (up to current jump height + small leeway)
-          return jumpY.current >= delta - MAX_STEP;
+          return delta <= 0.5 || jumpY.current >= delta - 0.5;
         }
 
         const px = me.pos.x, pz = me.pos.z;
         function pathClear(dirX: number, dirZ: number): boolean {
+          const len = Math.hypot(dirX, dirZ);
+          if (len < 0.01) return true;
+          const nx = dirX / len, nz = dirZ / len;
           for (let i = 1; i <= SAMPLES; i++) {
             const t = (i / SAMPLES) * LOOKAHEAD;
-            if (!canStepTo(px + dirX * t, pz + dirZ * t)) return false;
+            if (!canStepTo(px + nx * t, pz + nz * t)) return false;
           }
           return true;
         }
 
         if (!pathClear(mx, mz)) {
-          // Try sliding along one axis only
+          // Slide along X
           if (mz !== 0 && pathClear(mx, 0)) mz = 0;
+          // Slide along Z
           else if (mx !== 0 && pathClear(0, mz)) mx = 0;
-          else { mx = 0; mz = 0; }
+          // Try ±90° perpendicular alternatives (wall-following steering)
+          else {
+            const len = Math.hypot(mx, mz);
+            if (len > 0.01) {
+              const nx = mx / len, nz = mz / len;
+              // Rotate 90° clockwise and counter-clockwise
+              const p1x = -nz, p1z = nx;   // +90°
+              const p2x = nz, p2z = -nx;  // -90°
+              if (pathClear(p1x, p1z)) { mx = p1x; mz = p1z; }
+              else if (pathClear(p2x, p2z)) { mx = p2x; mz = p2z; }
+              else { mx = 0; mz = 0; } // full stop
+            } else {
+              mx = 0; mz = 0;
+            }
+          }
         }
       }
 

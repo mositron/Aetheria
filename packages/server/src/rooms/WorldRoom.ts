@@ -56,6 +56,7 @@ import { NpcService } from "../services/NpcService.js";
 import { FishingService } from "../services/FishingService.js";
 import { FarmingService } from "../services/FarmingService.js";
 import { SurvivalService } from "../services/SurvivalService.js";
+import { CollisionService } from "../services/CollisionService.js";
 import { CombatService } from "../services/CombatService.js";
 import { CraftingService } from "../services/CraftingService.js";
 import { HousingService } from "../services/HousingService.js";
@@ -110,6 +111,7 @@ export class WorldRoom extends Room<WorldState> {
   fishingSvc!: FishingService;
   farmingSvc!: FarmingService;
   survivalSvc!: SurvivalService;
+  collisionSvc!: CollisionService;
   craftingSvc!: CraftingService;
   housingSvc!: HousingService;
   monsterSpawn = new Map<string, { x: number; z: number; kind: MonsterKind }>();
@@ -259,6 +261,8 @@ export class WorldRoom extends Room<WorldState> {
         c?.send(type as any, data);
       }
     );
+
+    this.collisionSvc = new CollisionService(mapId);
 
     this.craftingSvc = new CraftingService(
       this.state,
@@ -1838,6 +1842,21 @@ export class WorldRoom extends Room<WorldState> {
         regen,
         this.state.weather,
       );
+      // Server-side collision resolution: prevents walking through obstacles.
+      // Runs after survival (which applies movement) so it pushes the player
+      // out if they ended up inside a tree/rock/structure.
+      if (moving && !p.flying) {
+        const sp = GAME_CONFIG.PLAYER_SPEED * this.speedMultOf(p);
+        // Save pre-movement position so resolve() can compute the delta properly
+        const preX = p.pos.x - (intent!.mx * sp * dt);
+        const preZ = p.pos.z - (intent!.mz * sp * dt);
+        this.collisionSvc.resolve(
+          p,
+          preX, preZ,
+          intent!.mx, intent!.mz,
+          sp, dt,
+        );
+      }
       // portal check
       for (const portal of mapDef.portals) {
         if (Math.hypot(p.pos.x - portal.x, p.pos.z - portal.z) < 1.5) {
