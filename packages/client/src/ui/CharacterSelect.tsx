@@ -7,10 +7,12 @@ import { HeroModel } from "../scene/models/HeroModel";
 import { CharacterCreator } from "./CharacterCreator";
 import { MenuScene } from "./MenuScene";
 import { GameFrame } from "./GameFrame";
+import { useT } from "../locales/useT";
 
 const MAX = 3;
 
 export function CharacterSelect() {
+  const t = useT();
   const { token, username, characters, setCharacters, selectCharacter, logout } = useStore();
   const [creating, setCreating] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -48,7 +50,7 @@ export function CharacterSelect() {
   const selected = list.find((c) => c.id === selectedId) ?? null;
 
   async function onDelete(id: string) {
-    if (!confirm("ลบตัวละครนี้? ข้อมูลจะหายถาวร")) return;
+    if (!confirm(t("charsel.deleteConfirm"))) return;
     setBusy(true);
     setErr(null);
     try {
@@ -107,7 +109,7 @@ export function CharacterSelect() {
 
       {/* title banner */}
       <div className="absolute top-6 left-0 right-0 text-center pointer-events-none">
-        <div className="text-xs text-cyan-300/70 uppercase tracking-[0.4em]">เลือกผู้กล้า</div>
+        <div className="text-xs text-cyan-300/70 uppercase tracking-[0.4em]">{t("charsel.title")}</div>
         <h1 className="text-3xl font-black tracking-wider bg-gradient-to-b from-white to-cyan-300 text-transparent bg-clip-text drop-shadow-[0_0_12px_rgba(34,211,238,0.5)]">
           {username}
         </h1>
@@ -115,7 +117,7 @@ export function CharacterSelect() {
 
       {/* Left: character list */}
       <div className="absolute top-28 left-6 bottom-28 w-80">
-        <GameFrame title={`ตัวละคร · ${list.length}/${MAX}`} className="h-full flex flex-col">
+        <GameFrame title={t("charsel.characterCount", { count: list.length, max: MAX })} className="h-full flex flex-col">
           <div className="flex flex-col gap-2 overflow-y-auto pt-1 pr-1" style={{ maxHeight: "calc(100vh - 220px)" }}>
             {Array.from({ length: MAX }).map((_, i) => {
               const c = list[i];
@@ -127,7 +129,7 @@ export function CharacterSelect() {
                     className="w-full h-20 border-2 border-dashed border-cyan-400/30 hover:border-cyan-300 hover:bg-cyan-400/10 transition flex items-center justify-center text-cyan-300/70 group"
                   >
                     <span className="text-3xl mr-2 group-hover:scale-110 transition">＋</span>
-                    <span className="text-xs uppercase tracking-widest">สร้างผู้กล้า</span>
+                    <span className="text-xs uppercase tracking-widest">{t("charsel.createNewHero")}</span>
                   </button>
                 );
               }
@@ -167,9 +169,9 @@ export function CharacterSelect() {
         <div className="absolute top-28 right-6 w-72">
           <GameFrame title={selected.name} variant="violet">
             <div className="space-y-2.5 pt-1">
-              <DetailRow label="อาชีพ" value={selected.job} accent="text-amber-300" icon="⚔" />
-              <DetailRow label="เลเวล" value={`Lv ${selected.level}`} accent="text-cyan-300" icon="✦" />
-              <DetailRow label="แผนที่" value={selected.mapId} accent="text-emerald-300" icon="📍" />
+              <DetailRow label={t("charsel.job")} value={selected.job} accent="text-amber-300" icon="⚔" />
+              <DetailRow label={t("charsel.level")} value={`Lv ${selected.level}`} accent="text-cyan-300" icon="✦" />
+              <DetailRow label={t("charsel.map")} value={selected.mapId} accent="text-emerald-300" icon="📍" />
             </div>
           </GameFrame>
         </div>
@@ -180,14 +182,14 @@ export function CharacterSelect() {
         <GameFrame>
           <div className="flex items-center gap-3 px-2">
             {err && <div className="text-rose-300 text-sm">⚠ {err}</div>}
-            <button onClick={logout} className="btn-game muted text-xs">⏻ ออก</button>
+            <button onClick={logout} className="btn-game muted text-xs">⏻ {t("charselect.logout")}</button>
             {selected && (
               <button disabled={busy} onClick={() => onDelete(selected.id)} className="btn-game danger">
-                🗑 ลบ
+                🗑 {t("charselect.delete")}
               </button>
             )}
             <button disabled={!selected || busy} onClick={onPlay} className="btn-game text-lg px-12">
-              ▶ เข้าเกม
+              ▶ {t("charselect.enterGame")}
             </button>
           </div>
         </GameFrame>
