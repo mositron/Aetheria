@@ -1,12 +1,13 @@
-// TODO i18n: strings should use useT() hook
 import { useEffect, useState } from "react";
 import FocusTrap from "focus-trap-react";
 import { useStore } from "../store";
 import { keyEq } from "../utils/keyMatch";
 import { useTooltip } from "../hooks/useTooltip";
+import { useT } from "../locales/useT";
 
 /** Tiny icon row top-right (next to map/gold) — opens panels as overlays. */
 export function MenuBar() {
+  const t = useT();
   const toggleInv = useStore((s) => s.toggleInventory);
   const exitToSelect = useStore((s) => s.exitToSelect);
   const logout = useStore((s) => s.logout);
@@ -35,7 +36,7 @@ if (collapsed) {
     if (!open) {
       return (
         <div className="absolute select-none touch-none z-30" style={ANCHOR} data-no-screen-joy>
-          <IconBtn label="☰" title="เมนู" onClick={() => setOpen(true)} ariaLabel="เปิดเมนู" />
+          <IconBtn label="☰" title={t("menu.open")} onClick={() => setOpen(true)} ariaLabel={t("menu.open")} />
         </div>
       );
     }
@@ -46,52 +47,52 @@ if (collapsed) {
         style={{ ...ANCHOR, direction: "rtl" }}
         data-no-screen-joy
       >
-        <IconBtn label="✕" title="ปิด" onClick={() => setOpen(false)} variant="rose" ariaLabel="ปิดเมนู" />
-        <IconBtn label="📦" name="กระเป๋า" title="Inventory (I)" onClick={toggleInv} />
-        <IconBtn label="🔨" name="คราฟต์" title="Crafting (K)" onClick={() => window.dispatchEvent(new Event("toggle-craft"))} />
-        <IconBtn label="📊" name="สเตตัส" title="Stats (C)" onClick={() => window.dispatchEvent(new Event("toggle-stats"))} />
-        <IconBtn label="📜" name="เควสต์" title="Quest (Q)" onClick={() => window.dispatchEvent(new Event("toggle-quest"))} />
-        <IconBtn label="🏅" name="เหรียญ" title="Achievements" onClick={() => window.dispatchEvent(new Event("toggle-achievements"))} />
-        <IconBtn label="🏆" name="อันดับ" title="Leaderboard" onClick={() => window.dispatchEvent(new Event("toggle-leaderboard"))} />
-        <IconBtn label="📬" name="จดหมาย" title="Mailbox" onClick={() => window.dispatchEvent(new Event("toggle-mail"))} />
-        <IconBtn label="🐾" name="สัตว์" title="Pets" onClick={() => window.dispatchEvent(new Event("toggle-pets"))} />
-        <IconBtn label="👥" name="ปาร์ตี้" title="Party" onClick={() => window.dispatchEvent(new Event("toggle-party"))} />
-        <IconBtn label="🤝" name="เพื่อน" title="Friends" onClick={() => window.dispatchEvent(new Event("toggle-friends"))} />
-        <IconBtn label="⚔" name="กิลด์" title="Guild" onClick={() => window.dispatchEvent(new Event("toggle-guild"))} />
-        <IconBtn label="🏛" name="ตลาด" title="Auction House" onClick={() => window.dispatchEvent(new Event("toggle-auction"))} />
-        <IconBtn label="🌍" name="โลก" title="โลกของฉัน" onClick={() => window.dispatchEvent(new Event("toggle-worlds"))} />
-        <IconBtn label="📍" name="หมุด" title="Waypoints" onClick={() => window.dispatchEvent(new Event("toggle-waypoints"))} />
-        <IconBtn label="💬" name="แชต" title="Chat (Enter)" onClick={() => window.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" }))} />
-<IconBtn label="😊" name="อิโมท" title="Emote (T)" onClick={() => window.dispatchEvent(new Event("toggle-emote"))} />
-        <IconBtn label="💍" name="สมรส" title="แต่งงาน" onClick={() => window.dispatchEvent(new Event("toggle-marriage"))} />
-        <IconBtn label="📸" name="ถ่ายภาพ" title="Photo (P)" onClick={() => window.dispatchEvent(new Event("toggle-photo"))} />
-        <IconBtn label="⚙" name="ตั้งค่า" title="Settings" onClick={() => window.dispatchEvent(new Event("toggle-settings"))} />
-<IconBtn label="👤" name="ตัวละคร" title="เลือกตัวละคร" onClick={exitToSelect} variant="violet" ariaLabel="เลือกตัวละคร" />
-        <IconBtn label="⏻" name="ออก" title="ออกจากระบบ" onClick={logout} variant="rose" ariaLabel="ออกจากระบบ" />
+<IconBtn label="✕" title={t("menu.close")} onClick={() => setOpen(false)} variant="rose" ariaLabel={t("menu.close")} />
+        <IconBtn label="📦" name={t("menu.inventory")} title="Inventory (I)" onClick={toggleInv} />
+        <IconBtn label="🔨" name={t("menu.crafting")} title="Crafting (K)" onClick={() => window.dispatchEvent(new Event("toggle-craft"))} />
+        <IconBtn label="📊" name={t("menu.status")} title="Stats (C)" onClick={() => window.dispatchEvent(new Event("toggle-stats"))} />
+        <IconBtn label="📜" name={t("menu.quests")} title="Quest (Q)" onClick={() => window.dispatchEvent(new Event("toggle-quest"))} />
+        <IconBtn label="🏅" name={t("menu.achievements")} title="Achievements" onClick={() => window.dispatchEvent(new Event("toggle-achievements"))} />
+        <IconBtn label="🏆" name={t("menu.leaderboard")} title="Leaderboard" onClick={() => window.dispatchEvent(new Event("toggle-leaderboard"))} />
+        <IconBtn label="📬" name={t("menu.mail")} title="Mailbox" onClick={() => window.dispatchEvent(new Event("toggle-mail"))} />
+        <IconBtn label="🐾" name={t("menu.pets")} title="Pets" onClick={() => window.dispatchEvent(new Event("toggle-pets"))} />
+        <IconBtn label="👥" name={t("menu.party")} title="Party" onClick={() => window.dispatchEvent(new Event("toggle-party"))} />
+        <IconBtn label="🤝" name={t("menu.friends")} title="Friends" onClick={() => window.dispatchEvent(new Event("toggle-friends"))} />
+        <IconBtn label="⚔" name={t("menu.guild")} title="Guild" onClick={() => window.dispatchEvent(new Event("toggle-guild"))} />
+        <IconBtn label="🏛" name={t("menu.auction")} title="Auction House" onClick={() => window.dispatchEvent(new Event("toggle-auction"))} />
+        <IconBtn label="🌍" name={t("menu.worlds")} title={t("world.title")} onClick={() => window.dispatchEvent(new Event("toggle-worlds"))} />
+        <IconBtn label="📍" name={t("menu.waypoints")} title="Waypoints" onClick={() => window.dispatchEvent(new Event("toggle-waypoints"))} />
+        <IconBtn label="💬" name={t("menu.chat")} title="Chat (Enter)" onClick={() => window.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" }))} />
+<IconBtn label="😊" name={t("menu.emote")} title="Emote (T)" onClick={() => window.dispatchEvent(new Event("toggle-emote"))} />
+        <IconBtn label="💍" name={t("menu.marriage")} title={t("marriage.title")} onClick={() => window.dispatchEvent(new Event("toggle-marriage"))} />
+        <IconBtn label="📸" name={t("menu.photo")} title="Photo (P)" onClick={() => window.dispatchEvent(new Event("toggle-photo"))} />
+        <IconBtn label="⚙" name={t("menu.settings")} title="Settings" onClick={() => window.dispatchEvent(new Event("toggle-settings"))} />
+<IconBtn label="👤" name={t("menu.character")} title={t("charsel.title")} onClick={exitToSelect} variant="violet" ariaLabel={t("menu.character")} />
+        <IconBtn label="⏻" name={t("menu.logout")} title={t("menu.logout")} onClick={logout} variant="rose" ariaLabel={t("menu.logout")} />
       </div>
       </FocusTrap>
     );
   }
 
-  // Desktop: always-shown grid on the right (original layout)
+// Desktop: always-shown grid on the right (original layout)
   return (
     <div className="absolute right-3 grid grid-cols-3 gap-1 select-none touch-none" style={{ bottom: "12rem" }} data-no-screen-joy>
-      <IconBtn label="📦" name="กระเป๋า" title="Inventory (I)" onClick={toggleInv} />
-      <IconBtn label="🔨" name="คราฟต์" title="Crafting (K)" onClick={() => window.dispatchEvent(new Event("toggle-craft"))} />
-      <IconBtn label="📊" name="สเตตัส" title="Stats (C)" onClick={() => window.dispatchEvent(new Event("toggle-stats"))} />
-      <IconBtn label="📜" name="เควสต์" title="Quest (Q)" onClick={() => window.dispatchEvent(new Event("toggle-quest"))} />
-      <IconBtn label="🏅" name="เหรียญ" title="Achievements" onClick={() => window.dispatchEvent(new Event("toggle-achievements"))} />
-      <IconBtn label="🏆" name="อันดับ" title="Leaderboard" onClick={() => window.dispatchEvent(new Event("toggle-leaderboard"))} />
-      <IconBtn label="📬" name="จดหมาย" title="Mailbox" onClick={() => window.dispatchEvent(new Event("toggle-mail"))} />
-      <IconBtn label="🐾" name="สัตว์" title="Pets" onClick={() => window.dispatchEvent(new Event("toggle-pets"))} />
-      <IconBtn label="👥" name="ปาร์ตี้" title="Party" onClick={() => window.dispatchEvent(new Event("toggle-party"))} />
-      <IconBtn label="💬" name="แชต" title="Chat (Enter)" onClick={() => window.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" }))} />
-<IconBtn label="😊" name="อิโมท" title="Emote (T)" onClick={() => window.dispatchEvent(new Event("toggle-emote"))} />
-      <IconBtn label="💍" name="สมรส" title="แต่งงาน" onClick={() => window.dispatchEvent(new Event("toggle-marriage"))} />
-      <IconBtn label="📸" name="ถ่ายภาพ" title="Photo (P)" onClick={() => window.dispatchEvent(new Event("toggle-photo"))} />
-      <IconBtn label="⚙" name="ตั้งค่า" title="Settings" onClick={() => window.dispatchEvent(new Event("toggle-settings"))} />
-      <IconBtn label="👤" name="ตัวละคร" title="เลือกตัวละคร" onClick={exitToSelect} variant="violet" />
-      <IconBtn label="⏻" name="ออก" title="ออกจากระบบ" onClick={logout} variant="rose" />
+      <IconBtn label="📦" name={t("menu.inventory")} title="Inventory (I)" onClick={toggleInv} />
+      <IconBtn label="🔨" name={t("menu.crafting")} title="Crafting (K)" onClick={() => window.dispatchEvent(new Event("toggle-craft"))} />
+      <IconBtn label="📊" name={t("menu.status")} title="Stats (C)" onClick={() => window.dispatchEvent(new Event("toggle-stats"))} />
+      <IconBtn label="📜" name={t("menu.quests")} title="Quest (Q)" onClick={() => window.dispatchEvent(new Event("toggle-quest"))} />
+      <IconBtn label="🏅" name={t("menu.achievements")} title="Achievements" onClick={() => window.dispatchEvent(new Event("toggle-achievements"))} />
+      <IconBtn label="🏆" name={t("menu.leaderboard")} title="Leaderboard" onClick={() => window.dispatchEvent(new Event("toggle-leaderboard"))} />
+      <IconBtn label="📬" name={t("menu.mail")} title="Mailbox" onClick={() => window.dispatchEvent(new Event("toggle-mail"))} />
+      <IconBtn label="🐾" name={t("menu.pets")} title="Pets" onClick={() => window.dispatchEvent(new Event("toggle-pets"))} />
+      <IconBtn label="👥" name={t("menu.party")} title="Party" onClick={() => window.dispatchEvent(new Event("toggle-party"))} />
+      <IconBtn label="💬" name={t("menu.chat")} title="Chat (Enter)" onClick={() => window.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" }))} />
+<IconBtn label="😊" name={t("menu.emote")} title="Emote (T)" onClick={() => window.dispatchEvent(new Event("toggle-emote"))} />
+      <IconBtn label="💍" name={t("menu.marriage")} title={t("marriage.title")} onClick={() => window.dispatchEvent(new Event("toggle-marriage"))} />
+      <IconBtn label="📸" name={t("menu.photo")} title="Photo (P)" onClick={() => window.dispatchEvent(new Event("toggle-photo"))} />
+      <IconBtn label="⚙" name={t("menu.settings")} title="Settings" onClick={() => window.dispatchEvent(new Event("toggle-settings"))} />
+      <IconBtn label="👤" name={t("menu.character")} title={t("charsel.title")} onClick={exitToSelect} variant="violet" />
+      <IconBtn label="⏻" name={t("menu.logout")} title={t("menu.logout")} onClick={logout} variant="rose" />
     </div>
   );
 }

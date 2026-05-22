@@ -1,9 +1,9 @@
-// TODO i18n: strings should use useT() hook
 import { useEffect, useState } from "react";
 import { getSfxVolume, setSfxVolume, stopAmbient } from "../sfx/sfx";
 import { GameFrame } from "./GameFrame";
 import { keyEq } from "../utils/keyMatch";
 import { useStore } from "../store";
+import { useT } from "../locales/useT";
 
 type Settings = {
   ambient: boolean;
@@ -28,6 +28,7 @@ function save(s: Settings) {
 }
 
 export function SettingsPanel() {
+  const t = useT();
   const [open, setOpen] = useState(false);
   const [vol, setVol] = useState(getSfxVolume());
   const [settings, setSettings] = useState<Settings>(load());
@@ -61,11 +62,11 @@ export function SettingsPanel() {
   return (
     <div data-no-screen-joy role="dialog" aria-modal="true" className="absolute inset-0 z-40 flex items-center justify-center bg-black/65 backdrop-blur-sm py-16 px-4" onClick={() => setOpen(false)}>
       <div className="w-[22rem] max-w-[94vw]" onClick={(e) => e.stopPropagation()}>
-        <GameFrame title="ตั้งค่า">
+<GameFrame title={t("settings.title")}>
           <button onClick={() => setOpen(false)} className="absolute -top-3 -right-3 min-w-[44px] min-h-[44px] w-11 h-11 rounded-full bg-rose-700 hover:bg-rose-600 border-2 border-rose-300 text-white font-bold z-10 flex items-center justify-center">✕</button>
 
           <div className="space-y-3 pt-1">
-            <Section icon="🔊" label="เสียงเอฟเฟกต์">
+            <Section icon="🔊" label={t("settings.sfxVolume")}>
               <div className="flex items-center gap-2">
                 <input
                   type="range" min={0} max={1} step={0.05} value={vol}
@@ -76,34 +77,34 @@ export function SettingsPanel() {
               </div>
             </Section>
 
-            <Toggle icon="🎵" label="เพลงประกอบ Biome" value={settings.ambient} onChange={(v) => update({ ambient: v })} desc="หิ่งห้อย+drone ตามพื้นที่" />
-            <Toggle icon="🌑" label="เงา (Shadows)" value={settings.shadows} onChange={(v) => update({ shadows: v })} desc="ปิดเพื่อเล่นได้ลื่นขึ้น" />
-            <Toggle icon="✨" label="อนุภาคพิเศษ" value={settings.particles} onChange={(v) => update({ particles: v })} desc="ฝน, สปาร์กเกิล, ฯลฯ" />
-            <Toggle icon="🖼" label="กราฟิกสูง" value={settings.highQuality} onChange={(v) => update({ highQuality: v })} desc="ปิดเพื่อลด DPR ในมือถือ" />
+            <Toggle icon="🎵" label={t("settings.ambientMusic")} value={settings.ambient} onChange={(v) => update({ ambient: v })} desc={t("settings.ambientMusicDesc")} />
+            <Toggle icon="🌑" label={t("settings.shadows")} value={settings.shadows} onChange={(v) => update({ shadows: v })} desc={t("settings.shadowsDesc")} />
+            <Toggle icon="✨" label={t("settings.particles")} value={settings.particles} onChange={(v) => update({ particles: v })} desc={t("settings.particlesDesc")} />
+            <Toggle icon="🖼" label={t("settings.highQuality")} value={settings.highQuality} onChange={(v) => update({ highQuality: v })} desc={t("settings.highQualityDesc")} />
 
-            <Section icon="🌐" label="ภาษา">
+            <Section icon="🌐" label={t("settings.language")}>
               <div className="flex items-center gap-2 p-2 bg-slate-900/50 rounded-xl border border-cyan-400/20">
                 <span className="text-lg">🌐</span>
-                <div className="flex-1 text-sm font-bold text-white">ภาษา / Language</div>
+                <div className="flex-1 text-sm font-bold text-white">{t("settings.language")}</div>
                 <div className="flex gap-1">
                   <button
                     onClick={() => setLang("th")}
                     className={`px-3 py-1 rounded-full text-xs font-bold transition-colors ${lang === "th" ? "bg-cyan-600 text-white" : "bg-slate-700 text-slate-300"}`}
                   >
-                    ภาษาไทย
+                    {t("settings.langThai")}
                   </button>
                   <button
                     onClick={() => setLang("en")}
                     className={`px-3 py-1 rounded-full text-xs font-bold transition-colors ${lang === "en" ? "bg-cyan-600 text-white" : "bg-slate-700 text-slate-300"}`}
                   >
-                    English
+                    {t("settings.langEnglish")}
                   </button>
                 </div>
               </div>
             </Section>
 
             <div className="pt-2 border-t border-cyan-400/20 text-[10px] text-slate-400 text-center">
-              กด <kbd className="px-1 bg-slate-700 rounded">O</kbd> เพื่อเปิด/ปิด · <kbd className="px-1 bg-slate-700 rounded">Esc</kbd> ปิด
+              {t("settings.hint")}
             </div>
           </div>
         </GameFrame>

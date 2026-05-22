@@ -233,8 +233,8 @@ cd packages/server && pnpm db:push    # quick dev sync
 ### 17. Screen reader labels
 **DONE 2026-05-21.** `aria-label` added to all icon-only buttons (close buttons on modals, menu bar icons). `ariaLabel` prop on `IconBtn` component.
 
-### 18. i18n skeleton
-**PARTIAL 2026-05-21.** Infrastructure created: `locales/th.ts`, `locales/en.ts`, `useT()` hook, `lang` in Zustand store, language toggle in Settings. Pattern established — future strings go into locale files. Full string extraction from existing components is P3 work.
+### 18. i18n full string extraction
+**DONE 2026-05-23.** 540+ keys in `locales/en.ts` + `locales/th.ts`. Converted components: `AuctionHouse`, `AutoPotion`, `CharacterCreator`, `Chat`, `Login`, `MenuBar`, `SettingsPanel`. Remaining components (HUD, Inventory, SkillBar, WorldLobby, panels) follow same pattern — new strings add to locale files.
 
 ### 19. prefers-color-scheme
 **DONE 2026-05-22.** `@media (prefers-color-scheme: light)` overrides in `index.css`. Neon cyan/violet accents preserved. All text contrast ≥ 4.5:1.
@@ -280,14 +280,6 @@ cd packages/server && pnpm db:push    # quick dev sync
 - Colyseus room instantiated lazily on first join via `joinOrCreate("world", { worldId })`
 - `WorldState` exposes world metadata to clients
 - HUD: world info badge (name, mode badge, player count)
-- **World creation UI:** template (forest/desert/mountain/island) + mode (co-op/PvP/exploration) + privacy (public/friends/private)
-- **Room manager:** server creates room session + world metadata + `join code`/`invite link`
-- **Modes:** co-op (shared quests), PvP (team deathmatch/free-for-all), battle royale, exploration
-- **Companion/Pal system:** creatures players collect, train, summon; attacker/defender/support roles
-- **Invite flow:** room code → lobby → ready → start
-- **Session-based first** (persistent world later, P4)
-- **Files:** new `rooms/WorldRoom.ts`, `ui/WorldCreate.tsx`, `ui/Lobby.tsx`, invite logic in `services/WorldManager.ts`
-- **Scaling:** matches SERVER_SIZING_50_PLAYERS.md targets (8 vCPU / 16 GB baseline)
 
 ### 29b. Base building (DONE 2026-05-20)
 **Structures system:** players place/remove structures in the world using structure items.

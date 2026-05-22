@@ -12,6 +12,7 @@ import { useStore, type CharacterSummary } from "../store";
 import { HeroModel } from "../scene/models/HeroModel";
 import { MenuScene } from "./MenuScene";
 import { GameFrame } from "./GameFrame";
+import { useT } from "../locales/useT";
 
 type Props = {
   onCancel: () => void;
@@ -19,6 +20,7 @@ type Props = {
 };
 
 export function CharacterCreator({ onCancel, onCreated }: Props) {
+  const t = useT();
   const token = useStore((s) => s.token);
   const [name, setName] = useState("");
   const [appearance, setAppearance] = useState<Appearance>({ ...DEFAULT_APPEARANCE });
@@ -81,62 +83,62 @@ export function CharacterCreator({ onCancel, onCreated }: Props) {
       <div className="absolute top-6 left-0 right-0 text-center pointer-events-none">
         <div className="text-xs text-amber-300/80 uppercase tracking-[0.4em]">⚒ Forge of Heroes ⚒</div>
         <h1 className="text-3xl font-black tracking-wider bg-gradient-to-b from-amber-100 to-amber-400 text-transparent bg-clip-text drop-shadow-[0_0_12px_rgba(251,191,36,0.4)]">
-          สร้างผู้กล้า
+          {t("char.createTitle")}
         </h1>
       </div>
 
       {/* Right: customization frame */}
       <div className="absolute top-20 right-6 bottom-6 w-[26rem] overflow-y-auto pr-1">
-        <GameFrame title="แต่งกายผู้กล้า" variant="violet">
+        <GameFrame title={t("char.customizeTitle")} variant="violet">
           <div className="space-y-4 pt-1">
             <div>
-              <div className="game-label">✦ ชื่อ</div>
+              <div className="game-label">{t("char.name")}</div>
               <input
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 maxLength={16}
                 className="game-input"
-                placeholder="ตั้งชื่อ (2-16 ตัวอักษร)"
+                placeholder={t("char.namePlaceholder")}
               />
             </div>
 
-            <Section label="✂ ทรงผม">
+            <Section label={t("char.hairStyle")}>
               <div className="grid grid-cols-3 gap-1.5">
                 {HAIR_STYLES.map((s) => (
                   <Chip key={s} active={appearance.hairStyle === s} onClick={() => patch({ hairStyle: s })}>
-                    {HAIR_STYLE_LABEL[s]}
+                    {t(`char.hair${s.charAt(0).toUpperCase() + s.slice(1)}` as any) ?? HAIR_STYLE_LABEL[s]}
                   </Chip>
                 ))}
               </div>
             </Section>
 
-            <Section label="⚔ รูปร่าง">
+            <Section label={t("char.bodyShape")}>
               <div className="grid grid-cols-3 gap-1.5">
                 {BODY_SHAPES.map((s) => (
                   <Chip key={s} active={appearance.body === s} onClick={() => patch({ body: s })}>
-                    {BODY_LABEL[s]}
+                    {t(`char.body${s.charAt(0).toUpperCase() + s.slice(1)}` as any) ?? BODY_LABEL[s]}
                   </Chip>
                 ))}
               </div>
             </Section>
 
-            <Section label="◉ สีผิว">
+            <Section label={t("char.skinColor")}>
               <Swatches options={SKIN_PRESETS} value={appearance.skin} onChange={(c) => patch({ skin: c })} />
             </Section>
-            <Section label="◉ สีผม">
+            <Section label={t("char.hairColor")}>
               <Swatches options={HAIR_PRESETS} value={appearance.hair} onChange={(c) => patch({ hair: c })} />
             </Section>
-            <Section label="◉ สีตา">
+            <Section label={t("char.eyeColor")}>
               <Swatches options={EYE_PRESETS} value={appearance.eye} onChange={(c) => patch({ eye: c })} />
             </Section>
-            <Section label="◉ สีเสื้อ">
+            <Section label={t("char.shirtColor")}>
               <Swatches options={SHIRT_PRESETS} value={appearance.shirt} onChange={(c) => patch({ shirt: c })} />
             </Section>
-            <Section label="◉ สีกางเกง">
+            <Section label={t("char.pantsColor")}>
               <Swatches options={PANTS_PRESETS} value={appearance.pants} onChange={(c) => patch({ pants: c })} />
             </Section>
 
-            <Section label="🎩 หมวก">
+            <Section label={t("char.hat")}>
               <div className="grid grid-cols-5 gap-1">
                 {HAT_STYLES.map((s) => (
                   <Chip key={s} active={appearance.hat === s} onClick={() => patch({ hat: s })}>
@@ -151,7 +153,7 @@ export function CharacterCreator({ onCancel, onCreated }: Props) {
               )}
             </Section>
 
-            <Section label="👓 แว่นตา">
+            <Section label={t("char.glasses")}>
               <div className="grid grid-cols-3 gap-1">
                 {GLASSES_STYLES.map((s) => (
                   <Chip key={s} active={appearance.glasses === s} onClick={() => patch({ glasses: s })}>
@@ -161,7 +163,7 @@ export function CharacterCreator({ onCancel, onCreated }: Props) {
               </div>
             </Section>
 
-            <Section label="🧣 ผ้าพันคอ">
+            <Section label={t("char.scarf")}>
               <div className="grid grid-cols-3 gap-1">
                 {SCARF_STYLES.map((s) => (
                   <Chip key={s} active={appearance.scarf === s} onClick={() => patch({ scarf: s })}>
@@ -183,9 +185,9 @@ export function CharacterCreator({ onCancel, onCreated }: Props) {
             )}
 
             <div className="flex gap-2 pt-2">
-              <button onClick={onCancel} disabled={busy} className="btn-game muted flex-1">ยกเลิก</button>
+              <button onClick={onCancel} disabled={busy} className="btn-game muted flex-1">{t("char.cancel")}</button>
               <button onClick={submit} disabled={busy || name.trim().length < 2} className="btn-game violet flex-1">
-                {busy ? "…" : "✦ สร้าง"}
+                {busy ? "…" : t("char.create")}
               </button>
             </div>
           </div>

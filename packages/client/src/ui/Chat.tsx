@@ -3,8 +3,10 @@ import type { Room } from "colyseus.js";
 import type { WorldState } from "@game/shared";
 import { useStore } from "../store";
 import { useDraggable } from "../hooks/useDraggable";
+import { useT } from "../locales/useT";
 
 export function Chat({ room }: { room: Room<WorldState> }) {
+  const t = useT();
   const chat = useStore((s) => s.chat);
   const [open, setOpen] = useState(false);
   const [text, setText] = useState("");
@@ -77,7 +79,7 @@ export function Chat({ room }: { room: Room<WorldState> }) {
               <div key={i} className="truncate"><span className="text-amber-300 font-semibold">{m.from}:</span> <span className="text-white/90">{m.text}</span></div>
             ))
           ) : (
-            <div className="text-white/45 italic text-[10px]">💬 ยังไม่มีข้อความ — แตะที่นี่เพื่อพิมพ์</div>
+            <div className="text-white/45 italic text-[10px]">{t("chat.noMessages")}</div>
           )}
         </div>
         {open ? (
@@ -87,7 +89,7 @@ export function Chat({ room }: { room: Room<WorldState> }) {
               value={text}
               onChange={(e) => setText(e.target.value)}
               maxLength={200}
-              placeholder="พิมพ์... (Esc=ปิด · /w ชื่อ ข้อความ=กระซิบ)"
+              placeholder={t("chat.placeholder")}
               className="w-full bg-slate-900/70 backdrop-blur-md border border-cyan-400/40 rounded-full px-3 py-1 text-xs outline-none text-white"
               autoFocus
               onBlur={() => { if (!text.trim()) setOpen(false); }}
@@ -103,7 +105,7 @@ export function Chat({ room }: { room: Room<WorldState> }) {
               border: "1px solid rgba(34, 211, 238, 0.18)",
             }}
           >
-            💬 คลิกเพื่อพิมพ์ (Enter)
+            {t("chat.clickToType")}
           </button>
         )}
       </div>

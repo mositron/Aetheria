@@ -6,6 +6,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { Room } from "colyseus.js";
 import { ITEMS, type Player, type WorldState } from "@game/shared";
+import { useT } from "../locales/useT";
 
 export type AutoPotionConfig = {
   hpItemId: string | null;
@@ -111,6 +112,7 @@ function AutoPotionDialog({ cfg, onChange, onClose }: {
   onChange: (next: AutoPotionConfig) => void;
   onClose: () => void;
 }) {
+  const t = useT();
   // List all consumables with hpRestore or mpRestore.
   const hpItems = Object.values(ITEMS).filter((i) => i.slot === "consumable" && (i.hpRestore ?? 0) > 0);
   const mpItems = Object.values(ITEMS).filter((i) => i.slot === "consumable" && (i.mpRestore ?? 0) > 0);
@@ -126,7 +128,7 @@ function AutoPotionDialog({ cfg, onChange, onClose }: {
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between">
-          <h3 className="text-emerald-300 font-bold text-sm">🧪 Auto-Potion</h3>
+          <h3 className="text-emerald-300 font-bold text-sm">🧪 {t('autopotion.title')}</h3>
           <button onClick={onClose} className="text-white/70 hover:text-white text-lg leading-none">✕</button>
         </div>
 
@@ -135,12 +137,12 @@ function AutoPotionDialog({ cfg, onChange, onClose }: {
             type="checkbox" checked={cfg.enabled}
             onChange={(e) => onChange({ ...cfg, enabled: e.target.checked })}
           />
-          เปิดใช้งานอัตโนมัติ
+          {t('autopotion.enabled')}
         </label>
 
         {/* HP section */}
         <div className="space-y-1.5">
-          <div className="text-[11px] text-rose-300 font-semibold">❤ เมื่อ HP ต่ำกว่า {cfg.hpThresholdPct}%</div>
+          <div className="text-[11px] text-rose-300 font-semibold">❤ {t('autopotion.hpLabel', { pct: cfg.hpThresholdPct })}</div>
           <input
             type="range" min={10} max={90} step={5}
             value={cfg.hpThresholdPct}
@@ -152,7 +154,7 @@ function AutoPotionDialog({ cfg, onChange, onClose }: {
             onChange={(e) => onChange({ ...cfg, hpItemId: e.target.value || null })}
             className="w-full bg-slate-800 border border-white/15 rounded px-2 py-1 text-xs text-white"
           >
-            <option value="">— ปิด —</option>
+            <option value="">{t('autopotion.off')}</option>
             {hpItems.map((i) => (
               <option key={i.id} value={i.id}>{i.icon} {i.name} (+{i.hpRestore} HP)</option>
             ))}
@@ -161,7 +163,7 @@ function AutoPotionDialog({ cfg, onChange, onClose }: {
 
         {/* MP section */}
         <div className="space-y-1.5">
-          <div className="text-[11px] text-sky-300 font-semibold">✦ เมื่อ MP ต่ำกว่า {cfg.mpThresholdPct}%</div>
+          <div className="text-[11px] text-sky-300 font-semibold">✦ {t('autopotion.mpLabel', { pct: cfg.mpThresholdPct })}</div>
           <input
             type="range" min={10} max={90} step={5}
             value={cfg.mpThresholdPct}
@@ -173,7 +175,7 @@ function AutoPotionDialog({ cfg, onChange, onClose }: {
             onChange={(e) => onChange({ ...cfg, mpItemId: e.target.value || null })}
             className="w-full bg-slate-800 border border-white/15 rounded px-2 py-1 text-xs text-white"
           >
-            <option value="">— ปิด —</option>
+            <option value="">{t('autopotion.off')}</option>
             {mpItems.map((i) => (
               <option key={i.id} value={i.id}>{i.icon} {i.name} (+{i.mpRestore} MP)</option>
             ))}
@@ -181,7 +183,7 @@ function AutoPotionDialog({ cfg, onChange, onClose }: {
         </div>
 
         <div className="text-[10px] text-slate-400 leading-relaxed pt-1 border-t border-white/10">
-          ระบบจะใช้ของในกระเป๋าอัตโนมัติ (ทุก 1.5 วินาทีอย่างมาก) ถ้าค่าตกต่ำกว่าที่ตั้งไว้
+          {t('autopotion.help')}
         </div>
       </div>
     </div>
