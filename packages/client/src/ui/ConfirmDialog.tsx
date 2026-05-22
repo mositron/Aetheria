@@ -1,4 +1,5 @@
 import React from "react";
+import { useT } from "../locales/useT";
 
 interface Props {
   open: boolean;
@@ -33,12 +34,16 @@ export function ConfirmDialog({
   open,
   title,
   message,
-  confirmLabel = "ตกลง",
-  cancelLabel = "ยกเลิก",
+  confirmLabel,
+  cancelLabel,
   severity = "info",
   onConfirm,
   onCancel,
 }: Props) {
+  const t = useT();
+  const resolvedConfirmLabel = confirmLabel ?? t("confirm.ok");
+  const resolvedCancelLabel = cancelLabel ?? t("confirm.cancel");
+
   if (!open) return null;
 
   const colors = SEVERITY_COLORS[severity];
@@ -74,13 +79,13 @@ export function ConfirmDialog({
             onClick={onCancel}
             className="flex-1 py-2 rounded-xl text-xs font-bold border-2 border-slate-600 bg-slate-800/80 text-slate-300 hover:bg-slate-700 hover:border-slate-500 transition"
           >
-            {cancelLabel}
+            {resolvedCancelLabel}
           </button>
           <button
             onClick={onConfirm}
             className={`flex-1 py-2 rounded-xl text-xs font-bold border-2 ${colors.button} text-white transition`}
           >
-            {confirmLabel}
+            {resolvedConfirmLabel}
           </button>
         </div>
       </div>
