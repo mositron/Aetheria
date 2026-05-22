@@ -1,5 +1,16 @@
 import { Room, Client } from "@colyseus/core";
 import { ArraySchema } from "@colyseus/schema";
+import { z } from 'zod';
+import { schemas } from '../schemas.js';
+
+function validate<T>(schema: z.ZodSchema<T>, data: unknown): T | null {
+  const result = schema.safeParse(data);
+  if (!result.success) {
+    console.warn('[WorldRoom] invalid payload:', result.error.message);
+    return null;
+  }
+  return result.data;
+}
 import {
   WorldState, Player, Monster, GroundItem, PlantNode, plantStage, ItemStack, StatusEffect,
   GAME_CONFIG, MONSTERS, type MonsterKind,
@@ -49,6 +60,7 @@ import { CombatService } from "../services/CombatService.js";
 import { CraftingService } from "../services/CraftingService.js";
 import { HousingService } from "../services/HousingService.js";
 import { estimateHeight, checkPortal, clamp } from "../services/MovementService.js";
+import { AuditService, auditService } from "../services/AuditService.js";
 
 
 type Intent = { mx: number; mz: number; rotY: number };
@@ -182,6 +194,7 @@ export class WorldRoom extends Room<WorldState> {
         addToInventory: (p, itemId, qty) => this.inventorySvc.addToInventory(p, itemId, qty)
       }
     );
+    this.tradeSvc.setAuditLog((action, opts) => (auditService as any).log(action, opts));
 
     this.questSvc = new Quest(
       this.state,
@@ -328,11 +341,31 @@ export class WorldRoom extends Room<WorldState> {
       this.intents.set(client.sessionId, { mx: v.mx, mz: v.mz, rotY: v.rotY });
     });
 
-    this.onMessage("attack", (client, msg: AttackMsg) => this.handleAttack(client.sessionId, msg.targetId));
-    this.onMessage("skill", (client, msg: SkillMsg) => this.handleSkill(client.sessionId, msg.skillId, msg.targetId));
-    this.onMessage("equip", (client, msg: EquipMsg) => this.handleEquip(client.sessionId, msg.invIndex));
-    this.onMessage("unequip", (client, msg: UnequipMsg) => this.handleUnequip(client.sessionId, msg.slot));
-    this.onMessage("useItem", (client, msg: UseItemMsg) => this.handleUseItem(client.sessionId, msg.invIndex));
+    this.onMessage("attack", (client, msg: AttackMsg) => {
+      const payload = validate(schemas.attack, msg);
+      if (!payload) return;
+      this.handleAttack(client.sessionId, payload.targetId);
+    });
+    this.onMessage("skill", (client, msg: SkillMsg) => {
+      const payload = validate(schemas.cast_skill, msg);
+      if (!payload) return;
+      this.handleSkill(client.sessionId, payload.skillId, payload.targetId);
+    });
+    this.onMessage("equip", (client, msg: EquipMsg) => {
+      const payload = validate(schemas.equip, msg);
+      if (!payload) return;
+      this.handleEquip(client.sessionId, payload.slotIndex);
+    });
+    this.onMessage("unequip", (client, msg: UnequipMsg) => {
+      const payload = validate(schemas.unequip, msg);
+      if (!payload) return;
+      this.handleUnequip(client.sessionId, payload.slot);
+    });
+    this.onMessage("useItem", (client, msg: UseItemMsg) => {
+      const payload = validate(schemas.useItem, msg);
+      if (!payload) return;
+      this.handleUseItem(client.sessionId, payload.invIndex);
+    });
     this.onMessage("dropItem", (client, msg: DropItemMsg) => this.handleDrop(client.sessionId, msg.invIndex, msg.qty));
     this.onMessage("pickup", (client, msg: PickupMsg) => this.handlePickup(client.sessionId, msg.dropId));
     this.onMessage("changeJob", (client, msg: ChangeJobMsg) => this.handleChangeJob(client.sessionId, msg.job));
@@ -388,11 +421,19 @@ export class WorldRoom extends Room<WorldState> {
     });
 
     this.onMessage("buildHouse", (client) => this.housingSvc.handleBuildHouse(client));
-    this.onMessage("craft", (client, msg: any) => this.craftingSvc.handleCraft(client, msg?.recipeId, msg?.benchTier ?? 0));
+    this.onMessage("craft", (client, msg: any) => {
+      const payload = validate(schemas.craft, msg);
+      if (!payload) return;
+      this.craftingSvc.handleCraft(client, payload.recipeId, payload.benchTier ?? 0);
+    });
     this.onMessage("startFishing", (client) => this.fishingSvc.handleStartFishing(client));
     this.onMessage("stopFishing", (client) => this.fishingSvc.handleStopFishing(client));
     this.onMessage("plantSeed", (client) => this.farmingSvc.handlePlantSeed(client));
-    this.onMessage("harvestPlant", (client, msg: any) => this.farmingSvc.handleHarvestPlant(client, msg?.plantId));
+    this.onMessage("harvestPlant", (client, msg: any) => {
+      const payload = validate(schemas.harvest, msg);
+      if (!payload) return;
+      this.farmingSvc.handleHarvestPlant(client, payload.plantId);
+    });
     this.onMessage("feedAnimal", (client, msg: any) => this.farmingSvc.handleFeedAnimal(client, msg?.monsterId));
     this.onMessage("mount", (client) => this.handleMount(client));
     this.onMessage("setActivePet", (client, msg: any) => {
@@ -658,13 +699,15 @@ export class WorldRoom extends Room<WorldState> {
     });
 
     this.onMessage("whisper", (client, msg: any) => {
+      const payload = validate(schemas.whisper, msg);
+      if (!payload) return;
       const fromP = this.state.players.get(client.sessionId);
       if (!fromP) return;
       if (!this.checkRateLimit(client.sessionId, "whisper", 5, 5000)) {
         return client.send("system", { text: "⏸ ส่งช้าๆ" });
       }
-      const text = String(msg?.text ?? "").slice(0, 200).trim();
-      const to = String(msg?.to ?? "").trim();
+      const text = String(payload.text ?? "").slice(0, 200).trim();
+      const to = String(payload.to ?? "").trim();
       if (!text || !to) return;
       let targetClient: Client | null = null;
       for (const c of this.clients) {
@@ -719,9 +762,11 @@ export class WorldRoom extends Room<WorldState> {
     });
 
     this.onMessage("accept_proposal", (client, msg: AcceptProposalMsg) => {
+      const payload = validate(schemas.accept_proposal, msg);
+      if (!payload) return;
       const acceptor = this.state.players.get(client.sessionId);
       if (!acceptor) return;
-      const proposer = Array.from(this.state.players.values()).find(p => p.name === msg.proposerName && p.spouseId === "");
+      const proposer = Array.from(this.state.players.values()).find(p => p.name === payload.proposerName && p.spouseId === "");
       if (!proposer) { client.send("system", { text: "ไม่พบคำขอนี้" }); return; }
       const ts = Date.now();
       acceptor.spouseId = String(client.sessionId);
@@ -734,18 +779,20 @@ export class WorldRoom extends Room<WorldState> {
         proposer.marriageDate = ts;
         proposerClient.send("system", { text: `💍 คุณแต่งงานกับ ${acceptor.name} แล้ว! ขอให้มีความสุขนะ!` });
       }
-      client.send("system", { text: `💍 คุณแต่งงานกับ ${msg.proposerName} แล้ว!` });
+      client.send("system", { text: `💍 คุณแต่งงานกับ ${payload.proposerName} แล้ว!` });
       this.addToInventory(acceptor, "wedding_ring_f", 1);
       if (proposerClient) this.addToInventory(proposer as any, "wedding_ring_m", 1);
     });
 
     this.onMessage("decline_proposal", (client, msg: DeclineProposalMsg) => {
+      const payload = validate(schemas.decline_proposal, msg);
+      if (!payload) return;
       const decliner = this.state.players.get(client.sessionId);
       if (!decliner) return;
-      const proposer = Array.from(this.state.players.values()).find(p => p.name === msg.proposerName);
+      const proposer = Array.from(this.state.players.values()).find(p => p.name === payload.proposerName);
       const proposerClient = proposer ? this.clients.find(c => c.sessionId === proposer.sessionId) : null;
       if (proposerClient) proposerClient.send("system", { text: `💔 ${decliner.name} ปฏิเสธคำขอแต่งงานของคุณ` });
-      client.send("system", { text: `ปฏิเสธคำขอแต่งงานจาก ${msg.proposerName} แล้ว` });
+      client.send("system", { text: `ปฏิเสธคำขอแต่งงานจาก ${payload.proposerName} แล้ว` });
     });
 
     this.onMessage("divorce", (client) => {
@@ -796,6 +843,7 @@ export class WorldRoom extends Room<WorldState> {
       (sid, type, data) => this.clients.find(c => c.sessionId === sid)?.send(type as any, data),
       this.addToInventory.bind(this),
       (input: any) => this.mailboxSvc.send(input).then(() => {}),
+      (action, opts) => (auditService as any).log(action, opts),
     );
     for (const [type, handler] of Object.entries(auctionHandlers)) {
       this.onMessage(type, handler as any);
@@ -834,13 +882,15 @@ export class WorldRoom extends Room<WorldState> {
     });
 
     this.onMessage("chat", (client, msg: ChatMsg) => {
+      const payload = validate(schemas.chat, msg);
+      if (!payload) return;
       const p = this.state.players.get(client.sessionId);
       if (!p) return;
       // Rate limit: 5 messages per 5 sec per client
       if (!this.checkRateLimit(client.sessionId, "chat", 5, 5000)) {
         return client.send("system", { text: "⏸ ส่งช้าๆ หน่อย — รอสักครู่" });
       }
-      const text = String(msg.text ?? "").slice(0, 200).trim();
+      const text = String(payload.text ?? "").slice(0, 200).trim();
       if (!text) return;
       // ── Slash commands ───────────────────────────────────────────────
       if (text.startsWith("/")) {
@@ -1062,6 +1112,7 @@ export class WorldRoom extends Room<WorldState> {
     this.playerUserId.set(client.sessionId, payload.uid);
     this.playerCharId.set(client.sessionId, c.id);
     console.log(`[room ${this.state.mapId}] ${c.name} joined`);
+    auditService.log("player.join", { userId: payload.uid, characterId: c.id, metadata: { charName: c.name, mapId: this.state.mapId } });
     // send quest state to this client
     const qs = this.playerQuests.get(client.sessionId)!;
     client.send("questUpdate", qs);
@@ -1071,8 +1122,11 @@ export class WorldRoom extends Room<WorldState> {
     const sid = client.sessionId;
     // Cancel any in-flight trade so partner gets notified before save
     if (this.tradeSessions.has(sid)) this.cancelTrade(sid);
+    const userId = this.playerUserId.get(sid);
+    const characterId = this.playerCharId.get(sid);
     await this.savePlayer(sid);
     this.partySvc.leave(sid);
+    auditService.log("player.leave", { userId, characterId, metadata: { charName: this.state.players.get(sid)?.name } });
     this.state.players.delete(sid);
     this.intents.delete(sid);
     this.lastAttack.delete(sid);

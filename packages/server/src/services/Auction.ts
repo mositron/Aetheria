@@ -114,11 +114,12 @@ export class Auction {
     }
   }
 
-  registerHandlers(
+  async registerHandlers(
     getPlayer: (sid: string) => any,
     sendToClient: (sid: string, type: string, data: any) => void,
     addToInventory: (p: any, itemId: string, qty: number) => boolean,
-    sendMail: (input: any) => Promise<void>
+    sendMail: (input: any) => Promise<void>,
+    auditLog: (action: string, opts: Record<string, unknown>) => void = () => {},
   ) {
     return {
       "auction:list": async (client: any, msg: any) => {
@@ -144,6 +145,7 @@ export class Auction {
         stack.qty -= qty;
         if (stack.qty <= 0) p.inventory.splice(invIndex, 1);
         sendToClient(client.sessionId, "system", { text: `📢 ลงประกาศ ${qty} ชิ้น @${pricePer}z` });
+        auditLog("auction.list", { metadata: { sellerName: p.name, itemId: stack.itemId, qty, pricePer } });
       },
 
       "auction:browse": async (client: any, msg: any) => {
@@ -179,6 +181,7 @@ export class Auction {
           zeny: r.total,
         });
         sendToClient(client.sessionId, "system", { text: `✅ ซื้อ ${r.listing.itemId} ×${r.listing.qty} (-${r.total}z)` });
+        auditLog("auction.buy", { metadata: { buyerName: p.name, listing: r.listing, total: r.total } });
       },
 
       "auction:cancel": async (client: any, msg: any) => {
@@ -193,6 +196,7 @@ export class Auction {
           zeny: 0, itemId: listing.itemId, itemQty: listing.qty,
         });
         sendToClient(client.sessionId, "system", { text: "ยกเลิกประกาศแล้ว" });
+        auditLog("auction.cancel", { metadata: { sellerName: p.name, listing } });
       },
     };
   }

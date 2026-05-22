@@ -9,12 +9,17 @@ export type TradeSession = {
   items: Array<{ invIndex: number; qty: number }>;
   zeny: number;
   confirmed: boolean;
+  /** Snapshot of player names at time of session creation for audit logging */
+  playerName: string;
+  partnerName: string;
 };
 
 export class Trade {
   public sessions = new Map<string, TradeSession>();
   /** Outgoing invite requests (sent but not yet accepted) */
   private pendingInvites = new Map<string, string>(); // sid → targetSid
+
+  private auditLog: ((action: string, opts: Record<string, unknown>) => void) | null = null;
 
   constructor(
     private state: { players: Map<string, Player> },
@@ -23,6 +28,10 @@ export class Trade {
       addToInventory: (p: Player, itemId: string, qty: number) => boolean;
     }
   ) {}
+
+  setAuditLog(fn: (action: string, opts: Record<string, unknown>) => void) {
+    this.auditLog = fn;
+  }
 
   handleRequest(sid: string, targetSid: string) {
     const a = this.state.players.get(sid);
@@ -47,8 +56,9 @@ export class Trade {
     if (this.pendingInvites.get(fromSid) !== sid) return;
 
     this.pendingInvites.delete(fromSid);
-    this.sessions.set(sid, { partnerSid: fromSid, items: [], zeny: 0, confirmed: false });
-    this.sessions.set(fromSid, { partnerSid: sid, items: [], zeny: 0, confirmed: false });
+    const aName = a.name, bName = b.name;
+    this.sessions.set(sid, { partnerSid: fromSid, items: [], zeny: 0, confirmed: false, playerName: bName, partnerName: aName });
+    this.sessions.set(fromSid, { partnerSid: sid, items: [], zeny: 0, confirmed: false, playerName: aName, partnerName: bName });
 
     const s1 = this.sessions.get(fromSid);
     const s2 = this.sessions.get(sid);
@@ -146,6 +156,7 @@ export class Trade {
         this.callbacks.sendToClient(sid, "system", { text: "✅ เทรดสำเร็จ" });
         this.callbacks.sendToClient(sess.partnerSid, "trade:done", {});
         this.callbacks.sendToClient(sess.partnerSid, "system", { text: "✅ เทรดสำเร็จ" });
+        this.auditLog?.("trade.complete", { metadata: { aName: sess.playerName, bName: sess.partnerName, aZeny: sess.zeny, bZeny: partner.zeny, aItems: sess.items.length, bItems: partner.items.length } });
       } catch (err: any) {
         a.inventory.splice(0, a.inventory.length);
         for (const s of aSnapshot) {
@@ -184,6 +195,7 @@ export class Trade {
     const partnerSid = sess.partnerSid;
     this.sessions.delete(sid);
     this.sessions.delete(partnerSid);
+    this.auditLog?.("trade.cancel", { metadata: { aName: sess.playerName, bName: sess.partnerName } });
     this.callbacks.sendToClient(sid, "trade:cancelled", {});
     this.callbacks.sendToClient(sid, "system", { text: "🚫 ยกเลิกเทรด" });
     this.callbacks.sendToClient(partnerSid, "trade:cancelled", {});

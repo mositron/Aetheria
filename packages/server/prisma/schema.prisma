@@ -126,3 +126,14 @@ model Character {
 
   @@index([userId])
 }
+
+model AuditLog {
+  id          String   @id @default(cuid())
+  createdAt   DateTime @default(now())
+  action      String
+  userId      String?
+  characterId String?
+  targetId    String?
+  metadata    String?  // JSON string
+  ip          String?
+}

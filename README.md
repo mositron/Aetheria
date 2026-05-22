@@ -490,10 +490,207 @@ Procedurally generated assets included. Code authored by the project owner with 
 
 ---
 
-<div align="center">
+## 🏗 Architecture
 
-Made with 💖 and a lot of `pnpm dev`.
+```
+                    ┌─────────────────────────────────────────────┐
+                    │                  Browser                      │
+                    │  ┌──────────────┐    ┌──────────────────────┐│
+                    │  │   Client     │    │   Colyseus WebSocket  ││
+                    │  │  (Vite+React)│    │      Connection       ││
+                    │  └──────┬───────┘    └──────────┬───────────┘│
+                    └─────────┼────────────────────────┼───────────┘
+                              │                        │
+                    ┌─────────▼────────────────────────▼───────────┐
+                    │                    Server                      │
+                    │              (port 2567 / env: PORT)           │
+                    │  ┌────────────────────────────────────────────┐│
+                    │  │              GameRoom.ts                   ││
+                    │  │   Colyseus Room · Express · JWT Auth        ││
+                    │  └──────────┬───────────────────┬────────────┘│
+                    │             │                   │              │
+                    │  ┌───────────▼───────┐   ┌───────▼────────────┐ │
+                    │  │  Prisma ORM       │   │   Redis Pub/Sub    │ │
+                    │  │  SQLite (dev.db)   │   │  (session/leader) │ │
+                    │  │  env: DATABASE_URL │   │  env: REDIS_URL   │ │
+                    │  └───────────────────┘   └────────────────────┘ │
+                    └────────────────────────────────────────────────┘
+                              │                        │
+                    ┌─────────▼────────┐       ┌────────▼────────┐
+                    │   SQLite file    │       │   Redis server   │
+                    │  prisma/dev.db   │       │   (external)     │
+                    └──────────────────┘       └─────────────────┘
+```
 
-If you find a bug or have an idea, open an issue or PR on GitHub.
+### ความสัมพันธ์ของ packages
+
+```
+@game/shared (TypeScript types, schemas, items, jobs, biomes, recipes, achievements)
+     │
+     ├──▶ @game/server  ←  imports shared types for GameRoom logic + Prisma schema
+     │         │
+     │         ├── prisma/schema.prisma  →  SQLite (dev.db)
+     │         └── src/auth.ts, rooms/GameRoom.ts, leaderboard.ts
+     │
+     └──▶ @game/client  ←  imports shared types + Colyseus client SDK
+              │
+              └── src/App.tsx, Game.tsx, scene/, ui/, store.ts
+
+shared เป็น single source of truth สำหรับ types ที่ใช้ร่วมกันระหว่าง client และ server
+```
+
+---
+
+## 🚀 Deploy
+
+### 1. Railway (แนะนำ — ง่ายที่สุด)
+
+Railway รองรับ Node.js deployment โดยตรง เพียงตั้ง env vars แล้ว deploy
+
+```bash
+# 1. สร้าง project ใหม่บน railway.app
+# 2. เชื่อม GitHub repo
+
+# 3. ตั้งค่า Environment Variables:
+DATABASE_URL     =  file:./prisma/prod.db       # SQLite หรือใช้ Postgres addon
+REDIS_URL        =  redis://localhost:6379       # ถ้าไม่มี ปิดได้เลย (optional)
+JWT_SECRET       =  <สุ่ม string 48 ตัวอักษร>
+PORT             =  2567
+SENTRY_DSN       =                           # optional
+
+# 4. Root directory: /
+# 5. Build command: pnpm install && pnpm build
+# 6. Start command: pnpm --filter @game/server start
+
+# หรือใช้ Postgres addon แทน SQLite:
+DATABASE_URL     =  postgres://user:pass@host:5432/db
+```
+
+> ⚠️ Railway ฟรีมีข้อจำกัดเรื่อง ephemeral disk — SQLite บน disk จะ reset เมื่อ pod restart
+> แนะนำใช้ Postgres addon แทน SQLite สำหรับ production
+
+### 2. Kubernetes (Helm chart)
+
+```yaml
+# values.yaml — ปรับแต่งตาม needs
+replicaCount: 2
+
+image:
+  repository: your-docker-repo/aetheria-server
+  tag: latest
+
+env:
+  JWT_SECRET: "your-secret-here"
+  DATABASE_URL: "postgresql://user:pass@aetheria-db:5432/aetheria"
+  REDIS_URL: "redis://aetheria-redis:6379"
+  PORT: "2567"
+
+resources:
+  requests:
+    cpu: 250m
+    memory: 512Mi
+  limits:
+    cpu: 1000m
+    memory: 1Gi
+
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 10
+```
+
+```bash
+# สร้าง Docker image ก่อน
+docker build -t your-docker-repo/aetheria-server .
+
+# เพิ่ม Helm repo แล้ว deploy
+helm repo add bitnami https://charts.bitnami.com/bitnami
+helm install aetheria bitnami/postgresql -f values.yaml
+helm install aetheria ./chart -f values.yaml
+
+# ตรวจสอบ
+kubectl get pods
+kubectl logs -f deployment/aetheria-server
+```
+
+Dependencies: PostgreSQL (stateful) + Redis (optional, for leaderboard pub/sub)
+
+### 3. Fly.io (Dockerfile ยังไม่มี — ต้องสร้าง)
+
+```dockerfile
+# Dockerfile — สร้างที่ root ของ project
+FROM node:20-alpine AS base
+RUN corepack enable && corepack prepare pnpm@10 --activate
+
+WORKDIR /app
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY packages/shared/package.json packages/shared/
+COPY packages/server/package.json packages/server/
+COPY packages/client/package.json packages/client/
+RUN pnpm install --frozen-lockfile
+
+COPY packages/shared/src packages/shared/src
+COPY packages/server/src packages/server/src
+COPY packages/client/src packages/client/src
+
+RUN pnpm --filter @game/server build
+
+CMD ["pnpm", "--filter", "@game/server", "start"]
+```
+
+```bash
+# สร้าง fly.toml
+fly launch --no-generate
+
+# Deploy
+fly deploy
+
+# ตั้งค่า secrets
+fly secrets set JWT_SECRET="your-secret"
+fly secrets set DATABASE_URL="postgres://..."
+```
+
+---
+
+## ⚡ Quickstart
+
+```bash
+# 1. Clone
+git clone https://github.com/mositron/Aetheria.git
+cd Aetheria
+
+# 2. Install dependencies (pnpm 10+ ขึ้นไป — npm/yarn จะ link workspace ผิด)
+pnpm install
+
+# 3. Copy env file และ sync database schema
+cp packages/server/.env.example packages/server/.env
+pnpm db:push          # หรือ: pnpm --filter @game/server exec prisma db push
+
+# 4. Start dev server (server ที่ port 2567 + client ที่ port 5173)
+pnpm dev
+```
+
+เปิด **http://localhost:5173** → สมัครสมาชิก → เล่นเกม
+เปิด tab ที่สองหรือ browser อื่น → บัญชีที่สอง → ทั้งสองคนเห็นกันแบบ real-time
+
+> 💡 **Solo tip:** spawn bot เพื่อเติมโลกเกม:
+> ```bash
+> # Windows (PowerShell):  $env:DEV_BOTS = "3"; pnpm dev
+> # Mac/Linux (bash):      DEV_BOTS=3 pnpm dev
+> ```
+
+---
+
+## 🔧 Environment Variables
+
+| Variable | จำเป็น | ค่าเริ่มต้น | คำอธิบาย |
+|---|---|---|---|
+| `JWT_SECRET` | ✅ | — | Random string 48 ตัว สำหรับ sign JWT tokens |
+| `SENTRY_DSN` | ❌ | — | Sentry DSN สำหรับ error tracking (ถ้าไม่ใช้ ปิดได้) |
+| `REDIS_URL` | ❌ | — | Redis URL สำหรับ leaderboard pub/sub (ถ้าไม่มี ปิดได้) |
+| `DATABASE_URL` | ❌ | `file:./prisma/dev.db` | SQLite path หรือ PostgreSQL connection string |
+| `PORT` | ❌ | `2567` | Port ที่ server รับ HTTP + WebSocket |
+
+---
 
 </div>

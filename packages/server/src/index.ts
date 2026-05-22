@@ -6,11 +6,13 @@ import http from "http";
 import { Server } from "@colyseus/core";
 import { WebSocketTransport } from "@colyseus/ws-transport";
 import rateLimit from "express-rate-limit";
-import { authRouter } from "./auth.js";
+import { authRouter, verifyToken } from "./auth.js";
 import { logger } from "./logger.js";
 import { getTop } from "./leaderboard.js";
 import { WorldManager } from "./services/WorldManager.js";
 import { WorldRoom } from "./rooms/WorldRoom.js";
+import { prisma } from "./db.js";
+import { auditService } from "./services/AuditService.js";
 import * as Sentry from "@sentry/node";
 
 // ── Sentry (gated on SENTRY_DSN) ─────────────────────────────────────────────
@@ -117,6 +119,28 @@ app.get("/api/leaderboard/:scope?", async (req, res) => {
   } catch (e: any) {
     res.status(500).json({ error: e.message });
   }
+});
+
+// GET /api/admin/audit?action=&limit=50 — admin only (checks userId in Bearer token)
+app.get("/api/admin/audit", async (req, res) => {
+  const auth = req.headers.authorization;
+  const token = auth?.startsWith("Bearer ") ? auth.slice(7) : null;
+  if (!token) return res.status(401).json({ error: "missing token" });
+  const payload = verifyToken(token);
+  if (!payload) return res.status(401).json({ error: "invalid token" });
+
+  const action = typeof req.query.action === "string" ? req.query.action : undefined;
+  const limit = Math.min(200, Math.max(1, Number(req.query.limit) || 50));
+
+  const where: Record<string, unknown> = {};
+  if (action) where.action = action;
+
+  const logs = await prisma.auditLog.findMany({
+    where,
+    orderBy: { createdAt: "desc" },
+    take: limit,
+  });
+  res.json({ logs });
 });
 
 // ── Colyseus game server ────────────────────────────────────────────────────

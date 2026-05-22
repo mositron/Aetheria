@@ -4,6 +4,7 @@ import jwt from "jsonwebtoken";
 import { prisma } from "./db.js";
 import { GAME_CONFIG, JOBS, type JobId } from "@game/shared";
 import { logger } from "./logger.js";
+import { auditService } from "./services/AuditService.js";
 
 // JWT_SECRET must be set in env. In dev only, allow a clearly-marked fallback
 // but log a loud warning so it's obvious if it's accidentally used in prod.
@@ -92,6 +93,7 @@ authRouter.post("/register", async (req, res) => {
   const passwordHash = await bcrypt.hash(password, 12);
   const user = await prisma.user.create({ data: { username, passwordHash } });
   const token = jwt.sign({ uid: user.id, username }, SECRET, { expiresIn: TOKEN_TTL });
+  auditService.log("auth.register", { userId: user.id, ip: req.ip });
   res.json({ token, username, characters: [] });
 });
 
@@ -110,9 +112,11 @@ authRouter.post("/login", async (req, res) => {
     : (await bcrypt.compare(password, DUMMY_HASH), false);
   if (!user || !ok) {
     logger.warn("auth.login.failed", { username: username.slice(0, 24), ip: req.ip });
+    auditService.log("auth.login.fail", { userId: null, ip: req.ip, metadata: { username } });
     return res.status(401).json({ error: "bad credentials" });
   }
   logger.info("auth.login.ok", { uid: user.id });
+  auditService.log("auth.login.success", { userId: user.id, ip: req.ip });
   const token = jwt.sign({ uid: user.id, username }, SECRET, { expiresIn: TOKEN_TTL });
   const refreshToken = generateRefreshToken();
   await storeRefreshToken(user.id, refreshToken);
@@ -230,7 +234,10 @@ authRouter.get("/mailbox/:name", authMiddleware, async (req: any, res) => {
 authRouter.delete("/characters/:id", authMiddleware, async (req: any, res) => {
   const c = await prisma.character.findUnique({ where: { id: req.params.id } });
   if (!c || c.userId !== req.user.uid) return res.status(404).json({ error: "not found" });
-  await prisma.character.delete({ where: { id: c.id } });
+  const charId = c.id;
+  const charName = c.name;
+  await prisma.character.delete({ where: { id: charId } });
+  auditService.log("character.delete", { userId: req.user.uid, characterId: charId, metadata: { charName } });
   res.json({ ok: true });
 });
 
