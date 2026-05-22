@@ -1,0 +1,66 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#1a1a4e"/>
+      <stop offset="100%" style="stop-color:#0d0d2b"/>
+    </linearGradient>
+    <linearGradient id="crystalGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#a855f7"/>
+      <stop offset="50%" style="stop-color:#6366f1"/>
+      <stop offset="100%" style="stop-color:#22d3ee"/>
+    </linearGradient>
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="8" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <filter id="shadow">
+      <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#000" flood-opacity="0.5"/>
+    </filter>
+  </defs>
+
+  <!-- Background circle -->
+  <circle cx="256" cy="256" r="240" fill="url(#bgGrad)" stroke="#22d3ee" stroke-width="8"/>
+
+  <!-- Outer ring decorations -->
+  <circle cx="256" cy="256" r="225" fill="none" stroke="#6366f1" stroke-width="3" stroke-dasharray="20 10"/>
+
+  <!-- Shield shape -->
+  <path d="M256 80 L400 150 L400 300 Q400 400 256 450 Q112 400 112 300 L112 150 Z"
+        fill="#1e1e5e" stroke="#22d3ee" stroke-width="6" filter="url(#shadow)"/>
+
+  <!-- Inner shield highlight -->
+  <path d="M256 100 L375 160 L375 290 Q375 375 256 420 Q137 375 137 290 L137 160 Z"
+        fill="none" stroke="#a855f7" stroke-width="2" opacity="0.5"/>
+
+  <!-- Crystal orb in center -->
+  <circle cx="256" cy="240" r="70" fill="url(#crystalGrad)" filter="url(#glow)"/>
+  <circle cx="256" cy="240" r="55" fill="none" stroke="#fff" stroke-width="2" opacity="0.6"/>
+  <circle cx="236" cy="220" r="15" fill="#fff" opacity="0.8"/>
+
+  <!-- Star on crystal -->
+  <polygon points="256,175 270,220 320,220 280,250 295,300 256,270 217,300 232,250 192,220 242,220"
+           fill="#22d3ee" opacity="0.9"/>
+
+  <!-- Crossed swords behind shield -->
+  <!-- Left sword -->
+  <g transform="rotate(-45, 256, 256)">
+    <rect x="248" y="320" width="16" height="120" rx="3" fill="#94a3b8"/>
+    <rect x="244" y="310" width="24" height="20" rx="2" fill="#64748b"/>
+    <rect x="250" y="440" width="12" height="30" rx="2" fill="#475569"/>
+  </g>
+  <!-- Right sword -->
+  <g transform="rotate(45, 256, 256)">
+    <rect x="248" y="320" width="16" height="120" rx="3" fill="#94a3b8"/>
+    <rect x="244" y="310" width="24" height="20" rx="2" fill="#64748b"/>
+    <rect x="250" y="440" width="12" height="30" rx="2" fill="#475569"/>
+  </g>
+
+  <!-- Decorative corner runes -->
+  <text x="150" y="130" font-size="28" fill="#a855f7" opacity="0.7">✦</text>
+  <text x="340" y="130" font-size="28" fill="#a855f7" opacity="0.7">✦</text>
+  <text x="130" y="380" font-size="28" fill="#a855f7" opacity="0.7">✦</text>
+  <text x="360" y="380" font-size="28" fill="#a855f7" opacity="0.7">✦</text>
+</svg>
