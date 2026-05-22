@@ -325,6 +325,7 @@ export const th = {
   "guild.leaveBtn": "ออก",
   "guild.chatPlaceholder": "พิมพ์แชทกิลด์…",
   "guild.send": "ส่ง",
+  "guild.chatEmpty": "เริ่มคุยกัน…",
 
   // ── Party ────────────────────────────────────────────────────
   "party.title": "ปาร์ตี้",

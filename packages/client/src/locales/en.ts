@@ -325,6 +325,7 @@ export const en = {
   "guild.leaveBtn": "Leave",
   "guild.chatPlaceholder": "Type guild chat…",
   "guild.send": "Send",
+  "guild.chatEmpty": "Start chatting…",
 
   // ── Party ────────────────────────────────────────────────────
   "party.title": "Party",
