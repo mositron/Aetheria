@@ -2,10 +2,12 @@ import { useEffect, useRef, useState } from "react";
 import type { Room } from "colyseus.js";
 import { MONSTERS, MAPS, biomeAt, type Player, type WorldState, type MapId } from "@game/shared";
 import { useStore } from "../store";
+import { useT } from "../locales/useT";
 import { AutoPotionPoller, useAutoPotionDialog, loadAutoPotion } from "./AutoPotion";
 
 /** Virtual joystick + radial action buttons. Works for touch AND mouse. */
 export function TouchControls({ room }: { room: Room<WorldState> }) {
+  const t = useT();
   const [isTouch, setIsTouch] = useState(false);
 
   useEffect(() => {
@@ -321,16 +323,16 @@ function ActionButtons({ room }: { room: Room<WorldState> }) {
           onClick={() => useStore.setState({ botMode: !useStore.getState().botMode })}
         />
         <ActionBtn
-          label={me?.flying ? "🪂" : "🪽"} name={me?.flying ? "ลง" : "บิน"}
-          hint={me?.flying ? "ลงพื้น" : "บิน"}
+          label={me?.flying ? "🪂" : "🪽"} name={me?.flying ? t('touch.flyLand') : t('touch.fly')}
+          hint={me?.flying ? t('touch.flyLandHint') : t('touch.flyHint')}
           size="sm" variant={me?.flying ? "bot-on" : undefined}
           onClick={() => room.send("toggleFly", {})}
         />
-        <ActionBtn label="🤚" name="เก็บ" hint="หยิบ" size="sm" onClick={() => send("pickup")} />
+        <ActionBtn label="🤚" name={t('touch.pickup')} hint={t('touch.pickupHint')} size="sm" onClick={() => send("pickup")} />
         <ActionBtn
           label={loadAutoPotion().enabled ? "🧪" : "🚫"}
           name="auto-pot"
-          hint="ตั้งค่ากินยาอัตโนมัติ"
+          hint={t('touch.autoPotionHint')}
           size="sm"
           variant={loadAutoPotion().enabled ? "bot-on" : undefined}
           onClick={potionDialog.open}
@@ -338,22 +340,22 @@ function ActionButtons({ room }: { room: Room<WorldState> }) {
         {potionDialog.render}
         {me?.petKind && (
           <ActionBtn
-            label={me.mounted ? "🚶" : "🐎"} name={me.mounted ? "ลง" : "ขี่"}
-            hint={me.mounted ? "ลงจากสัตว์" : "ขึ้นขี่"}
+            label={me.mounted ? "🚶" : "🐎"} name={me.mounted ? t('touch.dismount') : t('touch.mount')}
+            hint={me.mounted ? t('touch.dismountHint') : t('touch.mountHint')}
             size="sm" variant={me.mounted ? "bot-on" : undefined}
             onClick={() => room.send("mount", {})}
           />
         )}
         {nearAnimalId && (
           <ActionBtn
-            label="🌾" name="ป้อน" hint="ให้อาหาร"
+            label="🌾" name={t('touch.feed')} hint={t('touch.feedHint')}
             size="sm" variant="bot-on"
             onClick={() => room.send("feedAnimal", { monsterId: nearAnimalId })}
           />
         )}
         {biomeSpellIcon && targetId && (
           <ActionBtn
-            label={biomeSpellIcon} name="เวท" hint="Biome spell (12 MP)"
+            label={biomeSpellIcon} name={t('touch.biomeSpell')} hint={t('touch.biomeSpellHint')}
             size="sm" variant="bot-on"
             onClick={() => room.send("biomeSpell", { targetId })}
           />
@@ -362,7 +364,7 @@ function ActionButtons({ room }: { room: Room<WorldState> }) {
 
       {/* ── Attack: shifted up-left from corner so thumb can reach comfortably ── */}
       <div className="absolute select-none touch-none" style={{ bottom: "2.5rem", right: "2.5rem" }} data-no-screen-joy>
-        <ActionBtn label="⚔" name="โจมตี" hint="โจมตี (เลือก mob ใกล้สุดอัตโนมัติ)" size="lg" primary onClick={() => send("attack")} />
+        <ActionBtn label="⚔" name={t('touch.attack')} hint={t('touch.attackHint')} size="lg" primary onClick={() => send("attack")} />
       </div>
     </>
   );

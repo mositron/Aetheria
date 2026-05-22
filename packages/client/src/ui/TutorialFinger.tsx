@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import type { Room } from "colyseus.js";
 import type { WorldState } from "@game/shared";
 import { useStore } from "../store";
+import { useT } from "../locales/useT";
 
 type Step = {
   id: string;
@@ -16,13 +17,13 @@ type Step = {
 const STEPS: Step[] = [
   {
     id: "minimap",
-    text: "นี่คือแผนที่ — แตะที่ใดก็ปักหมุดได้",
+    text: "tutorial.minimap",
     targetSelector: "canvas[width='130']",
     position: "left",
   },
   {
     id: "attack",
-    text: "แตะปุ่มดาบเพื่อโจมตี — เลือกศัตรูใกล้สุดให้อัตโนมัติ!",
+    text: "tutorial.attack",
     targetSelector: "[title^='โจมตี']",
     position: "top",
     done: (room) => {
@@ -35,25 +36,26 @@ const STEPS: Step[] = [
   },
   {
     id: "inventory",
-    text: "ของในกระเป๋าอยู่ตรงนี้ — แตะของเพื่อใช้/สวม",
+    text: "tutorial.inventory",
     targetSelector: "[title='Inventory (I)']",
     position: "left",
   },
   {
     id: "craft",
-    text: "Craft ของได้ที่นี่ — ทำดาบ ชุด อาหาร และอื่นๆ",
+    text: "tutorial.craft",
     targetSelector: "[title='Crafting (K)']",
     position: "left",
   },
   {
     id: "menu",
-    text: "ปุ่ม 🎯 ดูเหรียญตรา · 🎭 ส่ง Emote · 📸 ถ่ายภาพ",
+    text: "tutorial.menu",
     targetSelector: "[title^='Achievements']",
     position: "left",
   },
 ];
 
 export function TutorialFinger({ room }: { room: Room<WorldState> }) {
+  const t = useT();
   const dismissed = useStore((s) => s.dismissedHints);
   const dismissHint = useStore((s) => s.dismissHint);
   const [step, setStep] = useState(0);
@@ -163,7 +165,7 @@ export function TutorialFinger({ room }: { room: Room<WorldState> }) {
         >
           <div className="flex items-start gap-2">
             <span className="text-lg leading-none">🎓</span>
-            <span className="flex-1 leading-snug">{s.text}</span>
+            <span className="flex-1 leading-snug">{t(s.text)}</span>
           </div>
           <div className="flex gap-2 mt-2 justify-end">
             <button
@@ -173,7 +175,7 @@ export function TutorialFinger({ room }: { room: Room<WorldState> }) {
             <button
               onClick={next}
               className="text-[11px] px-2.5 py-0.5 rounded-full bg-gradient-to-b from-rose-400 to-pink-600 text-white font-bold"
-            >ต่อไป →</button>
+            >{t('common.next')} →</button>
           </div>
           <div className="text-[9px] text-amber-700/70 mt-1">{step + 1}/{STEPS.length}</div>
         </div>

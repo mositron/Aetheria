@@ -225,6 +225,9 @@ export const en = {
   "craft.legendary": "Legendary",
   "craft.needsLevel": "Requires level {level}",
   "craft.needsBench": "Needs: {bench}",
+  "craft.bench": "Bench",
+  "craft.craftBtnText": "Craft",
+  "craft.notEnoughMaterialsText": "Missing materials",
 
   // ── NPC Dialog ───────────────────────────────────────────────
   "npc.buy": "Buy",
@@ -337,7 +340,7 @@ export const en = {
   "party.create": "Create Party",
   "party.join": "Join Party",
 
-  // ── Achievements ─────────────────────────────────────────────
+// ── Achievements ─────────────────────────────────────────────
   "ach.title": "Achievements",
   "ach.unlocked": "Achievement Unlocked!",
   "ach.locked": "Not unlocked yet",
@@ -349,6 +352,13 @@ export const en = {
   "ach.confirmChangeTitle": "Change your title to \"{title}\"?",
   "ach.confirmClearTitle": "Clear your current title?",
   "ach.change": "Change",
+
+  // ── Daily Reward ─────────────────────────────────────────────
+  "daily.title": "Daily Login",
+  "daily.todayGift": "Today's Gift!",
+  "daily.streakDays": "{streak} days",
+  "daily.reward": "Reward",
+  "daily.claim": "Claim!",
 
   // ── Auction House ────────────────────────────────────────────
   "auction.title": "Auction House",
@@ -871,6 +881,71 @@ export const en = {
 
   // ── Level Up Celebration ──────────────────────────────────
   "levelup.improved": "Improved!",
+
+  // ── Hint System ──────────────────────────────────────────
+  "hint.meetTutor": "ยินดีต้อนรับสู่ Aetheria! ไปคุยกับ Sera เพื่อเรียนรู้พื้นฐาน",
+  "hint.seraGuide": "Sera ผู้นำทาง",
+  "hint.drinkWater": "กระหายน้ำแล้ว! ไปดื่มน้ำที่ทะเลสาบ",
+  "hint.lake": "ทะเลสาบ",
+  "hint.findFood": "หิวแล้ว! หาเบอร์รี่/เนื้อจากพุ่ม/สัตว์ หรือไปซื้อที่ร้าน",
+  "hint.chopTree": "ลองตัดต้นไม้รอบหมู่บ้าน → จะได้ไม้สำหรับ craft",
+  "hint.mineRock": "ทุบหินสีเทาเพื่อให้ได้ก้อนหิน",
+  "hint.craftAxe": "Craft ขวานไม้ (กดปุ่ม 🔨) → ตัดต้นไม้เร็วขึ้น 3 เท่า",
+  "hint.craftPickaxe": "Craft อีเหล็ก → ทุบหิน/แร่เร็วขึ้น 3 เท่า",
+  "hint.buildHouse": "พร้อมสร้างบ้านแล้ว! → ไปหา Bren ช่างไม้",
+  "hint.brenCarpenter": "Bren ช่างไม้",
+  "hint.houseWood": "อยากมีบ้านไหม? ต้องการไม้อีก {wood} ท่อน (ตัดต้นไม้)",
+  "hint.houseStone": "อยากมีบ้านไหม? ต้องการหินอีก {stone} ก้อน (ทุบหิน)",
+  "hint.tryFishing": "เคยลองตกปลาไหม? ไปทะเลสาบ → ปุ่ม 🎣",
+  "hint.lakeFishing": "ทะเลสาบ (ตกปลา)",
+  "hint.plantSeed": "แตะ 🌱 ในช่องของ → ปลูกเบอร์รี่ของตัวเอง รอ 3 นาที",
+  "hint.tamePet": "หาไก่/หมู/วัว → ป้อนเบอร์รี่ → จับเป็นสัตว์เลี้ยง → ขี่ได้!",
+  "hint.farmSW": "ฟาร์มสัตว์ (ทุ่ง SW)",
+  "hint.goDungeon": "เลเวลถึงแล้ว! ลองท้าทาย Dungeon ที่ปากถ้ำมุม NE",
+  "hint.dungeonEntrance": "ปากถ้ำ Dungeon",
+  "hint.explore": "สำรวจ biome ต่างๆ — ป่า, ภูเขา, ทะเลสาบ, บึง! แตะ minimap ปักหมุด",
+  "hint.seeHints": "ดูคำใบ้",
+  "hint.collapse": "ย่อ",
+  "hint.dismiss": "ไม่เอาแล้ว",
+  "hint.takeMe": "พาฉันไป",
+
+  // ── Interaction Prompt ─────────────────────────────────────
+  "prompt.waitingFish": "รอปลากัดเบ็ด...",
+  "prompt.cancel": "ยกเลิก",
+  "prompt.caughtFish": "ตกได้แล้ว!",
+  "prompt.cleanWater": "น้ำใสสะอาด",
+  "prompt.drink": "ดื่ม",
+  "prompt.fish": "ตกปลา",
+
+  // ── Minimap ────────────────────────────────────────────────
+  "minimap.pinLocation": "ปักหมุด",
+  "minimap.cancelRoute": "ยกเลิกเส้นทาง",
+
+  // ── Touch Controls ──────────────────────────────────────────
+  "touch.fly": "Fly",
+  "touch.flyLand": "Land",
+  "touch.flyHint": "Fly",
+  "touch.flyLandHint": "Land",
+  "touch.pickup": "Pickup",
+  "touch.pickupHint": "Pick up",
+  "touch.autoPotionHint": "Configure auto-potion",
+  "touch.mount": "Mount",
+  "touch.dismount": "Dismount",
+  "touch.mountHint": "Mount",
+  "touch.dismountHint": "Dismount",
+  "touch.feed": "Feed",
+  "touch.feedHint": "Feed",
+  "touch.biomeSpell": "Magic",
+  "touch.biomeSpellHint": "Biome spell (12 MP)",
+  "touch.attack": "Attack",
+  "touch.attackHint": "Attack (auto-targets nearest mob)",
+
+  // ── Tutorial Finger ─────────────────────────────────────────
+  "tutorial.minimap": "This is the map — tap anywhere to pin a location",
+  "tutorial.attack": "Tap the sword button to attack — auto-targets nearest enemy!",
+  "tutorial.inventory": "Your items are here — tap to use/equip",
+  "tutorial.craft": "Craft items here — make swords, armor, food and more",
+  "tutorial.menu": "🎯 Achievements · 🎭 Emotes · 📸 Photo Mode",
 
 } as const;
 export type LocaleKey = keyof typeof en;
