@@ -3,7 +3,7 @@
 > **Single source of truth สำหรับงานที่เหลือ.** อ่านไฟล์นี้ก่อนเริ่ม session ใหม่
 > เพื่อให้รู้ว่าสถานะอะไร, อยู่ที่ไหน, ทำอะไรต่อ.
 
-Last updated: 2026-05-21 (commit `HEAD`)
+Last updated: 2026-05-22 (commit `adebb22`)
 Total commits to date: 50+
 
 ---
@@ -237,7 +237,7 @@ cd packages/server && pnpm db:push    # quick dev sync
 **PARTIAL 2026-05-21.** Infrastructure created: `locales/th.ts`, `locales/en.ts`, `useT()` hook, `lang` in Zustand store, language toggle in Settings. Pattern established — future strings go into locale files. Full string extraction from existing components is P3 work.
 
 ### 19. prefers-color-scheme
-Optional. Game is dark by design; UI panels could honor light mode.
+**DONE 2026-05-22.** `@media (prefers-color-scheme: light)` overrides in `index.css`. Neon cyan/violet accents preserved. All text contrast ≥ 4.5:1.
 
 ---
 
@@ -271,7 +271,15 @@ Optional. Game is dark by design; UI panels could honor light mode.
 **DONE 2026-05-22.** getCurrentSeason() in WorldRoom (Songkran Apr 13-15, Loy Krathong Nov 20-25, Halloween Oct 31, Christmas Dec 24-26). SeasonalEffects.tsx with Snowfall, ParticleSplash, LanternFloat, FloatingSkulls. 6 seasonal items (songkran_water, xmas_ornament, candy_cane, pumpkin_lantern, halloween_candy, krathong).
 
 ### 29. Server-hosted world system
-**WORLD_HOSTED_PLAN.md integration** — player-created worlds with invite:
+**DONE 2026-05-22.** Player-created worlds with invite codes, Co-op/PvP/Adventure modes:
+- Prisma `World` model + `roomId` field for Colyseus room binding
+- `WorldRoom` accepts `worldId/worldName/worldMode/worldTemplate/maxPlayers` options
+- `maxClients` cap + onJoin full-check enforced
+- `handleAttack` blocks PvP when `worldMode !== 'pvp'`
+- `WorldManager` tracks invite codes + `setRoomId()`
+- Colyseus room instantiated lazily on first join via `joinOrCreate("world", { worldId })`
+- `WorldState` exposes world metadata to clients
+- HUD: world info badge (name, mode badge, player count)
 - **World creation UI:** template (forest/desert/mountain/island) + mode (co-op/PvP/exploration) + privacy (public/friends/private)
 - **Room manager:** server creates room session + world metadata + `join code`/`invite link`
 - **Modes:** co-op (shared quests), PvP (team deathmatch/free-for-all), battle royale, exploration
@@ -303,8 +311,14 @@ Upgrade path: Ready Player Me + Mixamo → `GLTFHero.tsx` + `GLTFLoader` + `useA
 Until models provided, procedural capsule/box via CharacterModel.tsx.
 ✅ DONE commit `b60ec07`
 
-### 30. Sprite sheet / 2D mode
-Alternative top-down Ragnarok feel. Optional.
+### 30. Sprite sheet / 2D top-down mode
+**DONE 2026-05-22.** Toggle between 3D and 2D top-down view with `V` key or HUD button.
+- `SpriteRenderer.tsx`: procedural 4-dir humanoid + monster sprites with walk animation
+- `Sprite2DContext.tsx`: React context + `useSprite2D` hook
+- `Sprite2DRenderer.tsx`: Canvas RAF loop, biome tiles, player-centered camera, minimap overlay
+- `ViewModeToggle.tsx`: HUD toggle button + `V` shortcut
+- `store.ts`: `viewMode: '3d' | '2d'` + `toggleViewMode`
+- `Game.tsx`: conditional render `<Scene>` (R3F) / `<Sprite2DRenderer>` (Canvas 2D)
 
 ### 31. Background music
 Procedural Web Audio API — `MusicController` class + `useMusic` hook.
@@ -399,8 +413,7 @@ Client: `PasswordStrength` component (red/orange/yellow/green bars, 0-3 score).
 Out of scope MVP. Note for future.
 
 ### 46. Account recovery
-Currently lost password = lost character. Need email recovery (needs SMTP)
-or security question fallback.
+**DONE 2026-05-22.** Security questions fallback — 2 Q&A pairs stored on User (bcrypt hashed). `POST /api/auth/recovery/verify` → 15-min JWT recovery token. `POST /api/auth/recovery/reset-password` → new password. `AccountRecovery.tsx` 3-step flow. `recovery.test.ts` coverage.
 
 ### 47. Audit log table
 Prisma `AuditLog` model (id, action, userId, characterId, targetId, metadata, ip).
@@ -431,6 +444,7 @@ All handlers wrapped: drops bad payloads instead of crashing.
 ## 📜 Recent commit log (for context-resume)
 
 ```
+adebb22 feat: P2.19 light mode, P6.46 account recovery, P3.29 server-hosted worlds, P3.30 2D sprite view
 f4db7cc feat(P6.47): audit log table + Zod schema validation
 de2a081 docs: update BACKLOG.md P4 items DONE (Sentry, music, refresh, password, backup, ESLint, GLTF)
 b60ec07 feat(P4.29): GLTFHero.tsx loader stub
