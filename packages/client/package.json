@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@game/shared": "workspace:*",
+    "@sentry/react": "^8.0.0",
     "@react-three/drei": "^9.117.3",
     "@react-three/fiber": "^8.17.10",
     "colyseus.js": "^0.16.0",

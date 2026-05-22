@@ -34,7 +34,11 @@ type S = {
   waypoint: Waypoint | null;
   dismissedHints: string[];
   lang: "th" | "en";
+  musicEnabled: boolean;
+  musicVolume: number;
   setLang: (lang: "th" | "en") => void;
+  setMusicEnabled: (v: boolean) => void;
+  setMusicVolume: (v: number) => void;
   setWaypoint: (wp: Waypoint | null) => void;
   dismissHint: (id: string) => void;
   setAuth: (token: string, username: string, characters: CharacterSummary[]) => void;
@@ -72,8 +76,18 @@ export const useStore = create<S>((set, get) => ({
     try { return JSON.parse(localStorage.getItem("dismissedHints") || "[]"); }
     catch { return []; }
   })(),
-  lang: "th",
-  setLang: (lang) => set({ lang }),
+  lang: "th" as "th" | "en",
+  musicEnabled: localStorage.getItem("musicEnabled") !== "false",
+  musicVolume: parseFloat(localStorage.getItem("musicVolume") ?? "0.4"),
+  setLang: (lang: "th" | "en") => set({ lang }),
+  setMusicEnabled: (v: boolean) => {
+    try { localStorage.setItem("musicEnabled", String(v)); } catch {}
+    set({ musicEnabled: v });
+  },
+  setMusicVolume: (v: number) => {
+    try { localStorage.setItem("musicVolume", String(v)); } catch {}
+    set({ musicVolume: v });
+  },
   setWaypoint: (wp) => {
     if (typeof window !== "undefined") {
       window.dispatchEvent(new Event("waypoint-changed"));

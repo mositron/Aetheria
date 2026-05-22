@@ -22,6 +22,7 @@
     "@colyseus/ws-transport": "^0.16.5",
     "@game/shared": "workspace:*",
     "@prisma/client": "5.22.0",
+    "@sentry/node": "^8.0.0",
     "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",

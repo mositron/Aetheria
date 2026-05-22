@@ -4,6 +4,41 @@ import { useStore } from "../store";
 import { MenuScene } from "./MenuScene";
 import { GameFrame } from "./GameFrame";
 
+/** Compute strength 0-3 from password string. */
+function passwordStrength(password: string): number {
+  if (password.length === 0) return 0;
+  let score = 0;
+  if (password.length >= 8) score++;
+  if (/[A-Z]/.test(password)) score++;
+  if (/[a-z]/.test(password)) score++;
+  if (/[0-9]/.test(password)) score++;
+  return Math.min(3, score);
+}
+
+function PasswordStrength({ password }: { password: string }) {
+  const score = passwordStrength(password);
+  const colors = ["bg-rose-500", "bg-orange-500", "bg-yellow-400", "bg-green-500"];
+  const labels = ["", "Weak", "Fair", "Strong"];
+  if (!password) return null;
+  return (
+    <div className="mt-1">
+      <div className="flex gap-1">
+        {[0, 1, 2].map((i) => (
+          <div
+            key={i}
+            className={`h-1 flex-1 rounded transition-colors ${
+              i < score ? colors[score] : "bg-slate-700"
+            }`}
+          />
+        ))}
+      </div>
+      <div className={`text-xs mt-0.5 ${score <= 1 ? "text-rose-400" : score === 2 ? "text-orange-400" : "text-green-400"}`}>
+        {labels[score]}
+      </div>
+    </div>
+  );
+}
+
 export function Login() {
   const setAuth = useStore((s) => s.setAuth);
   // Pre-fill from saved credentials if "remember me" was previously checked.
@@ -95,9 +130,10 @@ export function Login() {
                 <div className="game-label">⛨ ชื่อผู้ใช้</div>
                 <input className="game-input" placeholder="username" value={username} onChange={(e) => setU(e.target.value)} />
               </div>
-              <div>
+<div>
                 <div className="game-label">⚿ รหัสผ่าน</div>
                 <input className="game-input" placeholder="••••••" type="password" value={password} onChange={(e) => setP(e.target.value)} />
+                {mode === "register" && <PasswordStrength password={password} />}
               </div>
               <label className="flex items-center gap-2 text-xs text-cyan-100 cursor-pointer select-none">
                 <input

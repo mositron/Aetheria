@@ -17,11 +17,54 @@ const SECRET = (() => {
   return "dev-only-insecure-fallback-DO-NOT-USE-IN-PROD";
 })();
 const TOKEN_TTL: any = process.env.JWT_TTL ?? "30d";
+const REFRESH_TTL_SECS = 60 * 60 * 24 * 90; // 90 days
 const MAX_CHARACTERS_PER_USER = 3;
 // Dummy bcrypt hash to equalize login timing for non-existent users (prevent username enumeration)
 const DUMMY_HASH = "$2a$10$abcdefghijklmnopqrstuv1234567890abcdefghijklmnopqrstuv";
 
+// ── Redis presence ─────────────────────────────────────────────────────────
+async function getRedis() {
+  if (!process.env.REDIS_URL) return null;
+  try {
+    const { default: Redis } = await import("ioredis-mock");
+    return new Redis(process.env.REDIS_URL);
+  } catch { return null; }
+}
+
+// ── Refresh token helpers ───────────────────────────────────────────────────
+async function storeRefreshToken(uid: string, token: string): Promise<void> {
+  const redis = await getRedis();
+  if (!redis) return;
+  await redis.setex(`refresh:${uid}:${token}`, REFRESH_TTL_SECS, "1");
+}
+
+async function revokeRefreshToken(uid: string, token: string): Promise<void> {
+  const redis = await getRedis();
+  if (!redis) return;
+  await redis.del(`refresh:${uid}:${token}`);
+}
+
+async function revokeAllRefreshTokens(uid: string): Promise<void> {
+  const redis = await getRedis();
+  if (!redis) return;
+  const keys = await redis.keys(`refresh:${uid}:*`);
+  if (keys.length) await redis.del(...keys);
+}
+
+function generateRefreshToken(): string {
+  return Array.from({ length: 32 }, () => Math.floor(Math.random() * 16).toString(16)).join("");
+}
+
 export const authRouter = Router();
+
+/** Returns null if valid, or an error message string. */
+export function validatePassword(password: string): string | null {
+  if (password.length < 8) return "Password must be at least 8 characters";
+  if (!/[A-Z]/.test(password)) return "Password must contain an uppercase letter";
+  if (!/[a-z]/.test(password)) return "Password must contain a lowercase letter";
+  if (!/[0-9]/.test(password)) return "Password must contain a digit";
+  return null;
+}
 
 function summarizeCharacter(c: any) {
   return {
@@ -37,9 +80,11 @@ function summarizeCharacter(c: any) {
 
 authRouter.post("/register", async (req, res) => {
   const { username, password } = req.body ?? {};
-  if (typeof username !== "string" || typeof password !== "string" || username.length < 3 || password.length < 4) {
+  if (typeof username !== "string" || typeof password !== "string" || username.length < 3) {
     return res.status(400).json({ error: "invalid username/password" });
   }
+  const passwordError = validatePassword(password);
+  if (passwordError) return res.status(400).json({ error: passwordError });
   const exists = await prisma.user.findUnique({ where: { username } });
   if (exists) return res.status(409).json({ error: "username taken" });
 
@@ -69,7 +114,9 @@ authRouter.post("/login", async (req, res) => {
   }
   logger.info("auth.login.ok", { uid: user.id });
   const token = jwt.sign({ uid: user.id, username }, SECRET, { expiresIn: TOKEN_TTL });
-  res.json({ token, username, characters: user.characters.map(summarizeCharacter) });
+  const refreshToken = generateRefreshToken();
+  await storeRefreshToken(user.id, refreshToken);
+  res.json({ token, refreshToken, username, characters: user.characters.map(summarizeCharacter) });
 });
 
 function authMiddleware(req: any, res: any, next: any) {
@@ -81,6 +128,30 @@ function authMiddleware(req: any, res: any, next: any) {
   req.user = payload;
   next();
 }
+
+authRouter.post("/refresh", async (req, res) => {
+  const { uid, refreshToken } = req.body ?? {};
+  if (typeof uid !== "string" || typeof refreshToken !== "string") {
+    return res.status(400).json({ error: "invalid body" });
+  }
+  const redis = await getRedis();
+  if (redis) {
+    const exists = await redis.get(`refresh:${uid}:${refreshToken}`);
+    if (!exists) return res.status(401).json({ error: "token revoked or expired" });
+  }
+  const newAccess = jwt.sign({ uid, username: "" }, SECRET, { expiresIn: TOKEN_TTL });
+  const newRefresh = generateRefreshToken();
+  await storeRefreshToken(uid, newRefresh);
+  res.json({ token: newAccess, refreshToken: newRefresh });
+});
+
+authRouter.post("/logout", async (req, res) => {
+  const { uid, refreshToken } = req.body ?? {};
+  if (typeof uid === "string" && typeof refreshToken === "string") {
+    await revokeRefreshToken(uid, refreshToken);
+  }
+  res.json({ ok: true });
+});
 
 authRouter.get("/characters", authMiddleware, async (req: any, res) => {
   const chars = await prisma.character.findMany({

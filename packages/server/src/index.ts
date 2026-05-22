@@ -11,6 +11,16 @@ import { logger } from "./logger.js";
 import { getTop } from "./leaderboard.js";
 import { WorldManager } from "./services/WorldManager.js";
 import { WorldRoom } from "./rooms/WorldRoom.js";
+import * as Sentry from "@sentry/node";
+
+// ── Sentry (gated on SENTRY_DSN) ─────────────────────────────────────────────
+if (process.env.SENTRY_DSN) {
+  Sentry.init({
+    dsn: process.env.SENTRY_DSN,
+    tracesSampleRate: 0.1,
+  });
+  logger.info("sentry.enabled");
+}
 
 // ── App + HTTP ─────────────────────────────────────────────────────────────
 const app = express();
@@ -167,8 +177,28 @@ async function shutdown(signal: string) {
 }
 process.on("SIGTERM", () => shutdown("SIGTERM"));
 process.on("SIGINT", () => shutdown("SIGINT"));
-process.on("unhandledRejection", (reason) => logger.error("unhandledRejection", { reason: String(reason) }));
-process.on("uncaughtException", (err) => logger.error("uncaughtException", { err: err?.message, stack: err?.stack }));
+process.on("unhandledRejection", (reason) => {
+  logger.error("unhandledRejection", { reason: String(reason) });
+  if (process.env.SENTRY_DSN) {
+    Sentry.captureException(reason, (scope) => {
+      scope.setLevel("error");
+      return scope;
+    });
+  }
+});
+process.on("uncaughtException", (err) => {
+  logger.error("uncaughtException", { err: err?.message, stack: err?.stack });
+  if (process.env.SENTRY_DSN) {
+    Sentry.captureException(err, (scope) => {
+      scope.setLevel("error");
+      // Attach user context if available (via x-user-id header tracked at startup)
+      if ((global as any).__sentryUser) {
+        scope.setUser((global as any).__sentryUser);
+      }
+      return scope;
+    });
+  }
+});
 
 const PORT = Number(process.env.PORT) || 2567;
 gameServer.listen(PORT).then(() => {

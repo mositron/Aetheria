@@ -1,7 +1,18 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
+import * as Sentry from "@sentry/react";
 import "./index.css";
 import { App } from "./App";
+
+// ── Sentry (gated on SENTRY_DSN) ─────────────────────────────────────────────
+if (import.meta.env.VITE_SENTRY_DSN) {
+  Sentry.init({
+    dsn: import.meta.env.VITE_SENTRY_DSN,
+    tracesSampleRate: 0.1,
+    replaysSessionSampleRate: 0.1,
+    replaysOnErrorSampleRate: 1.0,
+  });
+}
 
 // Block Chrome's right-click menu everywhere in the app so right-click can
 // be used for camera orbit / game actions. Allows it only inside <input> /

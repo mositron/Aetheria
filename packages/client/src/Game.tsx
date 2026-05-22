@@ -43,6 +43,8 @@ import { WaypointsPanel } from "./ui/WaypointsPanel";
 import { useSettings } from "./ui/SettingsPanel";
 import { DayNight } from "./scene/DayNight";
 import { useSfx } from "./hooks/useSfx";
+import { useMusic } from "./hooks/useMusic";
+import * as Sentry from "@sentry/react";
 
 // Heavy / rarely-opened panels — lazy-loaded so they don't bloat initial bundle.
 const CraftingPanel = lazy(() => import("./ui/CraftingPanel").then((m) => ({ default: m.CraftingPanel })));
@@ -65,6 +67,7 @@ const SERVER_WS = `ws://${location.hostname}:2567`;
 export function Game() {
   const { token, characterId, setRoom, pushChat, logout, exitToSelect } = useStore();
   useSfx();
+  useMusic();
   const [room, setLocalRoom] = useState<Room<WorldState> | null>(null);
   const [ready, setReady] = useState(false);
   const [mapId, setMapId] = useState<MapId>("field");
@@ -192,7 +195,9 @@ return (
         ) : (
           <DayNight mapId={mapId} />
         )}
-        <Scene room={room} />
+        <Sentry.ErrorBoundary fallback={<div className="text-white p-4">เกิดข้อผิดพลาด กรุณารีเฟรชหน้า</div>}>
+          <Scene room={room} />
+        </Sentry.ErrorBoundary>
       </Canvas>
       <HUD room={room} />
       <MenuBar />
