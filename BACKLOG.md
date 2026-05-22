@@ -145,12 +145,12 @@ cd packages/server && pnpm db:push    # quick dev sync
 **DONE 2026-05-21.** `.github/workflows/ci.yml` — pnpm install + cache, build all packages, vitest run, typecheck.
 
 ### C. CORS + helmet + rate limit on HTTP routes
-**Scope:** 1 PR.
-**TODO:**
-- Verify CORS_ORIGINS env documented + tested in prod
-- Helmet.js middleware (CSP, HSTS, X-Frame-Options)
-- express-rate-limit on `/auth/register` + `/auth/login`
-- HTTPS enforcement middleware (refuse non-https in prod)
+**DONE 2026-05-22.** `packages/server/src/index.ts`:
+- `cors()` whitelist: `localhost:5173`, `localhost:4173`, `127.0.0.1:5173`, `127.0.0.1:4173`
+- `helmet()` CSP/HSTS/X-Frame enabled
+- Global rate-limit: 200 req/15s (all routes)
+- Auth rate-limit: 10 req/60s on `/api/auth/login` + `/api/auth/register`
+- HTTPS redirect middleware (production only, respects `x-forwarded-proto`)
 
 ### D. Server-side anti-cheat: movement bounds
 **DONE 2026-05-20.**

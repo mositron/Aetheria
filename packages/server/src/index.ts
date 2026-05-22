@@ -26,8 +26,31 @@ const httpServer = http.createServer(app);
 const worldManager = new WorldManager();
 
 // ── Rate limiting ───────────────────────────────────────────────────────────
-const limiter = rateLimit({ windowMs: 15_000, max: 200, standardHeaders: true, legacyHeaders: false });
-app.use(limiter);
+const globalLimiter = rateLimit({ windowMs: 15_000, max: 200, standardHeaders: true, legacyHeaders: false });
+app.use(globalLimiter);
+
+// Strict rate limit on auth routes (prevent credential stuffing)
+const authLimiter = rateLimit({
+  windowMs: 60_000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many attempts, please try again later." },
+});
+app.use("/api/auth/login", authLimiter);
+app.use("/api/auth/register", authLimiter);
+
+// ── HTTPS enforcement (production) ────────────────────────────────────────
+if (process.env.NODE_ENV === "production") {
+  app.use((req, res, next) => {
+    const proto = (req.headers["x-forwarded-proto"] as string) ?? req.protocol;
+    if (proto !== "https") {
+      return res.redirect(301, `https://${req.hostname}${req.url}`);
+    }
+    next();
+  });
+}
+
 app.use("/api/auth", authRouter);
 
 // GET /api/worlds — list public worlds
