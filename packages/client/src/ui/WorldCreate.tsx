@@ -3,34 +3,33 @@
  */
 import { useState } from "react";
 import { GameFrame } from "./GameFrame";
+import { useT } from "../hooks/useT";
 
 interface Props {
   onCreated: (worldId: string, inviteCode: string) => void;
   onClose: () => void;
 }
 
-const TEMPLATES = [
-  { id: "forest", label: "🌲 ป่าสงบ", desc: "ป่าเขามืด ทรัพยากรมากมาย เหมาะสำหรับมือใหม่", color: "emerald" },
-  { id: "desert", label: "🏜️ ทะเลทราย", desc: "ลมร้อน น้ำหายาก ความท้าทายสูงสุด", color: "amber" },
-  { id: "mountain", label: "⛰️ ภูเขาสูง", desc: "ยอดเขาแหลม ไอหนาวเย็น ขุมทรัพย์ลึกลับ", color: "slate" },
-  { id: "island", label: "🏝️ เกาะลึก", desc: "เกาะลอยน้ำ แยกจากแผ่นดิน ปลอดภัยกว่า", color: "cyan" },
-] as const;
-
-const MODES = [
-  { id: "adventure", label: "ผจญภัย", icon: "🗺️" },
-  { id: "co-op", label: "ร่วมมือ", icon: "🤝" },
-  { id: "pvp", label: "PvP", icon: "⚔️" },
-] as const;
-
-const PRIVACY = [
-  { id: "private", label: "เฉพาะเพื่อน", desc: "รหัสเชิญเท่านั้น" },
-  { id: "friends", label: "เฉพาะเพื่อน", desc: "เฉพาะเพื่อนที่เพิ่มแล้ว" },
-  { id: "public", label: "สาธารณะ", desc: "ทุกคนเห็นและเข้าร่วมได้" },
-] as const;
-
+const TEMPLATE_IDS = ["forest", "desert", "mountain", "island"] as const;
+const MODE_IDS = ["adventure", "co-op", "pvp"] as const;
+const PRIVACY_IDS = ["private", "friends", "public"] as const;
 const MAX_PLAYERS_OPTIONS = [4, 8, 16, 32];
 
+const TEMPLATE_COLORS: Record<string, string> = {
+  forest: "emerald",
+  desert: "amber",
+  mountain: "slate",
+  island: "cyan",
+};
+
+const MODE_ICONS: Record<string, string> = {
+  adventure: "🗺️",
+  "co-op": "🤝",
+  pvp: "⚔️",
+};
+
 export function WorldCreate({ onCreated, onClose }: Props) {
+  const t = useT();
   const [name, setName] = useState("");
   const [template, setTemplate] = useState<string>("forest");
   const [mode, setMode] = useState<string>("adventure");
@@ -41,8 +40,8 @@ export function WorldCreate({ onCreated, onClose }: Props) {
 
   const submit = async () => {
     const trimmed = name.trim();
-    if (!trimmed) { setError("ใส่ชื่อโลกด้วย"); return; }
-    if (trimmed.length > 32) { setError("ชื่อโลกสั้นกว่า 32 ตัวอักษร"); return; }
+    if (!trimmed) { setError(t('worldCreate.error.nameRequired')); return; }
+    if (trimmed.length > 32) { setError(t('worldCreate.error.nameTooLong')); return; }
     setSubmitting(true);
     setError("");
     try {
@@ -52,10 +51,10 @@ export function WorldCreate({ onCreated, onClose }: Props) {
         body: JSON.stringify({ name: trimmed, template, mode, privacy, maxPlayers }),
       });
       const data = await res.json();
-      if (!res.ok) { setError(data.error ?? "เกิดข้อผิดพลาด"); return; }
+      if (!res.ok) { setError(data.error ?? t('confirm.error')); return; }
       onCreated(data.worldId, data.inviteCode);
     } catch {
-      setError("เชื่อมต่อ server ไม่ได้");
+      setError(t('worldCreate.error.serverConnection'));
     } finally {
       setSubmitting(false);
     }
@@ -80,7 +79,7 @@ export function WorldCreate({ onCreated, onClose }: Props) {
         onClick={(e) => e.stopPropagation()}
       >
         <GameFrame
-          title="🌍 สร้างโลกใหม่"
+          title={t('worldCreate.title')}
           className="flex flex-col gap-4"
           innerClassName="flex flex-col gap-4"
         >
@@ -93,12 +92,12 @@ export function WorldCreate({ onCreated, onClose }: Props) {
 
           {/* World name */}
           <div>
-            <label className="text-xs font-bold text-cyan-300 uppercase tracking-wider mb-1.5 block">ชื่อโลก</label>
+            <label className="text-xs font-bold text-cyan-300 uppercase tracking-wider mb-1.5 block">{t('worldCreate.worldName')}</label>
             <input
               value={name}
               onChange={(e) => setName(e.target.value)}
               maxLength={32}
-              placeholder="ชื่อโลกของคุณ..."
+              placeholder={t('worldCreate.worldNamePlaceholder')}
               className="w-full bg-slate-900/70 border border-slate-500 rounded-lg px-4 py-2.5 text-white placeholder-slate-600 focus:border-cyan-400 focus:outline-none"
               autoFocus
             />
@@ -106,16 +105,16 @@ export function WorldCreate({ onCreated, onClose }: Props) {
 
           {/* Template */}
           <div>
-            <label className="text-xs font-bold text-cyan-300 uppercase tracking-wider mb-2 block">ภูมิประเทศ</label>
+            <label className="text-xs font-bold text-cyan-300 uppercase tracking-wider mb-2 block">{t('worldCreate.terrain')}</label>
             <div className="grid grid-cols-2 gap-2">
-              {TEMPLATES.map((t) => (
+              {TEMPLATE_IDS.map((id) => (
                 <button
-                  key={t.id}
-                  onClick={() => setTemplate(t.id)}
-                  className={`border-2 rounded-lg p-3 text-left transition ${template === t.id ? `${colorMap[t.color]} ring-2 ring-offset-1 ring-offset-slate-900` : "border-slate-700 bg-slate-900/40 hover:border-slate-500"}`}
+                  key={id}
+                  onClick={() => setTemplate(id)}
+                  className={`border-2 rounded-lg p-3 text-left transition ${template === id ? `${colorMap[TEMPLATE_COLORS[id]]} ring-2 ring-offset-1 ring-offset-slate-900` : "border-slate-700 bg-slate-900/40 hover:border-slate-500"}`}
                 >
-                  <div className="text-sm font-bold text-white mb-0.5">{t.label}</div>
-                  <div className="text-[11px] text-slate-400">{t.desc}</div>
+                  <div className="text-sm font-bold text-white mb-0.5">{t(`worldCreate.terrain.${id}`)}</div>
+                  <div className="text-[11px] text-slate-400">{t(`worldCreate.terrain.${id}Desc`)}</div>
                 </button>
               ))}
             </div>
@@ -123,15 +122,15 @@ export function WorldCreate({ onCreated, onClose }: Props) {
 
           {/* Mode */}
           <div>
-            <label className="text-xs font-bold text-cyan-300 uppercase tracking-wider mb-2 block">โหมดเล่น</label>
+            <label className="text-xs font-bold text-cyan-300 uppercase tracking-wider mb-2 block">{t('worldCreate.mode')}</label>
             <div className="flex gap-2">
-              {MODES.map((m) => (
+              {MODE_IDS.map((id) => (
                 <button
-                  key={m.id}
-                  onClick={() => setMode(m.id)}
-                  className={`flex-1 border-2 rounded-lg py-2 text-center text-sm font-bold transition ${mode === m.id ? "border-cyan-500 bg-cyan-900/30 text-cyan-100" : "border-slate-700 bg-slate-900/40 text-slate-400 hover:border-slate-500"}`}
+                  key={id}
+                  onClick={() => setMode(id)}
+                  className={`flex-1 border-2 rounded-lg py-2 text-center text-sm font-bold transition ${mode === id ? "border-cyan-500 bg-cyan-900/30 text-cyan-100" : "border-slate-700 bg-slate-900/40 text-slate-400 hover:border-slate-500"}`}
                 >
-                  {m.icon} {m.label}
+                  {MODE_ICONS[id]} {t(`worldCreate.mode.${id}`)}
                 </button>
               ))}
             </div>
@@ -139,16 +138,16 @@ export function WorldCreate({ onCreated, onClose }: Props) {
 
           {/* Privacy */}
           <div>
-            <label className="text-xs font-bold text-cyan-300 uppercase tracking-wider mb-2 block">ความเป็นส่วนตัว</label>
+            <label className="text-xs font-bold text-cyan-300 uppercase tracking-wider mb-2 block">{t('worldCreate.privacy')}</label>
             <div className="flex gap-2">
-              {PRIVACY.map((p) => (
+              {PRIVACY_IDS.map((id) => (
                 <button
-                  key={p.id}
-                  onClick={() => setPrivacy(p.id)}
-                  className={`flex-1 border-2 rounded-lg py-2 text-center transition ${privacy === p.id ? "border-cyan-500 bg-cyan-900/30 text-cyan-100" : "border-slate-700 bg-slate-900/40 text-slate-400 hover:border-slate-500"}`}
+                  key={id}
+                  onClick={() => setPrivacy(id)}
+                  className={`flex-1 border-2 rounded-lg py-2 text-center transition ${privacy === id ? "border-cyan-500 bg-cyan-900/30 text-cyan-100" : "border-slate-700 bg-slate-900/40 text-slate-400 hover:border-slate-500"}`}
                 >
-                  <div className="text-xs font-bold">{p.label}</div>
-                  <div className="text-[10px] opacity-70">{p.desc}</div>
+                  <div className="text-xs font-bold">{t(`worldCreate.privacy.${id}`)}</div>
+                  <div className="text-[10px] opacity-70">{t(`worldCreate.privacy.${id}Desc`)}</div>
                 </button>
               ))}
             </div>
@@ -156,7 +155,7 @@ export function WorldCreate({ onCreated, onClose }: Props) {
 
           {/* Max players */}
           <div>
-            <label className="text-xs font-bold text-cyan-300 uppercase tracking-wider mb-2 block">จำนวนผู้เล่น</label>
+            <label className="text-xs font-bold text-cyan-300 uppercase tracking-wider mb-2 block">{t('worldCreate.playerCount')}</label>
             <div className="flex gap-2">
               {MAX_PLAYERS_OPTIONS.map((n) => (
                 <button
@@ -179,7 +178,7 @@ export function WorldCreate({ onCreated, onClose }: Props) {
             disabled={submitting}
             className="w-full py-3 rounded-xl font-bold text-base bg-gradient-to-b from-cyan-600 to-cyan-800 hover:from-cyan-500 hover:to-cyan-700 text-white border border-cyan-400/50 transition disabled:opacity-50"
           >
-            {submitting ? "กำลังสร้าง..." : "🌍 สร้างโลก"}
+            {submitting ? t('worldCreate.creating') : t('worldCreate.createWorld')}
           </button>
         </GameFrame>
       </div>

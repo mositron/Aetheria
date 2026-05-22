@@ -11,6 +11,7 @@
 import { useEffect, useState } from "react";
 import { GameFrame } from "./GameFrame";
 import { WorldCreate } from "./WorldCreate";
+import { useT } from "../hooks/useT";
 
 interface WorldMeta {
   id: string;
@@ -31,6 +32,7 @@ interface Props {
 }
 
 export function WorldLobby({ onJoin, onClose }: Props) {
+  const t = useT();
   const [tab, setTab] = useState<"browse" | "create">("browse");
   const [worlds, setWorlds] = useState<WorldMeta[]>([]);
   const [loading, setLoading] = useState(false);
@@ -62,10 +64,10 @@ export function WorldLobby({ onJoin, onClose }: Props) {
   };
 
   const templateLabel: Record<string, string> = {
-    forest: "🌲 ป่า",
-    desert: "🏜️ ทะเลทราย",
-    mountain: "⛰️ ภูเขา",
-    island: "🏝️ เกาะ",
+    forest: "🌲 " + t('world.template.forest'),
+    desert: "🏜️ " + t('world.template.desert'),
+    mountain: "⛰️ " + t('world.template.mountain'),
+    island: "🏝️ " + t('world.template.island'),
   };
 
   const statusBadge: Record<string, string> = {
@@ -82,7 +84,7 @@ export function WorldLobby({ onJoin, onClose }: Props) {
     >
       <div className="w-[52rem] max-w-[95vw] max-h-[88vh] flex flex-col">
         <GameFrame
-          title="🏠 โลกของฉัน"
+          title={t('worldLobby.title')}
           className="flex flex-col min-h-0 flex-1"
           innerClassName="flex flex-col flex-1 min-h-0"
         >
@@ -98,20 +100,20 @@ export function WorldLobby({ onJoin, onClose }: Props) {
               onClick={() => setTab("browse")}
               className={`px-4 py-1.5 rounded-full text-sm font-bold border-2 transition ${tab === "browse" ? "bg-cyan-600 border-cyan-400 text-white" : "bg-slate-900/50 border-slate-600 text-slate-300 hover:border-cyan-500"}`}
             >
-              สำรวจโลก
+              {t('worldLobby.explore')}
             </button>
             <button
               onClick={() => setShowCreate(true)}
               className="px-4 py-1.5 rounded-full text-sm font-bold border-2 transition border-amber-500 bg-amber-600/20 text-amber-300 hover:bg-amber-600/40"
             >
-              + สร้างโลกใหม่
+              + {t('worldLobby.createNew')}
             </button>
             <div className="ml-auto flex items-center gap-2">
               <input
                 value={codeInput}
                 onChange={(e) => setCodeInput(e.target.value.toUpperCase())}
                 onKeyDown={(e) => e.key === "Enter" && joinByCode()}
-                placeholder="รหัสเชิญ..."
+                placeholder={t('worldLobby.inviteCodePlaceholder')}
                 maxLength={8}
                 className="bg-slate-900/70 border border-slate-500 rounded px-3 py-1.5 text-sm text-cyan-100 placeholder-slate-500 font-mono w-32 focus:border-cyan-400 focus:outline-none"
               />
@@ -119,7 +121,7 @@ export function WorldLobby({ onJoin, onClose }: Props) {
                 onClick={joinByCode}
                 className="px-3 py-1.5 rounded text-sm font-bold bg-cyan-700 hover:bg-cyan-600 text-cyan-100 border border-cyan-500 transition"
               >
-                เข้าร่วม
+                {t('world.join')}
               </button>
             </div>
           </div>
@@ -127,11 +129,11 @@ export function WorldLobby({ onJoin, onClose }: Props) {
           {/* World grid */}
           <div className="flex-1 overflow-y-auto game-scroll pr-1">
             {loading && worlds.length === 0 && (
-              <div className="text-center py-12 text-slate-400">กำลังโหลด...</div>
+              <div className="text-center py-12 text-slate-400">{t('world.loading')}</div>
             )}
             {!loading && worlds.length === 0 && (
               <div className="text-center py-12 text-slate-500">
-                ยังไม่มีโลกสาธารณะ ลองสร้างโลกใหม่ดูสิ!
+                {t('world.noPublicWorlds')}
               </div>
             )}
             <div className="grid grid-cols-3 gap-3 pb-2">
@@ -147,14 +149,14 @@ export function WorldLobby({ onJoin, onClose }: Props) {
                       {w.status}
                     </span>
                   </div>
-                  <div className="text-sm font-bold text-white mb-0.5 truncate">{w.hostName} กำลังเล่นอยู่</div>
-                  <div className="text-xs text-slate-400 mb-2">{w.mode === "co-op" ? "ร่วมมือ" : w.mode === "pvp" ? "PvP" : "ผจญภัย"} · {w.template}</div>
+                  <div className="text-sm font-bold text-white mb-0.5 truncate">{w.hostName} {t('world.hostPlaying')}</div>
+                  <div className="text-xs text-slate-400 mb-2">{w.mode === "co-op" ? t('world.coop') : w.mode === "pvp" ? t('world.pvp') : t('world.adventure')} · {w.template}</div>
                   <div className="flex items-center justify-between">
-                    <span className="text-xs text-cyan-300">{w.playerCount}/{w.maxPlayers} ผู้เล่น</span>
+                    <span className="text-xs text-cyan-300">{w.playerCount}/{w.maxPlayers} {t('world.players')}</span>
                     <button
                       onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(w.inviteCode); }}
                       className="text-[10px] text-slate-500 hover:text-cyan-300 font-mono transition"
-                      title="คัดลอกรหัสเชิญ"
+                      title={t('worldLobby.copyInviteCode')}
                     >
                       {w.inviteCode}
                     </button>

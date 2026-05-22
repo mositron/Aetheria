@@ -4,8 +4,10 @@ import { QUESTS, type WorldState } from "@game/shared";
 import { useQuests } from "../hooks/useQuests";
 import { useDraggable } from "../hooks/useDraggable";
 import { keyEq } from "../utils/keyMatch";
+import { useT } from "../hooks/useT";
 
 export function QuestLog({ room }: { room: Room<WorldState> }) {
+  const t = useT();
   const quests = useQuests(room);
   const [open, setOpen] = useState(false);
   const drag = useDraggable("quest");
@@ -31,10 +33,10 @@ export function QuestLog({ room }: { room: Room<WorldState> }) {
     <div ref={drag.elRef} className="panel absolute right-2 top-44 w-48 text-[11px] space-y-0.5" style={drag.style}>
       <div className="panel-corners" />
       <div className="panel-title" {...drag.titleProps}>
-        <span>📜 Quests</span>
+        <span>{t('questlog.title')}</span>
         <button onClick={() => setOpen(!open)}>{open ? "−" : "+"}</button>
       </div>
-      {active.length === 0 && open && <div className="text-slate-500">No active quests. Talk to NPCs!</div>}
+      {active.length === 0 && open && <div className="text-slate-500">{t('questlog.noActive')}</div>}
       {active.map(([qid, prog]) => {
         const q = QUESTS[qid];
         if (!q) return null;

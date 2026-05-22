@@ -1,12 +1,14 @@
 import type { Room } from "colyseus.js";
 import { QUESTS, MONSTERS, ITEMS, type WorldState } from "@game/shared";
 import { useQuests } from "../hooks/useQuests";
+import { useT } from "../hooks/useT";
 
 /**
  * Persistent quest tracker — top-left below HUD, transparent background.
  * Shows up to 3 active quests with progress. Auto-hidden if no quests.
  */
 export function QuestTracker({ room }: { room: Room<WorldState> }) {
+  const t = useT();
   const quests = useQuests(room);
   const active = Object.entries(quests.active);
   if (active.length === 0) return null;
@@ -24,8 +26,8 @@ export function QuestTracker({ room }: { room: Room<WorldState> }) {
           border: "1px solid rgba(125, 211, 252, 0.25)",
         }}
       >
-        <div className="text-[10px] text-cyan-100/90 font-bold uppercase tracking-widest mb-1 flex items-center gap-1">
-          📜 เควสต์
+<div className="text-[10px] text-cyan-100/90 font-bold uppercase tracking-widest mb-1 flex items-center gap-1">
+          📜 {t('quest.tracker')}
         </div>
         <div className="space-y-1.5">
           {active.slice(0, 3).map(([qid, progress]) => {
@@ -66,7 +68,7 @@ export function QuestTracker({ room }: { room: Room<WorldState> }) {
             );
           })}
           {active.length > 3 && (
-            <div className="text-[9px] text-slate-400/70 italic">+{active.length - 3} เควสต์เพิ่มเติม</div>
+            <div className="text-[9px] text-slate-400/70 italic">+{active.length - 3} {t('worldLobby.moreQuests').replace('{count}', String(active.length - 3))}</div>
           )}
         </div>
       </div>
