@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import type { Room } from "colyseus.js";
 import type { WorldState } from "@game/shared";
 import { GameFrame } from "./GameFrame";
-import { useT } from "../../locales/useT";
+import { useT } from "../locales/useT";
 
 type GuildInfo = { id: string; name: string; tag: string; leader: string; members: string[] } | null;
 type ChatMsg = { from: string; text: string; ts: number };
