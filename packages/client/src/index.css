@@ -345,8 +345,107 @@ html, body, #root { width: 100%; height: 100%; }
   .mobile-hud-bar {
     max-width: 10rem !important;
   }
-  /* Panel padding tighter */
-  .panel { padding: 6px 8px !important; }
+  /* Panel — tighter padding, smaller radius */
+  .panel {
+    padding: 6px 8px;
+    border-radius: 10px;
+  }
+  /* Game frame — smaller padding and radius */
+  .game-frame {
+    padding: 10px 12px;
+    border-radius: 12px;
+  }
+  .game-frame > .frame-corner {
+    width: 10px;
+    height: 10px;
+    top: -6px;
+    left: -6px;
+  }
+  .game-frame > .frame-corner.tl,
+  .game-frame > .frame-corner.tr { top: -6px; }
+  .game-frame > .frame-corner.bl,
+  .game-frame > .frame-corner.br { bottom: -6px; }
+  .game-frame > .frame-banner {
+    font-size: 11px;
+    padding: 4px 18px 5px;
+    top: -18px;
+  }
+/* Game label — tighter letter-spacing to prevent overflow */
+  .game-label {
+    letter-spacing: 0.1em;
+  }
+  /* Utility row (TouchControls) — shift up/left on small screens so it doesn't overlap Attack */
+  .utility-row {
+    transition: bottom 0.2s, right 0.2s;
+    bottom: 8rem;
+    right: 8rem;
+    max-height: 5rem;
+    overflow-y: auto;
+  }
+}
+
+/* ────────────────────────────────────────────────────────────────────────── */
+/* VERY SMALL SCREENS: < 360px — further compress touch controls            */
+/* ────────────────────────────────────────────────────────────────────────── */
+@media (max-width: 360px) {
+  .panel {
+    padding: 5px 6px;
+    border-radius: 8px;
+  }
+  .game-frame {
+    padding: 8px 10px;
+    border-radius: 10px;
+  }
+  .game-frame > .frame-banner {
+    font-size: 10px;
+    padding: 3px 14px 4px;
+    top: -16px;
+  }
+  .game-label {
+    letter-spacing: 0.05em;
+    font-size: 9px;
+  }
+  /* Utility row — further shift */
+  .utility-row {
+    bottom: 7rem !important;
+    right: 6rem !important;
+  }
+  /* VirtualJoystick — shift in from corner on very small screens */
+  .virtual-joystick-base {
+    bottom: 1rem !important;
+    left: 1rem !important;
+  }
+  .virtual-joystick-base > div:first-child {
+    width: 48px !important;
+    height: 48px !important;
+  }
+  .virtual-joystick-base > div:first-child > div {
+    width: 36px !important;
+    height: 36px !important;
+  }
+}
+
+/* ────────────────────────────────────────────────────────────────────────── */
+/* VERY SMALL SCREENS: < 360px — further compress touch controls            */
+/* ────────────────────────────────────────────────────────────────────────── */
+@media (max-width: 360px) {
+  .panel {
+    padding: 5px 6px;
+    border-radius: 8px;
+  }
+  .game-frame {
+    padding: 8px 10px;
+    border-radius: 10px;
+  }
+  .game-frame > .frame-banner {
+    font-size: 10px;
+    padding: 3px 14px 4px;
+    top: -16px;
+  }
+  .game-label {
+    letter-spacing: 0.05em;
+    font-size: 9px;
+  }
 }
 
 /* P2.15 — visible focus ring for keyboard navigation */

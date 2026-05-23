@@ -16,6 +16,8 @@ export function HUD({ room }: { room: Room<WorldState> }) {
   const [, setTick] = useState(0);
   // Mobile: shrink HUD card (still show all bars + pills — user expects to see them)
   const isMobile = true; // mobile sizing used on all screens
+  const hudWidth = "clamp(8rem, 25vw, 15rem)";
+  const hudPad = "clamp(4px, 1vw, 8px)";
 
   useEffect(() => {
     const id = setInterval(() => setTick((t) => t + 1), 300);
@@ -30,11 +32,11 @@ export function HUD({ room }: { room: Room<WorldState> }) {
 
   return (
     <>
-      {/* ── TOP-LEFT: HP / SP card (full info, smaller on mobile) ── */}
-      <div className="absolute top-2 left-2 pointer-events-none select-none" style={{ width: isMobile ? "10rem" : "15rem", maxWidth: "44vw" }}>
+{/* ── TOP-LEFT: HP / SP card ── */}
+      <div className="absolute top-2 left-2 pointer-events-none select-none" style={{ width: hudWidth, maxWidth: "44vw" }}>
         <div
           className="bg-black/55 backdrop-blur-md border border-cyan-400/30 rounded shadow-[0_4px_20px_rgba(0,0,0,0.5)]"
-          style={{ padding: isMobile ? "5px 6px" : "8px" }}
+          style={{ padding: hudPad }}
         >
           <div className="space-y-1">
             <div className="flex items-baseline justify-between" style={{ fontSize: isMobile ? 10 : 11 }}>

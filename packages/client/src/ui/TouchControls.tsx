@@ -198,7 +198,7 @@ function VirtualJoystick() {
     <div
       ref={baseRef}
       data-no-screen-joy
-      className="absolute bottom-6 left-6 w-36 h-36 rounded-full select-none touch-none"
+      className="absolute bottom-6 left-6 w-36 h-36 rounded-full select-none touch-none virtual-joystick-base"
       style={{
         background: "radial-gradient(circle, rgba(34,211,238,0.15) 0%, rgba(0,0,0,0.45) 70%)",
         border: "2px solid rgba(34, 211, 238, 0.35)",
@@ -316,8 +316,8 @@ function ActionButtons({ room }: { room: Room<WorldState> }) {
   //   • bottom-6 right-6: Attack alone
   return (
     <>
-      {/* ── Utility row: bottom + shifted left (follows the Attack cluster shift) ── */}
-      <div className="absolute flex flex-wrap gap-1.5 justify-end select-none touch-none max-w-[14rem] opacity-70" style={{ bottom: "2.5rem", right: "12rem" }} data-no-screen-joy>
+{/* ── Utility row: shifted up on small screens to avoid overlapping Attack ── */}
+      <div className="absolute flex flex-wrap gap-1.5 justify-end select-none touch-none max-w-[14rem] opacity-70 utility-row" style={{ bottom: "2.5rem", right: "12rem" }} data-no-screen-joy>
         <ActionBtn
           label="🤖" name={botMode ? "ON" : "Auto"}
           hint={`Auto-Bot (B) ${botMode ? "ON" : "OFF"}`}

@@ -35,9 +35,9 @@ export function CastBar({ room }: { room: Room<WorldState> }) {
   const pct = 100 - (remain / total) * 100;
 
   return (
-    <div className="absolute left-1/2 bottom-24 -translate-x-1/2 w-64 bg-slate-900/80 rounded p-2">
-      <div className="text-xs text-amber-300 text-center mb-1">{cast.name}</div>
-      <div className="h-2 bg-slate-800 rounded overflow-hidden">
+    <div className="absolute left-1/2 bottom-24 -translate-x-1/2 w-48 sm:w-64 bg-slate-900/80 rounded p-2">
+      <div className="text-[10px] sm:text-xs text-amber-300 text-center mb-1">{cast.name}</div>
+      <div className="h-1.5 sm:h-2 bg-slate-800 rounded overflow-hidden">
         <div className="h-full bg-amber-500" style={{ width: `${pct}%` }} />
       </div>
     </div>

@@ -18,13 +18,13 @@ export function BossBar({ room }: { room: Room<WorldState> }) {
   if (!boss) return null;
   const pct = (boss.hp / boss.maxHp) * 100;
   return (
-    <div className="panel absolute top-2 left-1/2 -translate-x-1/2 w-96">
+    <div className="panel absolute top-2 left-1/2 -translate-x-1/2 w-56 sm:w-72 md:w-96">
       <div className="panel-corners" />
       <div className="panel-title">
         <span>⚜ DARK LORD ⚜</span>
-        <span className="normal-case">{boss.hp} / {boss.maxHp}</span>
+        <span className="normal-case text-[10px] sm:text-xs">{boss.hp} / {boss.maxHp}</span>
       </div>
-      <div className="h-3 bg-black/60 border border-black/60">
+      <div className="h-2 sm:h-3 bg-black/60 border border-black/60">
         <div className="h-full bg-gradient-to-b from-fuchsia-500 to-purple-800" style={{ width: `${pct}%`, transition: "width 0.15s linear" }} />
       </div>
     </div>
