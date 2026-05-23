@@ -317,7 +317,7 @@ function ActionButtons({ room }: { room: Room<WorldState> }) {
   return (
     <>
 {/* ── Utility row: shifted up on small screens to avoid overlapping Attack ── */}
-      <div className="absolute flex flex-wrap gap-1.5 justify-end select-none touch-none max-w-[14rem] opacity-70 utility-row" style={{ bottom: "2.5rem", right: "12rem" }} data-no-screen-joy>
+      <div className="absolute flex flex-wrap gap-1.5 justify-end select-none touch-none max-w-[12rem] sm:max-w-[14rem] opacity-70 utility-row" style={{ bottom: "2.5rem", right: "12rem" }} data-no-screen-joy>
         <ActionBtn
           label="🤖" name={botMode ? "ON" : "Auto"}
           hint={`Auto-Bot (B) ${botMode ? "ON" : "OFF"}`}
@@ -365,7 +365,7 @@ function ActionButtons({ room }: { room: Room<WorldState> }) {
       </div>
 
       {/* ── Attack: shifted up-left from corner so thumb can reach comfortably ── */}
-      <div className="absolute select-none touch-none" style={{ bottom: "2.5rem", right: "2.5rem" }} data-no-screen-joy>
+      <div className="absolute select-none touch-none action-btn-attack" style={{ bottom: "2.5rem", right: "2.5rem" }} data-no-screen-joy>
         <ActionBtn label="⚔" name={t('touch.attack')} hint={t('touch.attackHint')} size="lg" primary onClick={() => send("attack")} />
       </div>
     </>

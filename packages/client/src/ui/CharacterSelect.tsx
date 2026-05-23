@@ -166,7 +166,7 @@ export function CharacterSelect() {
 
       {/* Right: details — hidden on small screens when no selection */}
       {selected && (
-        <div className="absolute top-auto sm:top-28 right-4 sm:right-6 bottom-28 sm:bottom-auto w-64 sm:w-72">
+        <div className="absolute top-auto sm:top-28 right-2 sm:right-4 bottom-28 sm:bottom-auto w-56 sm:w-72">
           <GameFrame title={selected.name} variant="violet">
             <div className="space-y-2 pt-1">
               <DetailRow label={t("charsel.job")} value={selected.job} accent="text-amber-300" icon="⚔" />

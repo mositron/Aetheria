@@ -109,7 +109,7 @@ const res = await fetch(`/api/auth/${mode}`, {
       {/* title — scales down on small screens */}
       <div className="absolute top-4 sm:top-8 left-0 right-0 text-center pointer-events-none px-2">
         <div className="text-[9px] sm:text-xs text-cyan-300/70 uppercase tracking-[0.4em] mb-1 sm:mb-2">A cute MMORPG · survival</div>
-        <h1 className="text-4xl sm:text-5xl md:text-7xl font-black tracking-[0.15em] bg-gradient-to-b from-white via-cyan-200 to-indigo-400 text-transparent bg-clip-text drop-shadow-[0_0_18px_rgba(34,211,238,0.5)]">
+        <h1 className="text-5xl sm:text-7xl md:text-8xl font-black tracking-[0.15em] bg-gradient-to-b from-white via-cyan-200 to-indigo-400 text-transparent bg-clip-text drop-shadow-[0_0_18px_rgba(34,211,238,0.5)]">
           AETHERIA
         </h1>
         <div className="mt-1 sm:mt-2 text-amber-200/80 text-[10px] sm:text-sm italic">
@@ -140,11 +140,11 @@ const res = await fetch(`/api/auth/${mode}`, {
               </div>
               <div>
                 <div className="game-label">{t("auth.username")}</div>
-                <input className="game-input" placeholder="username" value={username} onChange={(e) => setU(e.target.value)} />
+                <input className="game-input text-sm" placeholder="username" value={username} onChange={(e) => setU(e.target.value)} />
               </div>
               <div>
                 <div className="game-label">{t("auth.password")}</div>
-                <input className="game-input" placeholder="••••••" type="password" value={password} onChange={(e) => setP(e.target.value)} />
+                <input className="game-input text-sm" placeholder="••••••" type="password" value={password} onChange={(e) => setP(e.target.value)} />
                 {mode === "register" && <PasswordStrength password={password} />}
               </div>
               <label className="flex items-center gap-2 text-xs text-cyan-100 cursor-pointer select-none">

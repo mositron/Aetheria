@@ -217,7 +217,7 @@ function Chip({ active, onClick, children }: { active: boolean; onClick: () => v
   return (
     <button
       onClick={onClick}
-      className={`text-xs py-2 border-2 transition uppercase tracking-wider ${
+      className={`text-[10px] sm:text-xs py-2 border-2 transition uppercase tracking-wider ${
         active
           ? "border-violet-400 bg-violet-500/25 text-white shadow-[0_0_10px_rgba(168,85,247,0.4)]"
           : "border-slate-700 bg-slate-900/70 text-slate-300 hover:border-violet-400/50"

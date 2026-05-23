@@ -114,7 +114,7 @@ export function WorldCreate({ onCreated, onClose }: Props) {
                   className={`border-2 rounded-lg p-3 text-left transition ${template === id ? `${colorMap[TEMPLATE_COLORS[id]]} ring-2 ring-offset-1 ring-offset-slate-900` : "border-slate-700 bg-slate-900/40 hover:border-slate-500"}`}
                 >
                   <div className="text-sm font-bold text-white mb-0.5">{t(`worldCreate.terrain.${id}`)}</div>
-                  <div className="text-[11px] text-slate-400">{t(`worldCreate.terrain.${id}Desc`)}</div>
+                  <div className="text-[10px] sm:text-xs text-slate-400">{t(`worldCreate.terrain.${id}Desc`)}</div>
                 </button>
               ))}
             </div>
