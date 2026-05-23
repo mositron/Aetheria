@@ -221,23 +221,31 @@ export function Scene({ room }: { room: Room<WorldState> }) {
             botWanderTarget.current = null;
           }
         }
-        // priority 2: target nearest hostile mob within 60m
+// priority 2: target nearest hostile mob within 60m
+        // Always evaluate — switch target if a better option (closer OR being attacked by closer mob) appears.
         if (!pickupTarget.current) {
           const cur = useStore.getState().targetMonsterId;
           const curMon = cur ? room.state.monsters.get(cur) : null;
-          if (!curMon || curMon.dead) {
-            let near: string | null = null, nd = 60;
-            for (const [, mon] of room.state.monsters) {
-              if (mon.dead) continue;
-              const cfg = (MONSTERS as any)[mon.kind];
-              if (!cfg || cfg.aggroRange <= 0) continue;
-              const d = Math.hypot(mon.pos.x - me.pos.x, mon.pos.z - me.pos.z);
-              if (d < nd) { nd = d; near = mon.id; }
-            }
-            if (near) {
-              useStore.setState({ targetMonsterId: near });
-              botWanderTarget.current = null;
-            }
+          const curDist = curMon ? Math.hypot(curMon.pos.x - me.pos.x, curMon.pos.z - me.pos.z) : Infinity;
+          // Keep current target only if it's alive and still the best option.
+          // Re-target if: current is dead, OR a mob is in attack range and closer than current, OR current is far and there's a closer mob.
+          let near: string | null = null, nd = 60;
+          let nearDist = curDist;
+          for (const [, mon] of room.state.monsters) {
+            if (mon.dead) continue;
+            const cfg = (MONSTERS as any)[mon.kind];
+            if (!cfg || cfg.aggroRange <= 0) continue;
+            const d = Math.hypot(mon.pos.x - me.pos.x, mon.pos.z - me.pos.z);
+            if (d < nd) { nd = d; near = mon.id; }
+          }
+          const shouldSwitch =
+            !curMon || curMon.dead ||                                           // current dead → pick nearest
+            (nd < curDist && nd <= engageRange * 1.5) ||                         // closer mob in range or approaching → switch
+            (nd < curDist * 0.6) ||                                              // much closer mob (40%+ closer) → switch
+            curDist > 60;                                                        // current target went out of range (>60m) → pick nearest
+          if (near && shouldSwitch) {
+            useStore.setState({ targetMonsterId: near });
+            botWanderTarget.current = null;
           }
         }
         // priority 3: WANDER — only when truly idle (no live target, no pickup)
