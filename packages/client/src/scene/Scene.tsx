@@ -346,7 +346,27 @@ export function Scene({ room }: { room: Room<WorldState> }) {
         mz = -right * sin + fwd * cos;
       }
 
-// ── Client-side collision (terrain cliffs + obstacle objects).
+// ── Auto-jump (grounded only): in auto-mode, auto-trigger jump when the
+      // target point is higher than a normal step but within jump clearance.
+      // Uses the same LOOKAHEAD / fromH from the collision block below.
+      const autoJumpNeeded = (fromH: number): boolean => {
+        if (usingKeys) return false;
+        const dist = Math.hypot(mx, mz);
+        if (dist < 0.01) return false;
+        const nx = mx / dist, nz = mz / dist;
+        const px = me.pos.x, pz = me.pos.z;
+        const targetX = px + nx * 1.5, targetZ = pz + nz * 1.5;
+        if (isObstacle(targetX, targetZ)) return false; // obstacle itself — slide handles it
+        const toH = terrainHeight(targetX, targetZ);
+        const delta = toH - fromH;
+        if (delta <= 0.5 || delta < -0.5) return false; // can walk, no jump needed
+        return jumpY.current <= 0.01; // only if grounded
+      };
+      if (autoJumpNeeded(terrainHeight(me.pos.x, me.pos.z))) {
+        jumpVy.current = 9;
+      }
+
+      // ── Client-side collision (terrain cliffs + obstacle objects).
       //    Multi-sample: 5 points along path so fast speeds can't tunnel.
       //    Slide logic: full → X only → Z only → ±90° alternatives → full stop.
       if ((mx || mz) && !me.flying) {
