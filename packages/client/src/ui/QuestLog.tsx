@@ -30,7 +30,7 @@ export function QuestLog({ room }: { room: Room<WorldState> }) {
   if (active.length === 0 && !open) return null;
 
   return (
-    <div ref={drag.elRef} className="panel absolute right-2 top-44 w-48 text-[11px] space-y-0.5" style={drag.style}>
+    <div ref={drag.elRef} className="panel absolute right-2 top-44 w-36 sm:w-48 text-[11px] space-y-0.5" style={drag.style}>
       <div className="panel-corners" />
       <div className="panel-title" {...drag.titleProps}>
         <span>{t('questlog.title')}</span>

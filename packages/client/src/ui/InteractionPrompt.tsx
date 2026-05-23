@@ -77,7 +77,7 @@ export function InteractionPrompt({ room }: { room: Room<WorldState> }) {
       {fishing === "casting" ? (
         <div className="pointer-events-auto flex flex-col items-center gap-2">
           <div className="text-cyan-100 text-xs uppercase tracking-widest animate-pulse">🎣 {t("prompt.waitingFish")}</div>
-          <div className="w-48 h-2 bg-black/70 border border-cyan-400/40 rounded-full overflow-hidden">
+          <div className="w-32 sm:w-48 h-2 bg-black/70 border border-cyan-400/40 rounded-full overflow-hidden">
             <div
               className="h-full transition-all"
               style={{

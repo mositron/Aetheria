@@ -28,7 +28,7 @@ export function DailyReward({ room }: { room: Room<WorldState> }) {
       onClick={() => setReward(null)}
     >
       <div
-        className="relative w-[24rem] max-w-[92vw] p-6 rounded-3xl text-center"
+        className="relative w-[18rem] sm:w-[20rem] md:w-[24rem] max-w-[92vw] p-4 sm:p-6 rounded-3xl text-center"
         style={{
           background: "linear-gradient(180deg, #fff7ed 0%, #fed7aa 50%, #fdba74 100%)",
           border: "4px solid #ffffff",

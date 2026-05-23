@@ -79,7 +79,7 @@ export function TargetDisplay({ room }: { room: Room<WorldState> }) {
   return (
     <div
       className="absolute top-2 left-1/2 -translate-x-1/2 pointer-events-none select-none z-30"
-      style={{ minWidth: 180, maxWidth: 280 }}
+      style={{ minWidth: "clamp(150px, 40vw, 180px)", maxWidth: "clamp(200px, 60vw, 280px)" }}
     >
       <div
         className="rounded-lg overflow-hidden backdrop-blur-md"

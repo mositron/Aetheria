@@ -54,7 +54,7 @@ const [buying, setBuying] = useState<string | null>(null);
 
 return (
     <FocusTrap focusTrapOptions={{ allowOutsideClick: true }}>
-    <div data-no-screen-joy className="panel absolute inset-x-0 bottom-32 mx-auto w-[28rem] space-y-2">
+    <div data-no-screen-joy className="panel absolute inset-x-0 bottom-32 mx-auto w-[20rem] sm:w-[24rem] md:w-[28rem] space-y-2">
       <div className="panel-corners" />
       <div className="panel-title">
         <span>{npc.icon} {npc.name}</span>

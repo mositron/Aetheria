@@ -61,7 +61,7 @@ export function EmoteWheel({ room }: { room: Room<WorldState> }) {
                 onClick={() => play(EMOTE_ICONS[id])}
                 onTouchStart={(ev) => { ev.preventDefault(); play(EMOTE_ICONS[id]); }}
                 className="flex flex-col items-center gap-1 p-2 rounded-2xl bg-white/70 border-2 border-white hover:scale-110 active:scale-95 transition-transform"
-                style={{ minWidth: 64 }}
+                style={{ minWidth: "clamp(56px, 15vw, 64px)" }}
               >
                 <span className="text-3xl">{EMOTE_ICONS[id]}</span>
                 <span className="text-[10px] font-bold text-pink-800">{t(`emote.${id}`)}</span>

@@ -82,7 +82,7 @@ export function WorldLobby({ onJoin, onClose }: Props) {
       aria-modal="true"
       className="absolute inset-0 z-40 flex items-center justify-center bg-black/65 backdrop-blur-sm py-8 px-4"
     >
-      <div className="w-[52rem] max-w-[95vw] max-h-[88vh] flex flex-col">
+      <div className="w-[36rem] sm:w-[46rem] md:w-[52rem] max-w-[95vw] max-h-[88vh] flex flex-col">
         <GameFrame
           title={t('worldLobby.title')}
           className="flex flex-col min-h-0 flex-1"
@@ -136,7 +136,7 @@ export function WorldLobby({ onJoin, onClose }: Props) {
                 {t('world.noPublicWorlds')}
               </div>
             )}
-            <div className="grid grid-cols-3 gap-3 pb-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 pb-2">
               {worlds.map((w) => (
                 <div
                   key={w.id}

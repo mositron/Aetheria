@@ -44,7 +44,7 @@ export function PartyPanel({ room }: { room: Room<WorldState> }) {
       )}
 
       {members.length > 0 && (
-        <div className="panel absolute left-2 top-32 w-56">
+        <div className="panel absolute left-2 top-32 w-44 sm:w-56">
           <div className="panel-corners" />
           <div className="panel-title">
             <span>👥 {t('party.party')} ({members.length}/4)</span>

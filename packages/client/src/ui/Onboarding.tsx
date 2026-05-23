@@ -53,7 +53,7 @@ export function Onboarding({ room }: { room: Room<WorldState> }) {
   return (
     <div
       className="fixed top-[5rem] left-1/2 -translate-x-1/2 z-[100] pointer-events-auto select-none"
-      style={{ maxWidth: 320 }}
+      style={{ maxWidth: "min(320px, 90vw)" }}
     >
       <div
         className="rounded-xl px-3 py-2 backdrop-blur-md flex items-start gap-2"

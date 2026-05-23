@@ -57,7 +57,7 @@ return (
           className="absolute inset-0 z-40 flex items-center justify-center bg-black/65 backdrop-blur-sm py-16 px-4"
           onClick={(e) => e.stopPropagation()}
         >
-          <div className="w-[22rem] max-w-[92vw] flex flex-col min-h-0" style={{ maxHeight: "calc(100vh - 8rem)" }}>
+          <div className="w-[18rem] sm:w-[20rem] md:w-[22rem] max-w-[92vw] flex flex-col min-h-0" style={{ maxHeight: "calc(100vh - 8rem)" }}>
 <GameFrame
               title={t('inventory.title')}
               className="flex flex-col min-h-0"

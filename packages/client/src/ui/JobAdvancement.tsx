@@ -37,7 +37,7 @@ export function JobAdvancement({ room }: { room: Room<WorldState> }) {
   const options = ((JOB_ADVANCEMENT as any)[me.job] ?? []) as JobId[];
   return (
     <div data-no-screen-joy className="absolute inset-0 z-40 flex items-center justify-center bg-black/65 backdrop-blur-sm py-12 px-4" onClick={() => setOpen(false)}>
-      <div className="w-[24rem] max-w-[94vw]" onClick={(e) => e.stopPropagation()}>
+      <div className="w-[18rem] sm:w-[20rem] md:w-[24rem] max-w-[94vw]" onClick={(e) => e.stopPropagation()}>
         <GameFrame title={t("jobadv.title")}>
           <button onClick={() => setOpen(false)} className="absolute -top-3 -right-3 w-8 h-8 rounded-full bg-rose-700 hover:bg-rose-600 border-2 border-rose-300 text-white font-bold z-10">✕</button>
 

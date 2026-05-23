@@ -48,7 +48,7 @@ export function DeathOverlay({ room }: { room: Room<WorldState> }) {
       />
       <div className="text-center space-y-4 pointer-events-auto">
         <div
-          className="text-7xl font-black tracking-[0.2em] bg-gradient-to-b from-rose-200 via-rose-400 to-rose-700 text-transparent bg-clip-text drop-shadow-[0_0_20px_rgba(239,68,68,0.6)]"
+          className="text-4xl sm:text-5xl md:text-7xl font-black tracking-[0.2em] bg-gradient-to-b from-rose-200 via-rose-400 to-rose-700 text-transparent bg-clip-text drop-shadow-[0_0_20px_rgba(239,68,68,0.6)]"
           style={{ animation: "deathDrop 0.6s ease-out" }}
         >
           {t("death.title")}

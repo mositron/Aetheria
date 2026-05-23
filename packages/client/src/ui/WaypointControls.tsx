@@ -27,13 +27,13 @@ export function WaypointControls() {
       onTouchStart={(e) => { e.preventDefault(); setWaypoint(null); }}
       className="absolute z-30 left-1/2 -translate-x-1/2 select-none touch-none active:scale-90 transition"
       style={{
-        top: "3.5rem",
+        top: "clamp(2rem, 5vh, 3.5rem)",
+        padding: "4px 10px sm:6px 14px",
+        fontSize: "10px sm:12px",
         background: "linear-gradient(180deg, #f472b6 0%, #ec4899 60%, #be185d 100%)",
         border: "2px solid #ffffff",
         borderRadius: "999px",
-        padding: "6px 14px",
         color: "#ffffff",
-        fontSize: 12,
         fontWeight: 700,
         boxShadow: "0 0 0 2px rgba(244,114,182,0.4), 0 4px 0 rgba(190,24,93,0.5), inset 0 1px 0 rgba(255,255,255,0.4)",
         textShadow: "0 1px 2px rgba(0,0,0,0.4)",
