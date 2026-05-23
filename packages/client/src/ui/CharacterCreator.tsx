@@ -80,17 +80,17 @@ export function CharacterCreator({ onCancel, onCreated }: Props) {
       <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(ellipse_at_center,transparent_30%,rgba(0,0,0,0.7)_100%)]" />
 
       {/* Title banner top */}
-      <div className="absolute top-6 left-0 right-0 text-center pointer-events-none">
-        <div className="text-xs text-amber-300/80 uppercase tracking-[0.4em]">⚒ Forge of Heroes ⚒</div>
-        <h1 className="text-3xl font-black tracking-wider bg-gradient-to-b from-amber-100 to-amber-400 text-transparent bg-clip-text drop-shadow-[0_0_12px_rgba(251,191,36,0.4)]">
+      <div className="absolute top-4 sm:top-6 left-0 right-0 text-center pointer-events-none px-2">
+        <div className="text-[9px] sm:text-xs text-amber-300/80 uppercase tracking-[0.4em]">⚒ Forge of Heroes ⚒</div>
+        <h1 className="text-2xl sm:text-3xl font-black tracking-wider bg-gradient-to-b from-amber-100 to-amber-400 text-transparent bg-clip-text drop-shadow-[0_0_12px_rgba(251,191,36,0.4)]">
           {t("char.createTitle")}
         </h1>
       </div>
 
-      {/* Right: customization frame */}
-      <div className="absolute top-20 right-6 bottom-6 w-[26rem] overflow-y-auto pr-1">
+      {/* Right: customization frame — full-width on mobile */}
+      <div className="absolute top-20 sm:top-24 right-0 sm:right-6 bottom-4 w-full sm:w-[26rem] overflow-y-auto px-4 sm:px-0 pr-4 sm:pr-1">
         <GameFrame title={t("char.customizeTitle")} variant="violet">
-          <div className="space-y-4 pt-1">
+          <div className="space-y-3 sm:space-y-4 pt-1">
             <div>
               <div className="game-label">{t("char.name")}</div>
               <input
@@ -185,8 +185,8 @@ export function CharacterCreator({ onCancel, onCreated }: Props) {
             )}
 
             <div className="flex gap-2 pt-2">
-              <button onClick={onCancel} disabled={busy} className="btn-game muted flex-1">{t("char.cancel")}</button>
-              <button onClick={submit} disabled={busy || name.trim().length < 2} className="btn-game violet flex-1">
+              <button onClick={onCancel} disabled={busy} className="btn-game muted flex-1 text-xs sm:text-sm">{t("char.cancel")}</button>
+              <button onClick={submit} disabled={busy || name.trim().length < 2} className="btn-game violet flex-1 text-xs sm:text-sm">
                 {busy ? "…" : t("char.create")}
               </button>
             </div>

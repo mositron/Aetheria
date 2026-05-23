@@ -108,17 +108,17 @@ export function CharacterSelect() {
       <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(ellipse_at_center,transparent_40%,rgba(0,0,0,0.65)_100%)]" />
 
       {/* title banner */}
-      <div className="absolute top-6 left-0 right-0 text-center pointer-events-none">
-        <div className="text-xs text-cyan-300/70 uppercase tracking-[0.4em]">{t("charsel.title")}</div>
-        <h1 className="text-3xl font-black tracking-wider bg-gradient-to-b from-white to-cyan-300 text-transparent bg-clip-text drop-shadow-[0_0_12px_rgba(34,211,238,0.5)]">
+      <div className="absolute top-4 sm:top-6 left-0 right-0 text-center pointer-events-none px-2">
+        <div className="text-[9px] sm:text-xs text-cyan-300/70 uppercase tracking-[0.4em]">{t("charsel.title")}</div>
+        <h1 className="text-2xl sm:text-3xl font-black tracking-wider bg-gradient-to-b from-white to-cyan-300 text-transparent bg-clip-text drop-shadow-[0_0_12px_rgba(34,211,238,0.5)]">
           {username}
         </h1>
       </div>
 
-      {/* Left: character list */}
-      <div className="absolute top-28 left-6 bottom-28 w-80">
+      {/* Left: character list — stacks vertically on portrait mobile */}
+      <div className="absolute top-24 sm:top-28 left-4 right-4 sm:left-6 sm:right-auto sm:bottom-28 sm:w-80 sm:max-h-[calc(100vh-16rem)]">
         <GameFrame title={t("charsel.characterCount", { count: list.length, max: MAX })} className="h-full flex flex-col">
-          <div className="flex flex-col gap-2 overflow-y-auto pt-1 pr-1" style={{ maxHeight: "calc(100vh - 220px)" }}>
+          <div className="flex flex-col gap-2 overflow-y-auto pt-1 pr-1" style={{ maxHeight: "calc(100vh - 16rem)" }}>
             {Array.from({ length: MAX }).map((_, i) => {
               const c = list[i];
               if (!c) {
@@ -126,10 +126,10 @@ export function CharacterSelect() {
                   <button
                     key={`empty-${i}`}
                     onClick={() => setCreating(true)}
-                    className="w-full h-20 border-2 border-dashed border-cyan-400/30 hover:border-cyan-300 hover:bg-cyan-400/10 transition flex items-center justify-center text-cyan-300/70 group"
+                    className="w-full h-16 sm:h-20 border-2 border-dashed border-cyan-400/30 hover:border-cyan-300 hover:bg-cyan-400/10 transition flex items-center justify-center text-cyan-300/70 group"
                   >
-                    <span className="text-3xl mr-2 group-hover:scale-110 transition">＋</span>
-                    <span className="text-xs uppercase tracking-widest">{t("charsel.createNewHero")}</span>
+                    <span className="text-2xl mr-2 group-hover:scale-110 transition">＋</span>
+                    <span className="text-[10px] sm:text-xs uppercase tracking-widest">{t("charsel.createNewHero")}</span>
                   </button>
                 );
               }
@@ -138,24 +138,24 @@ export function CharacterSelect() {
                 <button
                   key={c.id}
                   onClick={() => setSelectedId(c.id)}
-                  className={`w-full text-left p-3 transition border-2 relative ${
+                  className={`w-full text-left p-2.5 sm:p-3 transition border-2 relative ${
                     isSel
                       ? "border-cyan-400 bg-cyan-500/15 shadow-[0_0_20px_rgba(34,211,238,0.3)]"
                       : "border-slate-700 bg-slate-900/60 hover:border-cyan-400/50"
                   }`}
                 >
-                  {isSel && <span className="absolute -left-1 top-1/2 -translate-y-1/2 text-cyan-300">▶</span>}
+                  {isSel && <span className="absolute -left-0.5 sm:-left-1 top-1/2 -translate-y-1/2 text-cyan-300 text-xs">▶</span>}
                   <div className="flex items-center gap-2">
                     <span
-                      className="w-4 h-4 border border-white/30"
+                      className="w-3 h-3 sm:w-4 sm:h-4 border border-white/30"
                       style={{ background: parseAppearance(c.appearance).shirt }}
                     />
-                    <div className="font-bold text-white truncate flex-1 uppercase tracking-wider text-sm">{c.name}</div>
+                    <div className="font-bold text-white truncate flex-1 uppercase tracking-wider text-[11px] sm:text-sm">{c.name}</div>
                   </div>
-                  <div className="flex items-center gap-2 mt-1.5 text-xs">
+                  <div className="flex items-center gap-2 mt-1 text-[10px] sm:text-xs">
                     <span className="text-amber-300 font-bold">Lv {c.level}</span>
                     <span className="text-cyan-300">⚔ {c.job}</span>
-                    <span className="text-slate-400 text-[10px] ml-auto">📍 {c.mapId}</span>
+                    <span className="text-slate-400 text-[9px] sm:text-[10px] ml-auto">📍 {c.mapId}</span>
                   </div>
                 </button>
               );
@@ -164,11 +164,11 @@ export function CharacterSelect() {
         </GameFrame>
       </div>
 
-      {/* Right: details */}
+      {/* Right: details — hidden on small screens when no selection */}
       {selected && (
-        <div className="absolute top-28 right-6 w-72">
+        <div className="absolute top-auto sm:top-28 right-4 sm:right-6 bottom-28 sm:bottom-auto w-64 sm:w-72">
           <GameFrame title={selected.name} variant="violet">
-            <div className="space-y-2.5 pt-1">
+            <div className="space-y-2 pt-1">
               <DetailRow label={t("charsel.job")} value={selected.job} accent="text-amber-300" icon="⚔" />
               <DetailRow label={t("charsel.level")} value={`Lv ${selected.level}`} accent="text-cyan-300" icon="✦" />
               <DetailRow label={t("charsel.map")} value={selected.mapId} accent="text-emerald-300" icon="📍" />
@@ -178,17 +178,17 @@ export function CharacterSelect() {
       )}
 
       {/* Bottom action bar */}
-      <div className="absolute bottom-6 left-0 right-0 flex justify-center">
+      <div className="absolute bottom-3 sm:bottom-6 left-4 right-4 sm:left-0 sm:right-0 flex justify-center sm:px-0">
         <GameFrame>
-          <div className="flex items-center gap-3 px-2">
-            {err && <div className="text-rose-300 text-sm">⚠ {err}</div>}
-            <button onClick={logout} className="btn-game muted text-xs">⏻ {t("charselect.logout")}</button>
+          <div className="flex items-center gap-2 sm:gap-3 px-2">
+            {err && <div className="text-rose-300 text-xs sm:text-sm">⚠ {err}</div>}
+            <button onClick={logout} className="btn-game muted text-[10px] sm:text-xs">⏻ {t("charselect.logout")}</button>
             {selected && (
-              <button disabled={busy} onClick={() => onDelete(selected.id)} className="btn-game danger">
+              <button disabled={busy} onClick={() => onDelete(selected.id)} className="btn-game danger text-[10px] sm:text-xs">
                 🗑 {t("charselect.delete")}
               </button>
             )}
-            <button disabled={!selected || busy} onClick={onPlay} className="btn-game text-lg px-12">
+            <button disabled={!selected || busy} onClick={onPlay} className="btn-game text-base sm:text-lg px-6 sm:px-12">
               ▶ {t("charselect.enterGame")}
             </button>
           </div>

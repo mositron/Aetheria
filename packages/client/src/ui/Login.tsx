@@ -106,22 +106,22 @@ const res = await fetch(`/api/auth/${mode}`, {
       {/* vignette overlay */}
       <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(ellipse_at_center,transparent_30%,rgba(0,0,0,0.7)_100%)]" />
 
-      {/* title */}
-      <div className="absolute top-10 left-0 right-0 text-center pointer-events-none">
-<div className="text-xs text-cyan-300/70 uppercase tracking-[0.4em] mb-2">A cute MMORPG · survival</div>
-        <h1 className="text-7xl font-black tracking-[0.15em] bg-gradient-to-b from-white via-cyan-200 to-indigo-400 text-transparent bg-clip-text drop-shadow-[0_0_18px_rgba(34,211,238,0.5)]">
+      {/* title — scales down on small screens */}
+      <div className="absolute top-4 sm:top-8 left-0 right-0 text-center pointer-events-none px-2">
+        <div className="text-[9px] sm:text-xs text-cyan-300/70 uppercase tracking-[0.4em] mb-1 sm:mb-2">A cute MMORPG · survival</div>
+        <h1 className="text-4xl sm:text-5xl md:text-7xl font-black tracking-[0.15em] bg-gradient-to-b from-white via-cyan-200 to-indigo-400 text-transparent bg-clip-text drop-shadow-[0_0_18px_rgba(34,211,238,0.5)]">
           AETHERIA
         </h1>
-        <div className="mt-2 text-amber-200/80 text-sm italic">
+        <div className="mt-1 sm:mt-2 text-amber-200/80 text-[10px] sm:text-sm italic">
           {t("auth.subtitle")}
         </div>
       </div>
 
-      {/* form */}
-      <div className="absolute inset-0 flex items-center justify-center">
-        <form onSubmit={submit} className="w-[26rem]">
+      {/* form — full-width on mobile, constrained on tablet+ */}
+      <div className="absolute inset-0 flex items-center justify-center p-4">
+        <form onSubmit={submit} className="w-full max-w-[26rem]">
 <GameFrame title={mode === "login" ? t("auth.login") : t("auth.register")}>
-            <div className="space-y-4 pt-2">
+            <div className="space-y-3 sm:space-y-4 pt-2">
               <div className="flex gap-1.5">
                 <button
                   type="button"
@@ -137,7 +137,7 @@ const res = await fetch(`/api/auth/${mode}`, {
                 >
                   {t("auth.signUp")}
                 </button>
-</div>
+              </div>
               <div>
                 <div className="game-label">{t("auth.username")}</div>
                 <input className="game-input" placeholder="username" value={username} onChange={(e) => setU(e.target.value)} />
@@ -177,8 +177,8 @@ const res = await fetch(`/api/auth/${mode}`, {
         </form>
       </div>
 
-{/* bottom hint */}
-      <div className="absolute bottom-4 left-0 right-0 text-center text-[10px] text-slate-400/70 pointer-events-none">
+      {/* bottom hint */}
+      <div className="absolute bottom-2 sm:bottom-4 left-0 right-0 text-center text-[9px] sm:text-[10px] text-slate-400/70 pointer-events-none">
         {t("auth.localServer")}
       </div>
     </div>
