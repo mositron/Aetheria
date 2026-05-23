@@ -3,7 +3,7 @@
  */
 import { useState } from "react";
 import { GameFrame } from "./GameFrame";
-import { useT } from "../hooks/useT";
+import { useT } from "../locales/useT";
 
 interface Props {
   onCreated: (worldId: string, inviteCode: string) => void;

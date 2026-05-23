@@ -1,7 +1,7 @@
 import type { Room } from "colyseus.js";
 import { QUESTS, MONSTERS, ITEMS, type WorldState } from "@game/shared";
 import { useQuests } from "../hooks/useQuests";
-import { useT } from "../hooks/useT";
+import { useT } from "../locales/useT";
 
 /**
  * Persistent quest tracker — top-left below HUD, transparent background.

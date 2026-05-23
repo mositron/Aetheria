@@ -11,7 +11,7 @@
 import { useEffect, useState } from "react";
 import { GameFrame } from "./GameFrame";
 import { WorldCreate } from "./WorldCreate";
-import { useT } from "../hooks/useT";
+import { useT } from "../locales/useT";
 
 interface WorldMeta {
   id: string;

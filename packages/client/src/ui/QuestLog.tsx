@@ -4,7 +4,7 @@ import { QUESTS, type WorldState } from "@game/shared";
 import { useQuests } from "../hooks/useQuests";
 import { useDraggable } from "../hooks/useDraggable";
 import { keyEq } from "../utils/keyMatch";
-import { useT } from "../hooks/useT";
+import { useT } from "../locales/useT";
 
 export function QuestLog({ room }: { room: Room<WorldState> }) {
   const t = useT();
