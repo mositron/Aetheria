@@ -31,6 +31,7 @@ export function TouchControls({ room }: { room: Room<WorldState> }) {
  * The actual whole-screen drag is handled by <ScreenJoystick/>.
  */
 function JoystickHint() {
+  const t = useT();
   const knobRef = useRef<HTMLDivElement>(null);
   // Knob follows BOTH (a) finger drag via "virtual-stick" events from
   // ScreenJoystick, AND (b) WASD / arrow keys via local keydown tracking.
@@ -223,6 +224,7 @@ function VirtualJoystick() {
 
 /** Bottom-right action buttons. Big = Attack. Small fan = pickup/potion/skills. */
 function ActionButtons({ room }: { room: Room<WorldState> }) {
+  const t = useT();
   const targetId = useStore((s) => s.targetMonsterId);
   const setTarget = useStore((s) => s.setTarget);
   const botMode = useStore((s) => s.botMode);

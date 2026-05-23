@@ -157,6 +157,7 @@ function Pill({ icon, value, max = 100, color, warn, warnColor }: { icon: string
 }
 
 function BuildModeButton() {
+  const t = useT();
   const buildMode = useStore((s) => s.buildMode);
   const selectedStructItemId = useStore((s) => s.selectedStructItemId);
   const toggleBuildMode = useStore((s) => s.toggleBuildMode);
