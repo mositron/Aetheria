@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { Room } from "colyseus.js";
-import { MAPS, NPCS, type MapId, type WorldState } from "@game/shared";
+import { MAPS, NPCS, CAVES, type MapId, type WorldState } from "@game/shared";
 import { useStore } from "../store";
 import { useT } from "../locales/useT";
 
@@ -67,6 +67,27 @@ export function Minimap({ room, mapId }: { room: Room<WorldState>; mapId: MapId 
         const y = (p.z + mapDef.size / 2) * scale;
         ctx.fillStyle = "#a855f7";
         ctx.beginPath(); ctx.arc(x, y, 4, 0, Math.PI * 2); ctx.fill();
+      }
+      // caves (only on field map) — dark squares with rocky tint
+      if (mapId === "field") {
+        for (const c of CAVES) {
+          const x = (c.x + mapDef.size / 2) * scale;
+          const y = (c.z + mapDef.size / 2) * scale;
+          const rPx = c.r * scale;
+          // dark filled circle for cave area
+          ctx.fillStyle = "rgba(60,30,20,0.55)";
+          ctx.beginPath(); ctx.arc(x, y, rPx, 0, Math.PI * 2); ctx.fill();
+          // outline
+          ctx.strokeStyle = "#7c2d12";
+          ctx.lineWidth = 1;
+          ctx.beginPath(); ctx.arc(x, y, rPx, 0, Math.PI * 2); ctx.stroke();
+          // center cave-mouth icon
+          ctx.fillStyle = "#fbbf24";
+          ctx.font = "bold 10px sans-serif";
+          ctx.textAlign = "center";
+          ctx.textBaseline = "middle";
+          ctx.fillText("🕳", x, y);
+        }
       }
       // NPCs
       for (const n of NPCS) {

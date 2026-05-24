@@ -1,44 +1,73 @@
-// Walkable cave zones — visual cave mouths + dim ambience + rocky walls,
-// all anchored at CAVES coords from shared/biomes.ts. No portal, no map
-// switch — players just walk into the mouth and the world keeps going.
+// Walkable cave zones — themed visuals (mouth + walls + stalactites +
+// crystal lights) anchored at CAVES coords from shared/biomes.ts.
+// No portal, no map switch — just walk in.
 
 import { useMemo, useRef } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
-import { CAVES, caveAt } from "@game/shared";
+import { CAVES, caveAt, type CaveDef } from "@game/shared";
 import type { Room } from "colyseus.js";
 import type { WorldState } from "@game/shared";
 import { useStore } from "../store";
 
-const ROCK_COLOR     = "#3a2a22";
-const ROCK_ACCENT    = "#4a3528";
-const INTERIOR_COLOR = "#1a0f0a";
-const PILLAR_GLOW    = "#fbbf24";
+type Theme = CaveDef["theme"];
+
+const THEME_TINT: Record<Theme, {
+  floor: string;      // recessed disc color
+  rock: string;       // boulder color
+  rockAccent: string; // archway color
+  crystalA: string;   // primary glow
+  crystalB: string;   // secondary glow
+  background: string; // scene bg when inside
+  ambient: string;    // ambient light color
+}> = {
+  shadow:     { floor: "#1f1410", rock: "#3a2a22", rockAccent: "#4a3528", crystalA: "#fbbf24", crystalB: "#60a5fa", background: "#1a0f0a", ambient: "#7c4a20" },
+  frost:      { floor: "#1e2a3a", rock: "#4a5870", rockAccent: "#5b6b85", crystalA: "#60a5fa", crystalB: "#a5f3fc", background: "#0e1a28", ambient: "#3b6fb5" },
+  desert:     { floor: "#3a2a18", rock: "#7c5a35", rockAccent: "#8e6940", crystalA: "#fbbf24", crystalB: "#fde047", background: "#2a1d10", ambient: "#a87a3e" },
+  swamp:      { floor: "#1a2a18", rock: "#3a4a25", rockAccent: "#4a5b30", crystalA: "#a3e635", crystalB: "#34d399", background: "#0e1f12", ambient: "#5a7a3a" },
+  forest:     { floor: "#1f2a18", rock: "#3a4a28", rockAccent: "#4a5b35", crystalA: "#a3e635", crystalB: "#60a5fa", background: "#10180e", ambient: "#5a7a3a" },
+  wilderness: { floor: "#180a1a", rock: "#3a1a3a", rockAccent: "#4a2050", crystalA: "#ef4444", crystalB: "#a855f7", background: "#0a040f", ambient: "#7c3a90" },
+};
 
 export function CaveZones({ room }: { room: Room<WorldState> }) {
   const sessionId = useStore((s) => s.sessionId);
   const ambRef = useRef<THREE.AmbientLight>(null);
-  const fogRef = useRef<{ active: boolean }>({ active: false });
+  const insideRef = useRef<string | null>(null);
   const { scene } = useThree();
+  const savedBg = useRef<THREE.Color | null>(null);
 
-  // Sample player position once per second to decide "is the player in a cave?".
-  // Cheap — no per-frame state churn.
   useFrame(() => {
     const me = sessionId ? room.state.players.get(sessionId) : null;
     if (!me) return;
-    const inCave = !!caveAt(me.pos.x, me.pos.z);
-    // Dim ambient when inside cave to sell the "underground" feel.
+    const cid = caveAt(me.pos.x, me.pos.z);
+    const cave = cid ? CAVES.find((c) => c.id === cid) : null;
+    const tint = cave ? THEME_TINT[cave.theme] : null;
+
     if (ambRef.current) {
-      ambRef.current.intensity = inCave ? 0.4 : 0;
+      ambRef.current.intensity = tint ? 0.5 : 0;
+      if (tint) ambRef.current.color.set(tint.ambient);
     }
-    // Tint scene background to cave color while inside (and restore on exit).
-    if (inCave !== fogRef.current.active) {
-      fogRef.current.active = inCave;
-      if (inCave) {
-        scene.background = new THREE.Color(INTERIOR_COLOR);
-        if (scene.fog) (scene.fog as THREE.Fog).color.copy(new THREE.Color(INTERIOR_COLOR));
+
+    if (cid !== insideRef.current) {
+      const wasOutside = insideRef.current === null;
+      const nowInside = cid !== null;
+      if (nowInside && wasOutside) {
+        // entering: stash bg, set cave tint
+        savedBg.current = scene.background instanceof THREE.Color ? scene.background.clone() : null;
+        scene.background = new THREE.Color(tint!.background);
+        if (scene.fog) (scene.fog as THREE.Fog).color.copy(new THREE.Color(tint!.background));
+      } else if (!nowInside && !wasOutside) {
+        // leaving: restore bg
+        if (savedBg.current) {
+          scene.background = savedBg.current;
+          if (scene.fog) (scene.fog as THREE.Fog).color.copy(savedBg.current);
+        }
+        savedBg.current = null;
+      } else if (nowInside && !wasOutside) {
+        // moved between caves
+        scene.background = new THREE.Color(tint!.background);
       }
-      // Exit case: DayNight.tsx restores sky/fog automatically when day toggle fires
+      insideRef.current = cid;
     }
   });
 
@@ -46,127 +75,209 @@ export function CaveZones({ room }: { room: Room<WorldState> }) {
     <>
       <ambientLight ref={ambRef} intensity={0} color="#7c4a20" />
       {CAVES.map((c) => (
-        <CaveZone key={c.id} cx={c.x} cz={c.z} r={c.r} />
+        <CaveZone key={c.id} cave={c} />
       ))}
     </>
   );
 }
 
-function CaveZone({ cx, cz, r }: { cx: number; cz: number; r: number }) {
-  // Pre-compute rock decoration positions once.
-  const rocks = useMemo(() => {
-    const out: Array<{ x: number; z: number; s: number; rot: number }> = [];
-    const seed = Math.floor(cx * 13 + cz * 7);
+function CaveZone({ cave }: { cave: CaveDef }) {
+  const { x: cx, z: cz, r, theme } = cave;
+  const tint = THEME_TINT[theme];
+
+  // Orient cave mouth toward the village (origin). If the cave is north of
+  // origin, the mouth opens south, etc.
+  const mouthAngle = Math.atan2(-cz, -cx); // direction from cave to origin, in XZ plane
+
+  // Deterministic rock placement.
+  const decor = useMemo(() => {
+    const seed = Math.floor(cx * 13 + cz * 7 + (theme.charCodeAt(0) * 31));
     let s = seed;
-    const rand = () => {
-      s = (s * 9301 + 49297) % 233280;
-      return s / 233280;
-    };
-    // Ring of rocks around the cave mouth + scattered inside
-    const ringCount = 14;
-    for (let i = 0; i < ringCount; i++) {
-      const a = (i / ringCount) * Math.PI * 2 + rand() * 0.3;
-      const dist = r * (0.92 + rand() * 0.12);
-      out.push({
-        x: cx + Math.cos(a) * dist,
-        z: cz + Math.sin(a) * dist,
-        s: 0.8 + rand() * 0.7,
+    const rand = () => { s = (s * 9301 + 49297) % 233280; return s / 233280; };
+
+    const wallRocks: Array<{ x: number; z: number; s: number; rot: number }> = [];
+    // Dense ring of wall rocks around perimeter (skip a gap at mouth direction)
+    const wallCount = 28;
+    for (let i = 0; i < wallCount; i++) {
+      const a = (i / wallCount) * Math.PI * 2;
+      // Skip the arc near mouthAngle (60° opening)
+      const angleDelta = Math.atan2(Math.sin(a - mouthAngle), Math.cos(a - mouthAngle));
+      if (Math.abs(angleDelta) < Math.PI / 6) continue;
+      wallRocks.push({
+        x: Math.cos(a) * (r * 0.95 + rand() * 1.5),
+        z: Math.sin(a) * (r * 0.95 + rand() * 1.5),
+        s: 1.2 + rand() * 0.9,
         rot: rand() * Math.PI,
       });
     }
-    for (let i = 0; i < 10; i++) {
+    // Interior floor rocks (smaller)
+    const floorRocks: Array<{ x: number; z: number; s: number; rot: number }> = [];
+    for (let i = 0; i < 12; i++) {
       const a = rand() * Math.PI * 2;
-      const dist = rand() * r * 0.7;
-      out.push({
-        x: cx + Math.cos(a) * dist,
-        z: cz + Math.sin(a) * dist,
-        s: 0.6 + rand() * 0.5,
+      const dist = rand() * r * 0.6 + r * 0.2;
+      floorRocks.push({
+        x: Math.cos(a) * dist,
+        z: Math.sin(a) * dist,
+        s: 0.4 + rand() * 0.5,
         rot: rand() * Math.PI,
       });
     }
-    return out;
-  }, [cx, cz, r]);
+    // Stalactites hanging from above
+    const stalactites: Array<{ x: number; z: number; h: number; s: number }> = [];
+    for (let i = 0; i < 14; i++) {
+      const a = rand() * Math.PI * 2;
+      const dist = rand() * r * 0.85;
+      stalactites.push({
+        x: Math.cos(a) * dist,
+        z: Math.sin(a) * dist,
+        h: 3.5 + rand() * 1.5,
+        s: 0.25 + rand() * 0.3,
+      });
+    }
+    return { wallRocks, floorRocks, stalactites };
+  }, [cx, cz, r, theme, mouthAngle]);
 
   return (
     <group position={[cx, 0, cz]}>
-      {/* Floor disc — dark, recessed look */}
+      {/* Floor disc — dark, recessed */}
       <mesh position={[0, 0.02, 0]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
         <circleGeometry args={[r, 48]} />
-        <meshStandardMaterial color={INTERIOR_COLOR} roughness={1} />
+        <meshStandardMaterial color={tint.floor} roughness={1} />
       </mesh>
-
-      {/* Boundary ring (visual hint where the cave ends) */}
+      {/* Slightly elevated boundary lip so player notices the edge */}
       <mesh position={[0, 0.04, 0]} rotation={[-Math.PI / 2, 0, 0]}>
         <ringGeometry args={[r - 0.5, r + 0.2, 64]} />
         <meshBasicMaterial color="#000000" transparent opacity={0.55} side={THREE.DoubleSide} />
       </mesh>
 
-      {/* Cave-mouth archway — 2 angled pillars + a top arch facing the village */}
-      <CaveMouth r={r} />
+      {/* Cave-mouth archway — auto-oriented toward village */}
+      <group rotation={[0, mouthAngle + Math.PI, 0]}>
+        <CaveMouth r={r} rockColor={tint.rockAccent} archColor={tint.rock} />
+      </group>
 
-      {/* Scattered rocks giving the cave its rocky look */}
-      {rocks.map((rk, i) => (
+      {/* Wall ring of large rocks (with mouth gap) */}
+      {decor.wallRocks.map((rk, i) => (
         <mesh
-          key={i}
-          position={[rk.x - cx, rk.s * 0.6, rk.z - cz]}
+          key={`w${i}`}
+          position={[rk.x, rk.s * 0.7, rk.z]}
           rotation={[0, rk.rot, 0]}
           scale={rk.s}
           castShadow
           receiveShadow
         >
           <dodecahedronGeometry args={[1, 0]} />
-          <meshStandardMaterial color={ROCK_COLOR} flatShading roughness={0.95} />
+          <meshStandardMaterial color={tint.rock} flatShading roughness={0.95} />
+        </mesh>
+      ))}
+      {/* Smaller interior floor rocks */}
+      {decor.floorRocks.map((rk, i) => (
+        <mesh
+          key={`f${i}`}
+          position={[rk.x, rk.s * 0.5, rk.z]}
+          rotation={[0, rk.rot, 0]}
+          scale={rk.s}
+          castShadow
+        >
+          <dodecahedronGeometry args={[1, 0]} />
+          <meshStandardMaterial color={tint.rock} flatShading roughness={0.95} />
+        </mesh>
+      ))}
+      {/* Stalactites hanging down */}
+      {decor.stalactites.map((st, i) => (
+        <mesh
+          key={`s${i}`}
+          position={[st.x, st.h, st.z]}
+          rotation={[Math.PI, 0, 0]}
+          scale={st.s}
+        >
+          <coneGeometry args={[1, 2.5, 6]} />
+          <meshStandardMaterial color={tint.rockAccent} flatShading roughness={0.9} />
         </mesh>
       ))}
 
-      {/* Two glowing crystals/torches for "cave" vibe + interior light */}
-      <group position={[r * 0.3, 0, r * 0.3]}>
-        <mesh position={[0, 0.6, 0]}>
-          <octahedronGeometry args={[0.3, 0]} />
-          <meshStandardMaterial color={PILLAR_GLOW} emissive={PILLAR_GLOW} emissiveIntensity={1.2} flatShading />
+      {/* Two glowing crystals — themed lights */}
+      <group position={[r * 0.4, 0, r * 0.4]}>
+        <mesh position={[0, 0.7, 0]}>
+          <octahedronGeometry args={[0.4, 0]} />
+          <meshStandardMaterial color={tint.crystalA} emissive={tint.crystalA} emissiveIntensity={1.5} flatShading />
         </mesh>
-        <pointLight position={[0, 0.6, 0]} color={PILLAR_GLOW} intensity={1.5} distance={r * 0.8} />
+        <pointLight position={[0, 0.7, 0]} color={tint.crystalA} intensity={2.0} distance={r * 0.9} />
       </group>
-      <group position={[-r * 0.3, 0, -r * 0.3]}>
-        <mesh position={[0, 0.6, 0]}>
-          <octahedronGeometry args={[0.3, 0]} />
-          <meshStandardMaterial color="#60a5fa" emissive="#3b82f6" emissiveIntensity={1.2} flatShading />
+      <group position={[-r * 0.4, 0, -r * 0.4]}>
+        <mesh position={[0, 0.7, 0]}>
+          <octahedronGeometry args={[0.4, 0]} />
+          <meshStandardMaterial color={tint.crystalB} emissive={tint.crystalB} emissiveIntensity={1.5} flatShading />
         </mesh>
-        <pointLight position={[0, 0.6, 0]} color="#3b82f6" intensity={1.5} distance={r * 0.8} />
+        <pointLight position={[0, 0.7, 0]} color={tint.crystalB} intensity={2.0} distance={r * 0.9} />
       </group>
+      {/* Center torch crystal for boss-tier caves */}
+      {(theme === "wilderness") && (
+        <group position={[0, 0, 0]}>
+          <mesh position={[0, 1.2, 0]}>
+            <octahedronGeometry args={[0.55, 0]} />
+            <meshStandardMaterial color="#ef4444" emissive="#dc2626" emissiveIntensity={2} flatShading />
+          </mesh>
+          <pointLight position={[0, 1.2, 0]} color="#ef4444" intensity={3.5} distance={r * 1.5} />
+        </group>
+      )}
+
+      {/* Floating cave name label above the entrance */}
+      <CaveLabel name={cave.name} mouthAngle={mouthAngle} r={r} />
     </group>
   );
 }
 
-/** Two boulders + a triangular top forming a walkable archway. The opening
- *  faces the centre (origin) so players approaching from the village walk
- *  through it naturally. */
-function CaveMouth({ r }: { r: number }) {
-  // Direction from cave center back to (0,0). Mouth points along -d (out toward village).
-  // For simplicity: mouth always faces positive Z (south) — rocky boulders flank.
-  const halfGap = 1.6;
+/** Boulders + keystone arch. Mouth opening always faces +Z (rotated by parent). */
+function CaveMouth({ r, rockColor, archColor }: { r: number; rockColor: string; archColor: string }) {
+  const halfGap = 1.8;
   return (
-    <group rotation={[0, 0, 0]}>
-      {/* Left boulder */}
-      <mesh position={[-halfGap - 1.2, 1.2, r * 0.92]} castShadow>
-        <dodecahedronGeometry args={[1.8, 0]} />
-        <meshStandardMaterial color={ROCK_ACCENT} flatShading roughness={0.9} />
+    <group>
+      <mesh position={[-halfGap - 1.4, 1.3, r * 0.92]} castShadow>
+        <dodecahedronGeometry args={[2.0, 0]} />
+        <meshStandardMaterial color={rockColor} flatShading roughness={0.9} />
       </mesh>
-      {/* Right boulder */}
-      <mesh position={[halfGap + 1.2, 1.2, r * 0.92]} castShadow>
-        <dodecahedronGeometry args={[1.8, 0]} />
-        <meshStandardMaterial color={ROCK_ACCENT} flatShading roughness={0.9} />
+      <mesh position={[halfGap + 1.4, 1.3, r * 0.92]} castShadow>
+        <dodecahedronGeometry args={[2.0, 0]} />
+        <meshStandardMaterial color={rockColor} flatShading roughness={0.9} />
       </mesh>
-      {/* Arch keystone on top */}
-      <mesh position={[0, 2.6, r * 0.92]} castShadow>
-        <dodecahedronGeometry args={[1.3, 0]} />
-        <meshStandardMaterial color={ROCK_COLOR} flatShading roughness={0.9} />
+      <mesh position={[0, 2.8, r * 0.92]} castShadow>
+        <dodecahedronGeometry args={[1.5, 0]} />
+        <meshStandardMaterial color={archColor} flatShading roughness={0.9} />
       </mesh>
-      {/* Faint "ENTER" hint glow under the arch (subtle ground shimmer) */}
+      {/* Golden "enter here" floor ring */}
       <mesh position={[0, 0.05, r * 0.85]} rotation={[-Math.PI / 2, 0, 0]}>
-        <ringGeometry args={[0.4, 0.7, 16]} />
-        <meshBasicMaterial color="#fbbf24" transparent opacity={0.35} side={THREE.DoubleSide} />
+        <ringGeometry args={[0.5, 0.9, 16]} />
+        <meshBasicMaterial color="#fbbf24" transparent opacity={0.45} side={THREE.DoubleSide} />
       </mesh>
     </group>
+  );
+}
+
+/** Always-up text label outside the cave mouth so players can identify it
+ *  from afar. Uses a billboard sprite via canvas texture. */
+function CaveLabel({ name, mouthAngle, r }: { name: string; mouthAngle: number; r: number }) {
+  const sprite = useMemo(() => {
+    const c = document.createElement("canvas");
+    c.width = 512; c.height = 96;
+    const ctx = c.getContext("2d")!;
+    ctx.fillStyle = "rgba(0,0,0,0.7)";
+    ctx.fillRect(0, 0, 512, 96);
+    ctx.font = "bold 38px sans-serif";
+    ctx.fillStyle = "#fde047";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(name, 256, 48);
+    const tex = new THREE.CanvasTexture(c);
+    tex.needsUpdate = true;
+    return tex;
+  }, [name]);
+
+  // Place label outside the mouth (opposite side of arch, facing village)
+  const lx = Math.cos(mouthAngle) * (r + 4);
+  const lz = Math.sin(mouthAngle) * (r + 4);
+  return (
+    <sprite position={[lx, 4.5, lz]} scale={[6, 1.1, 1]}>
+      <spriteMaterial map={sprite} depthTest={false} />
+    </sprite>
   );
 }

@@ -5,9 +5,23 @@ export type BiomeId = "plains" | "forest" | "mountains" | "lake" | "swamp" | "vi
 
 /** Walkable cave zones inside the field map — no portal, no map change.
  *  Each cave is a circle around (x, z) with a darker ambience + tougher mobs. */
-export const CAVES: Array<{ id: string; name: string; x: number; z: number; r: number }> = [
-  { id: "shadow_cave", name: "ถ้ำเงา (ภูเขาเหนือ)", x: -80, z: -60, r: 22 },
-  { id: "frost_cave",  name: "ถ้ำน้ำแข็ง (หิมะ)",    x: -75, z: -80, r: 18 },
+export type CaveDef = {
+  id: string;
+  name: string;
+  x: number;
+  z: number;
+  r: number;
+  /** Visual theme — drives tint, crystal colors, decoration. */
+  theme: "shadow" | "frost" | "desert" | "swamp" | "forest" | "wilderness";
+};
+
+export const CAVES: CaveDef[] = [
+  { id: "shadow_cave",     name: "ถ้ำเงา (ภูเขาเหนือ)",     x: -80, z: -60, r: 22, theme: "shadow" },
+  { id: "frost_cave",      name: "ถ้ำน้ำแข็ง (หิมะ)",        x: -75, z: -80, r: 18, theme: "frost" },
+  { id: "desert_cave",     name: "ถ้ำทะเลทราย",             x: -55, z: -85, r: 18, theme: "desert" },
+  { id: "swamp_cave",      name: "ถ้ำบึงเลน",                x:   0, z:  85, r: 16, theme: "swamp" },
+  { id: "forest_cave",     name: "ถ้ำป่าลึก",                x:  78, z: -60, r: 20, theme: "forest" },
+  { id: "wilderness_cave", name: "ถ้ำผู้พิทักษ์ (Dark Lord)", x:   0, z: -90, r: 24, theme: "wilderness" },
 ];
 
 export type BiomeDef = {

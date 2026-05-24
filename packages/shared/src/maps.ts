@@ -117,19 +117,35 @@ function generateFieldSpawns(halfSize: number): SpawnPoint[] {
   place("bog_witch", 0, halfSize * 0.7, 14, 2);
   place("swamp_serpent", 0, halfSize * 0.7, 16, 3);
 
-// ── Boss area ── deep wilderness
-  out.push({ kind: "darklord", x: 0, z: -halfSize * 0.92 });
-
   // ── Cave dwellers ── tougher mobs inside the walkable caves (no portal).
   // Coords match CAVES array in biomes.ts.
-  // Shadow cave at (-80, -60) r=22:
-  place("wolf", -80, -60, 18, 5);
-  place("orc",  -80, -60, 16, 3);
-  out.push({ kind: "darklord", x: -80, z: -60 }); // mini-boss inside cave
-  // Frost cave at (-75, -80) r=18:
+
+  // Shadow cave (-80, -60) r=22: wolves + orcs
+  place("wolf", -80, -60, 18, 6);
+  place("orc",  -80, -60, 16, 4);
+
+  // Frost cave (-75, -80) r=18: yeti + ice wraith + snowman giant
   place("yeti",       -75, -80, 14, 3);
   place("ice_wraith", -75, -80, 14, 3);
   out.push({ kind: "snowman_giant", x: -75, z: -80 });
+
+  // Desert cave (-55, -85) r=18: sand worms + scorpion lord
+  place("sand_worm", -55, -85, 14, 4);
+  place("scorpion",  -55, -85, 14, 3);
+  out.push({ kind: "scorpion_lord", x: -55, z: -85 });
+
+  // Swamp cave (0, 85) r=16: bog witches + swamp serpents
+  place("bog_witch",     0, 85, 12, 3);
+  place("swamp_serpent", 0, 85, 12, 3);
+
+  // Forest cave (78, -60) r=20: heavy orc nest
+  place("orc",  78, -60, 16, 5);
+  place("wolf", 78, -60, 14, 3);
+
+  // ── Wilderness cave (0, -90) r=24: THE DARK LORD'S LAIR ──
+  out.push({ kind: "darklord", x: 0, z: -90 });
+  place("orc",  0, -90, 18, 4);
+  place("wolf", 0, -90, 18, 4);
 
   // Near-spawn easy targets so new players have something to hit
   out.push({ kind: "slime", x: 14, z: 6 });
