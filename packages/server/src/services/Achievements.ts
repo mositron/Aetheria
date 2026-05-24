@@ -1,6 +1,6 @@
 // Achievement progress + unlock detection. Pure state machine.
 //
-// GameRoom owns the side effects (toast to client, zeny/item rewards,
+// WorldRoom owns the side effects (toast to client, zeny/item rewards,
 // leaderboard contribution); this service computes WHICH achievements
 // unlocked and exposes the updated JSON blob for persistence.
 

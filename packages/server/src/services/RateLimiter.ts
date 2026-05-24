@@ -1,4 +1,4 @@
-// Token-bucket rate limiter, extracted from GameRoom.
+// Token-bucket rate limiter, extracted from WorldRoom.
 //
 // One instance per room. Each (sid, bucketKey) pair tracks recent event
 // timestamps over a sliding window.

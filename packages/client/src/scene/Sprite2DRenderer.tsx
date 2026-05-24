@@ -95,18 +95,18 @@ export function Sprite2DRenderer({ room, mapId }: Sprite2DViewProps) {
 
     // Sync entities from room state
     const syncEntities = () => {
-      const me = room.state.players.get(sessionId);
+      const me = sessionId ? room.state.players.get(sessionId) : undefined;
       if (me) {
-        cameraRef.current.x = me.x ?? 0;
-        cameraRef.current.z = me.z ?? 0;
+        cameraRef.current.x = me.pos?.x ?? 0;
+        cameraRef.current.z = me.pos?.z ?? 0;
       }
 
       const newEntities = new Map<string, any>();
       room.state.players.forEach((p, sid) => {
         if (sid === sessionId) return;
         newEntities.set(sid, {
-          x: p.x ?? 0,
-          z: p.z ?? 0,
+          x: p.pos?.x ?? 0,
+          z: p.pos?.z ?? 0,
           name: p.name ?? "???",
           isPlayer: true,
           color: stringToColor(p.name ?? sid),
@@ -117,8 +117,8 @@ export function Sprite2DRenderer({ room, mapId }: Sprite2DViewProps) {
       const monsters = (room.state as any).monsters as Map<string, any> | undefined;
       monsters?.forEach?.((m: any, mid: string) => {
         newEntities.set(mid, {
-          x: m.x ?? 0,
-          z: m.z ?? 0,
+          x: m.pos?.x ?? 0,
+          z: m.pos?.z ?? 0,
           name: m.name ?? "Monster",
           isPlayer: false,
           color: stringToColor(mid),
@@ -137,6 +137,7 @@ export function Sprite2DRenderer({ room, mapId }: Sprite2DViewProps) {
 
     function render(ts: number) {
       const { w, h } = dims;
+      if (!canvas) return;
       canvas.width = w;
       canvas.height = h;
 
@@ -151,7 +152,7 @@ export function Sprite2DRenderer({ room, mapId }: Sprite2DViewProps) {
       const cameraZ = cameraRef.current.z;
 
       // Get player direction from latest state
-      const me = room.state.players.get(sessionId);
+      const me = sessionId ? room.state.players.get(sessionId) : undefined;
       if (me) {
         playerDir = ((me as any).direction as Direction) ?? "down";
       }
@@ -264,7 +265,7 @@ function drawMinimap(
   });
 
   room.state.players.forEach((p, sid) => {
-    const { px, py } = toMinimap(p.x ?? 0, p.z ?? 0);
+    const { px, py } = toMinimap(p.pos?.x ?? 0, p.pos?.z ?? 0);
     ctx.fillStyle = sid === sessionId ? "#60a5fa" : "#38bdf8";
     ctx.beginPath();
     ctx.arc(px, py, sid === sessionId ? 4 : 2.5, 0, Math.PI * 2);

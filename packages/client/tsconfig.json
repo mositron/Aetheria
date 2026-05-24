@@ -7,5 +7,6 @@
     "outDir": "dist",
     "skipLibCheck": true
   },
-  "include": ["src"]
+  "include": ["src"],
+  "exclude": ["src/stories/**", "dist", "node_modules"]
 }

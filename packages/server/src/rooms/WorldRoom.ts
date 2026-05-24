@@ -62,6 +62,8 @@ import { CraftingService } from "../services/CraftingService.js";
 import { HousingService } from "../services/HousingService.js";
 import { estimateHeight, checkPortal, clamp } from "../services/MovementService.js";
 import { AuditService, auditService } from "../services/AuditService.js";
+import { getCurrentSeason } from "../services/Season.js";
+import { tryWaypoint } from "../services/Waypoint.js";
 
 
 type Intent = { mx: number; mz: number; rotY: number };
@@ -276,23 +278,7 @@ export class WorldRoom extends Room<WorldState> {
       (sid, counter, by) => this.bumpAchievement(sid, counter, by)
     );
     // ── Seasonal events ───────────────────────────────────────────────────────
-    function getCurrentSeason(): "none" | "songkran" | "halloween" | "christmas" | "loy_krathong" {
-      const now = new Date();
-      const month = now.getMonth(); // 0-indexed
-      const day = now.getDate();
-      // Songkran: April 13-15
-      if (month === 3 && day >= 13 && day <= 15) return "songkran";
-      // Loy Krathong: roughly Nov 20-25
-      if (month === 10 && day >= 20 && day <= 25) return "loy_krathong";
-      // Halloween: Oct 31
-      if (month === 9 && day === 31) return "halloween";
-      // Christmas: Dec 24-26
-      if (month === 11 && day >= 24 && day <= 26) return "christmas";
-      return "none";
-    }
-
-    const currentSeason = getCurrentSeason();
-    this.state.season = currentSeason;
+    this.state.season = getCurrentSeason();
     this.setPatchRate(1000 / 20);
     this.setSimulationInterval((dt) => this.tick(dt), 1000 / GAME_CONFIG.TICK_RATE);
 
@@ -408,29 +394,22 @@ export class WorldRoom extends Room<WorldState> {
 
     this.onMessage("drink", (client) => this.survivalSvc.handleDrink(client.sessionId));
 
-    // Waypoint fast-travel — player spends zeny to warp to a saved waypoint
-    const WAYPOINTS: Record<string, {x: number, z: number, name: string}> = {
-      "wp_prontera":   { x: 155, z: 185, name: "Prontera" },
-      "wp_geffen":     { x: 120, z: 65,  name: "Geffen" },
-      "wp_morocc":     { x: 80,  z: 120, name: "Morocc" },
-      "wp_payon":      { x: 160, z: 90,  name: "Payon" },
-      "wp_alberta":    { x: 100, z: 140, name: "Alberta" },
-      "wp_izlude":     { x: 130, z: 100, name: "Izlude" },
-    };
+    // Waypoint fast-travel — service holds table + lookup, WorldRoom mutates state.
     this.onMessage("waypoint_travel", (client, msg: any) => {
       const p = this.state.players.get(client.sessionId);
       if (!p) return;
-      const WARP_COST = 50;
-      if (p.zeny < WARP_COST) {
-        client.send("system", { text: "ไม่พอ... ต้องมีเงินอย่างน้อย 50z ถึงจะใช้ waypoint" });
+      const r = tryWaypoint(p.zeny, String(msg?.id ?? ""));
+      if (!r.ok) {
+        const text = r.reason === "no-zeny"
+          ? "ไม่พอ... ต้องมีเงินอย่างน้อย 50z ถึงจะใช้ waypoint"
+          : "ไม่พบจุด warp นี้";
+        client.send("system", { text });
         return;
       }
-      const wp = WAYPOINTS[String(msg?.id ?? "")];
-      if (!wp) { client.send("system", { text: "ไม่พบจุด warp นี้" }); return; }
-      p.zeny -= WARP_COST;
-      p.pos.x = wp.x;
-      p.pos.z = wp.z;
-      client.send("system", { text: `ไป ${wp.name} แล้ว (${WARP_COST}z)` });
+      p.zeny -= r.cost;
+      p.pos.x = r.x;
+      p.pos.z = r.z;
+      client.send("system", { text: `ไป ${r.name} แล้ว (${r.cost}z)` });
     });
 
     this.onMessage("buildHouse", (client) => this.housingSvc.handleBuildHouse(client));

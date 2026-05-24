@@ -8,7 +8,7 @@
     "dev:client": "pnpm --filter @game/client dev",
     "build": "pnpm -r build",
     "db:push": "pnpm --filter @game/server db:push",
-    "test:harness": "tsx tools/harness-runner.ts",
+    "test:harness": "pnpm --filter @game/server exec tsx ../../tools/harness-runner.ts",
     "loadtest": "k6 run tools/k6/loadtest-room.js",
     "lint": "eslint .",
     "format": "prettier --write ."

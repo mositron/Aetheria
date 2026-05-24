@@ -1,5 +1,24 @@
 version: '3.9'
+
+# Full prod-like stack: server x2 (multi-instance) + postgres + redis.
+# For local dev (single-instance, SQLite), just run `pnpm dev` — no docker needed.
 services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: aetheria
+      POSTGRES_USER: aetheria
+      POSTGRES_PASSWORD: aetheria
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U aetheria"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
   redis:
     image: redis:7-alpine
     ports:
@@ -7,23 +26,39 @@ services:
     command: redis-server --appendonly yes
     volumes:
       - redis_data:/data
+
   server1:
     build: .
     ports:
       - "2567:2567"
     environment:
-      - REDIS_URL=redis://redis:6379
+      - NODE_ENV=production
       - PORT=2567
+      - REDIS_URL=redis://redis:6379
+      - DATABASE_URL=postgresql://aetheria:aetheria@postgres:5432/aetheria?schema=public
+      - JWT_SECRET=${JWT_SECRET:-dev-only-please-override-in-prod}
     depends_on:
-      - redis
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+
   server2:
     build: .
     ports:
       - "2568:2567"
     environment:
+      - NODE_ENV=production
+      - PORT=2567
       - REDIS_URL=redis://redis:6379
-      - PORT=2568
+      - DATABASE_URL=postgresql://aetheria:aetheria@postgres:5432/aetheria?schema=public
+      - JWT_SECRET=${JWT_SECRET:-dev-only-please-override-in-prod}
     depends_on:
-      - redis
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+
 volumes:
+  postgres_data:
   redis_data:

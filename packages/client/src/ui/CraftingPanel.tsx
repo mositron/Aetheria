@@ -5,11 +5,12 @@ import { GameFrame } from "./GameFrame";
 import { keyEq } from "../utils/keyMatch";
 import { useT } from "../locales/useT";
 
-const CATEGORIES = [
-  { id: "cooking", label: () => t("craft.categoryCooking"),  icon: "🍖" },
-  { id: "potion",  label: () => t("craft.categoryPotion"),   icon: "🧪" },
-  { id: "weapon",  label: () => t("craft.categoryWeapon"),   icon: "⚔" },
-  { id: "armor",   label: () => t("craft.categoryArmor"),    icon: "🛡" },
+type CategoryId = "cooking" | "potion" | "weapon" | "armor";
+const CATEGORIES: Array<{ id: CategoryId; labelKey: string; icon: string }> = [
+  { id: "cooking", labelKey: "craft.categoryCooking", icon: "🍖" },
+  { id: "potion",  labelKey: "craft.categoryPotion",  icon: "🧪" },
+  { id: "weapon",  labelKey: "craft.categoryWeapon", icon: "⚔" },
+  { id: "armor",   labelKey: "craft.categoryArmor",  icon: "🛡" },
 ];
 
 type Tab = "craft" | "research";
@@ -145,7 +146,7 @@ export function CraftingPanel({ room }: { room: Room<WorldState> }) {
                     }`}
                   >
                     <span className="text-lg">{c.icon}</span>
-                    <span>{c.label()}</span>
+                    <span>{t(c.labelKey)}</span>
                   </button>
                 ))}
               </div>
@@ -209,7 +210,7 @@ export function CraftingPanel({ room }: { room: Room<WorldState> }) {
                           );
                         })}
                       </div>
-{!levelOk && <div className="text-[10px] text-rose-300 mb-1">{t("craft.needsLevel", { level: r.minLevel })}</div>}
+{!levelOk && <div className="text-[10px] text-rose-300 mb-1">{t("craft.needsLevel", { level: r.minLevel ?? 1 })}</div>}
                       {!benchOk && <div className="text-[10px] text-amber-300 mb-1">{t("craft.needsBench", { bench: CRAFTING_BENCHES[r.minBenchTier ?? 0]?.nameTh ?? "" })}</div>}
                       <button
                         onClick={() => room.send("craft", { recipeId: r.id, benchTier: bench?.minTier ?? 0 })}

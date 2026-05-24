@@ -201,6 +201,16 @@ export function Scene({ room }: { room: Room<WorldState> }) {
         }
       }
 
+      // Compute engageRange up front — both bot-mode target switching and movement use it.
+      const jobDef = JOBS[me.job as JobId];
+      const offensiveSkills = (jobDef?.skills ?? []).filter((s) => s.damageMult > 0);
+      const primarySkill = offensiveSkills.find((s) => s.hotkey === 1 && s.range > 2.5);
+      const RANGED_JOBS_CLIENT = new Set(["mage", "archer", "sniper", "wizard"]);
+      const basicReach = RANGED_JOBS_CLIENT.has(me.job) ? 7.5 : (GAME_CONFIG.ATTACK_RANGE - ATTACK_RANGE_BUFFER);
+      const engageRange = (primarySkill && me.mp >= primarySkill.manaCost)
+        ? primarySkill.range - 0.5
+        : basicReach;
+
       // BOT MODE: auto-target HOSTILE mobs + auto-pickup MONSTER drops only.
       if (botMode && !usingKeys && !me.dead) {
         // Clear pickup target if drop disappeared (already picked up)
@@ -271,18 +281,10 @@ export function Scene({ room }: { room: Room<WorldState> }) {
       const monTarget = targetId ? room.state.monsters.get(targetId) : null;
       const pickup = pickupTarget.current ? room.state.drops.get(pickupTarget.current) : null;
 
-      // Auto-cast: pick the best ready offensive skill (highest hotkey first =
-      // usually the strongest/specialty skill). Fall back to primary or basic attack.
-      const job = JOBS[me.job as JobId];
-      const offensive = (job?.skills ?? []).filter((s) => s.damageMult > 0);
-      const primary = offensive.find((s) => s.hotkey === 1 && s.range > 2.5);
-      const hasMpForPrimary = primary ? me.mp >= primary.manaCost : false;
-      // Ranged jobs have 8m basic-attack reach; melee uses ATTACK_RANGE.
-      const RANGED_JOBS_CLIENT = new Set(["mage", "archer", "sniper", "wizard"]);
-      const basicReach = RANGED_JOBS_CLIENT.has(me.job) ? 7.5 : (GAME_CONFIG.ATTACK_RANGE - ATTACK_RANGE_BUFFER);
-      const engageRange = (primary && hasMpForPrimary)
-        ? primary.range - 0.5
-        : basicReach;
+      // Auto-cast: alias for the lifted variables above.
+      const job = jobDef;
+      const offensive = offensiveSkills;
+      const primary = primarySkill;
 
       if (!usingKeys && pickup) {
         const dx = pickup.pos.x - me.pos.x;

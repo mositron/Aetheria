@@ -3,8 +3,12 @@ generator client {
 }
 
 datasource db {
+  // Default is SQLite for fast local dev. For Postgres in prod:
+  //   1. Change provider to "postgresql"
+  //   2. Set DATABASE_URL in env to a Postgres URL
+  //   3. Re-baseline migrations: `pnpm prisma migrate dev --name postgres_baseline`
   provider = "sqlite"
-  url      = "file:./dev.db"
+  url      = env("DATABASE_URL")
 }
 
 model User {

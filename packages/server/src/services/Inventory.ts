@@ -170,6 +170,12 @@ export class Inventory {
     const g = this.state.drops.get(dropId);
     if (!p || !g) return;
     if (Math.hypot(p.pos.x - g.pos.x, p.pos.z - g.pos.z) > 2.5) return;
+    // Zeny is currency, not an inventory item — credit it directly.
+    if (g.itemId === "zeny") {
+      p.zeny += g.qty;
+      this.state.drops.delete(dropId);
+      return;
+    }
     if (!this.addToInventory(p, g.itemId, g.qty)) {
       const key = "invfull:" + sid;
       const last = this.lastAttack.get(key) ?? 0;

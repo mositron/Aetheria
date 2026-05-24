@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import type { Room } from "colyseus.js";
-import { STATUS_DEFS, type Player, type WorldState, type StatusKind } from "@game/shared";
+import { STATUS_DEFS, type Player, type WorldState, type StatusKind, type StatusEffect } from "@game/shared";
 
 export function StatusBadges({ room }: { room: Room<WorldState> }) {
   const [, setTick] = useState(0);
@@ -12,7 +12,7 @@ export function StatusBadges({ room }: { room: Room<WorldState> }) {
   const me: Player | undefined = room.state.players.get(room.sessionId);
   if (!me || me.statuses.length === 0) return null;
   const now = Date.now();
-  const active = Array.from(me.statuses.values()).filter((s) => s.endAt > now);
+  const active = (Array.from(me.statuses.values()) as StatusEffect[]).filter((s) => s.endAt > now);
   if (active.length === 0) return null;
 
   return (

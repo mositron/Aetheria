@@ -14,6 +14,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
@@ -21,22 +25,23 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
-      - name: Type-check server
-        run: cd packages/server && pnpm exec tsc --noEmit
-        if: always()
+      - name: Build shared (emit .d.ts for downstream typecheck)
+        run: pnpm --filter @game/shared build
 
       - name: Type-check shared
         run: cd packages/shared && pnpm exec tsc --noEmit
-        if: always()
 
-      - name: Build all packages
-        run: pnpm build
-        if: always()
+      - name: Type-check server
+        run: cd packages/server && pnpm exec tsc --noEmit
+
+      - name: Type-check client
+        run: cd packages/client && pnpm exec tsc --noEmit
 
       - name: Test server
         run: cd packages/server && pnpm test
-        if: always()
 
       - name: Test shared
         run: cd packages/shared && pnpm test
-        if: always()
+
+      - name: Build client
+        run: cd packages/client && pnpm exec vite build

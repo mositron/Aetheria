@@ -40,7 +40,7 @@ export function WaypointControls() {
       }}
       title={t('waypoint.cancelRoute')}
     >
-      ✕ {t('waypoint.cancelNav', { icon: waypoint.icon, label: waypoint.label })}
+      ✕ {t('waypoint.cancelNav', { icon: waypoint.icon ?? "", label: waypoint.label })}
     </button>
   );
 }

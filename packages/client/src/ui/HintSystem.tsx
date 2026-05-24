@@ -254,7 +254,7 @@ export function HintSystem({ room }: { room: Room<WorldState> }) {
               onClick={() => setWaypoint({
                 x: hint.waypoint!.x,
                 z: hint.waypoint!.z,
-                label: hint.waypoint!.labelKey ? t(hint.waypoint.labelKey) : hint.waypoint!.label,
+                label: hint.waypoint!.labelKey ? t(hint.waypoint!.labelKey) : hint.waypoint!.label,
                 icon: hint.waypoint!.icon,
               })}
               className="w-full py-1 px-2 rounded-full text-[11px] font-bold text-white transition active:scale-95"

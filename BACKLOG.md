@@ -3,8 +3,8 @@
 > **Single source of truth สำหรับงานที่เหลือ.** อ่านไฟล์นี้ก่อนเริ่ม session ใหม่
 > เพื่อให้รู้ว่าสถานะอะไร, อยู่ที่ไหน, ทำอะไรต่อ.
 
-Last updated: 2026-05-22 (commit `adebb22`)
-Total commits to date: 50+
+Last updated: 2026-05-24 (commit `947afdc`)
+Total commits to date: 70+
 
 ---
 
@@ -13,11 +13,15 @@ Total commits to date: 50+
 | Area | Status |
 |---|---|
 | **Build** | ✅ Client + server build clean. PWA SW generated. |
-| **Tests** | ✅ 101 server vitest tests + 19 shared vitest tests = **120 passing** |
-| **TypeScript** | ✅ No errors (1 pre-existing TS6059 rootDir warning is benign) |
+| **Tests** | ✅ 139 passing (server 120 + shared 19), 8 skipped (Redis/load-test gated). |
+| **TypeScript** | ✅ Zero errors across shared/server/client (TS7016 wave fixed via shared `.d.ts` emit). |
+| **CI** | ✅ GitHub Actions runs typecheck (all 3 packages) + tests + vite build. |
 | **Bundle** | ✅ Vendor-split: index.js 271kB + Three.js 687kB (cacheable) + lazy modal chunks |
-| **Services extracted** | ✅ 15/15 — all services extracted (Combat, Inventory, Trade included). |
-| **GameRoom.ts** | ~1539 lines (was 3000+). All 15 services extracted into separate files. |
+| **Services extracted** | ✅ 25+ — all domain services in `packages/server/src/services/`. |
+| **Active room** | `WorldRoom.ts` (~1896 lines). Old `GameRoom.ts` (2240 lines) **deleted** as dead code. |
+| **i18n** | ✅ Full string extraction across UI components — 60+ namespaces in `locales/en.ts` + `th.ts`. |
+| **Mobile** | ✅ Responsive Login/CharacterSelect/CharacterCreator/HUD/TouchControls (portrait+landscape). |
+| **Movement** | ✅ Server+client collision (slide along obstacles), auto-jump on step-up, dynamic target switching. |
 | **Deployment** | Single-instance ready. Multi-instance via `REDIS_URL` opt-in. |
 | **PWA** | ✅ Installable (manifest + Workbox cache + auto-update). Production icons (72-512 + maskable) generated. |
 
@@ -128,18 +132,8 @@ cd packages/server && pnpm db:push    # quick dev sync
 
 ## P0 — Blockers before production launch
 
-### A. Behavioral test coverage for GameRoom handlers
-**Scope:** 1-2 PRs.
-**Why blocker:** Required before extracting Combat/Inventory/Trade services (P1.1).
-**TODO:**
-- In-memory room harness (mock state + clients) — see Colyseus testing docs
-- Coverage targets:
-  - Combat (handleAttack, handleSkill, dealDamage, status ticks) — 80%
-  - Trade (full accept→offer→confirm→rollback) — 90%
-  - Auction (list / buy race / cancel) — 90% *(Auction service tests cover part of this)*
-  - Guild (create / join / leave with $transaction) — 80% *(Guild service same)*
-  - Quest (track / turnin / chain advance) — 70%
-- Snapshot tests for savePlayer/onJoin (regression guard)
+### A. Behavioral test coverage for WorldRoom handlers
+**DONE 2026-05-23.** `packages/server/src/rooms/__tests__/WorldRoom.test.ts` (580 lines) + `WorldRoom.behavioral.test.ts` (478 lines) cover Auction, Guild, Trade, Inventory, Combat, Quest. handleAttack, handleSkill, equip, quest accept/turn-in, party request/accept/offer, trade offer/zeny-clamp, status effects, monster HP on death.
 
 ### B. CI / GitHub Actions
 **DONE 2026-05-21.** `.github/workflows/ci.yml` — pnpm install + cache, build all packages, vitest run, typecheck.
@@ -436,18 +430,37 @@ All handlers wrapped: drops bad payloads instead of crashing.
 ## 📜 Recent commit log (for context-resume)
 
 ```
+947afdc fix(mobile): responsive gaps — GameFrame banner, corner gems, form inputs, detail panels
+12df27b feat(auto-combat): dynamic target switching — switch to closer/attacking mobs mid-fight
+ed60e76 feat(mobile): responsive game-screen UI for portrait/landscape
+8d9142b fix(mobile): responsive CSS and TouchControls layout
+ffb24bb feat(mobile): responsive Login, CharacterSelect, CharacterCreator
+7b8165a fix(i18n): useT() in BuildModeButton/ActionButtons sub-components
+e0f0498 fix(i18n): correct useT import path in QuestTracker and GuildPanel
+0143bff feat(auto-jump): auto-mode triggers jump when target is higher than step
+be2cb1d feat(collision): server+client collision system — slide along obstacles, wall-follow
+f4d357a feat(i18n): TargetDisplay, TutorialFinger, WorldLobby, Chat, TouchControls i18n
+3aa94d0 feat(i18n): WorldCompanionPanel full i18n + fix locale duplicate keys
+7e59ae7 feat(i18n): CharacterSelect full i18n conversion
+3e49748 feat(i18n): CraftingPanel i18n conversion
+07bd8fa feat(i18n): AchievementsPanel, DailyReward, HUD, Inventory, PartyPanel
 adebb22 feat: P2.19 light mode, P6.46 account recovery, P3.29 server-hosted worlds, P3.30 2D sprite view
 f4db7cc feat(P6.47): audit log table + Zod schema validation
-de2a081 docs: update BACKLOG.md P4 items DONE (Sentry, music, refresh, password, backup, ESLint, GLTF)
 b60ec07 feat(P4.29): GLTFHero.tsx loader stub
 87e8da2 feat(P4.38): ESLint + Prettier config with husky pre-commit hook
 c747db8 feat(P4): Sentry, background music, password strength, JWT refresh, DB backup scripts
 e36b993 fix(P0): CORS strict whitelist + helmet + dual-rate-limit + HTTPS redirect
-39cc81d refactor: GameRoom.ts → WorldRoom.ts (1796 lines, service pattern)
-830a154 chore: add CompanionModel, Inventory test, Room tests, Redis test, client packages
-539d456 chore: session handoff — P2/P3 polish
-4c20656 feat: P3/P4 content batch — Combat/Inventory/Trade/Quest/Spawn/Research/Stats/Movement
 ```
+
+### Cleanup pass — 2026-05-24
+- Deleted dead `GameRoom.ts` (2240 lines) — server only registers WorldRoom.
+- Fixed `@game/shared` package emits `.d.ts` (declaration: true in tsconfig). Resolved TS7016 across server/client.
+- Lifted `engageRange` computation in Scene.tsx to fix use-before-declaration.
+- Fixed Sprite2D context/renderer to use `p.pos?.x/z` (matches schema, was reading non-existent `p.x/z`).
+- Fixed CollisionService MapDef field names (`size` / `spawns`, not `worldSize` / `monsterSpawns`).
+- Added `ioredis-mock` type shim (`packages/server/src/types/shims.d.ts`).
+- CraftingPanel labels use translation keys instead of broken top-level `t()` calls.
+- CI: added pnpm setup action + client typecheck step + shared build-before-typecheck.
 
 Run `git log --oneline -20` for the full local view.
 

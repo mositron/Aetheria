@@ -1,6 +1,6 @@
 // Party state machine. Pure data + transitions — no client I/O.
 //
-// GameRoom owns the "notify clients" side; this service owns the
+// WorldRoom owns the "notify clients" side; this service owns the
 // invariants: who's in which party, who invited whom, max-size cap,
 // auto-disband when down to 1 member.
 

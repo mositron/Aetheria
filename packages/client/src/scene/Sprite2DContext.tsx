@@ -42,10 +42,10 @@ export function Sprite2DProvider({
   // Sync sprite state from room on every state change — no React re-renders needed
   useEffect(() => {
     const sync = () => {
-      const me = room.state.players.get(sessionId);
+      const me = sessionId ? room.state.players.get(sessionId) : undefined;
       if (me) {
-        cameraRef.current.x = me.x ?? 0;
-        cameraRef.current.z = me.z ?? 0;
+        cameraRef.current.x = me.pos?.x ?? 0;
+        cameraRef.current.z = me.pos?.z ?? 0;
       }
 
       const newSprites = new Map<string, SpriteState>();
@@ -55,8 +55,8 @@ export function Sprite2DProvider({
         newSprites.set(sid, {
           sessionId: sid,
           name: p.name ?? "???",
-          x: p.x ?? 0,
-          z: p.z ?? 0,
+          x: p.pos?.x ?? 0,
+          z: p.pos?.z ?? 0,
           direction: (p as any).direction ?? "down",
           animFrame: ((p as any).animFrame ?? 0) as 0 | 1,
           isPlayer: true,
@@ -70,8 +70,8 @@ export function Sprite2DProvider({
         newSprites.set(mid, {
           sessionId: mid,
           name: m.name ?? "Monster",
-          x: m.x ?? 0,
-          z: m.z ?? 0,
+          x: m.pos?.x ?? 0,
+          z: m.pos?.z ?? 0,
           direction: "down",
           animFrame: ((m as any).animFrame ?? 0) as 0 | 1,
           isPlayer: false,

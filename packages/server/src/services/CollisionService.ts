@@ -26,11 +26,11 @@ export class CollisionService {
     const def = MAPS[mapId as MapId];
     if (!def) return;
 
-    const scaleX = def.worldSize / 100;
-    const scaleZ = def.worldSize / 100;
+    const scaleX = def.size / 100;
+    const scaleZ = def.size / 100;
     const list: Obstacle[] = [];
 
-    for (const spawn of def.monsterSpawns ?? []) {
+    for (const spawn of def.spawns ?? []) {
       const kind = spawn.kind;
       // Resource nodes are solid obstacles
       if (kind === "tree_node") {
