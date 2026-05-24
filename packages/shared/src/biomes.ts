@@ -1,7 +1,14 @@
 // Biome regions for the open-world field map.
 // Determines visual palette + which mobs/resources spawn where.
 
-export type BiomeId = "plains" | "forest" | "mountains" | "lake" | "swamp" | "village" | "wilderness" | "desert" | "snow";
+export type BiomeId = "plains" | "forest" | "mountains" | "lake" | "swamp" | "village" | "wilderness" | "desert" | "snow" | "cave";
+
+/** Walkable cave zones inside the field map — no portal, no map change.
+ *  Each cave is a circle around (x, z) with a darker ambience + tougher mobs. */
+export const CAVES: Array<{ id: string; name: string; x: number; z: number; r: number }> = [
+  { id: "shadow_cave", name: "ถ้ำเงา (ภูเขาเหนือ)", x: -80, z: -60, r: 22 },
+  { id: "frost_cave",  name: "ถ้ำน้ำแข็ง (หิมะ)",    x: -75, z: -80, r: 18 },
+];
 
 export type BiomeDef = {
   id: BiomeId;
@@ -22,7 +29,16 @@ export const BIOMES: Record<BiomeId, BiomeDef> = {
   wilderness: { id: "wilderness", name: "แดนลึกลับ",    ground: "#7c3aed", accent: "#a855f7", trim: "#581c87" },
   desert:     { id: "desert",     name: "ทะเลทราย",     ground: "#fde68a", accent: "#fcd34d", trim: "#d97706" },
   snow:       { id: "snow",       name: "ดินแดนหิมะ",   ground: "#f0f9ff", accent: "#dbeafe", trim: "#bfdbfe" },
+  cave:       { id: "cave",       name: "ถ้ำลึก",       ground: "#1f1410", accent: "#2a1a14", trim: "#3a2a20" },
 };
+
+/** Returns the cave id at (x,z) if inside one, else null. */
+export function caveAt(x: number, z: number): string | null {
+  for (const c of CAVES) {
+    if (Math.hypot(x - c.x, z - c.z) < c.r) return c.id;
+  }
+  return null;
+}
 
 /**
  * Pure-function biome lookup. Same (x,z) always returns the same biome.
@@ -39,6 +55,7 @@ export const BIOMES: Record<BiomeId, BiomeDef> = {
  *   village at center: r < 10 from (0,0)
  */
 export function biomeAt(x: number, z: number, halfSize: number): BiomeId {
+  if (caveAt(x, z)) return "cave"; // cave volume overrides surface biome
   const r = Math.hypot(x, z);
   if (r < 10) return "village";
   if (r > halfSize * 0.92) return "wilderness";

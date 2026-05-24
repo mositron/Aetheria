@@ -36,6 +36,7 @@ import { DarklordModel } from "./models/DarklordModel";
 import { OrcModel } from "./models/OrcModel";
 import { PlayerJobProps } from "./models/PlayerJobProps";
 import { CompanionModel } from "./models/CompanionModel";
+import { CaveZones } from "./CaveZones";
 
 const ATTACK_RANGE_BUFFER = 0.3;
 
@@ -608,6 +609,7 @@ export function Scene({ room }: { room: Room<WorldState> }) {
   return (
     <group>
       <Environment mapId={mapDef.id} room={room} />
+      {mapDef.id === "field" && <CaveZones room={room} />}
       <AmbientParticles room={room} />
       <LandDust />
       <Weather room={room} />

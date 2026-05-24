@@ -120,6 +120,17 @@ function generateFieldSpawns(halfSize: number): SpawnPoint[] {
 // ── Boss area ── deep wilderness
   out.push({ kind: "darklord", x: 0, z: -halfSize * 0.92 });
 
+  // ── Cave dwellers ── tougher mobs inside the walkable caves (no portal).
+  // Coords match CAVES array in biomes.ts.
+  // Shadow cave at (-80, -60) r=22:
+  place("wolf", -80, -60, 18, 5);
+  place("orc",  -80, -60, 16, 3);
+  out.push({ kind: "darklord", x: -80, z: -60 }); // mini-boss inside cave
+  // Frost cave at (-75, -80) r=18:
+  place("yeti",       -75, -80, 14, 3);
+  place("ice_wraith", -75, -80, 14, 3);
+  out.push({ kind: "snowman_giant", x: -75, z: -80 });
+
   // Near-spawn easy targets so new players have something to hit
   out.push({ kind: "slime", x: 14, z: 6 });
   out.push({ kind: "slime", x: -14, z: -6 });
