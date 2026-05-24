@@ -3,6 +3,7 @@ import type { Room } from "colyseus.js";
 import FocusTrap from "focus-trap-react";
 import { GameFrame } from "./GameFrame";
 import { useT } from "../locales/useT";
+import { useExclusiveModal } from "../hooks/useExclusiveModal";
 import type { WorldState } from "@game/shared";
 
 type CompanionKind = "pal_flame" | "pal_grass" | "pal_aqua" | "pal_shock" | "pal_earth";
@@ -59,6 +60,7 @@ function VisitPanel({ room }: { room: Room<WorldState> }) {
 export function WorldCompanionPanel({ room }: Props) {
   const t = useT();
   const [open, setOpen] = useState(false);
+  useExclusiveModal("worldCompanion", open, setOpen);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {

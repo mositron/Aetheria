@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { keyEq } from "../utils/keyMatch";
 import { useT } from "../locales/useT";
+import { useExclusiveModal } from "../hooks/useExclusiveModal";
 
 type Filter = "none" | "vintage" | "dream" | "anime" | "neon";
 
@@ -16,6 +17,7 @@ const FILTERS: Record<Filter, { icon: string; cssFilter: string }> = {
 export function PhotoMode() {
   const t = useT();
   const [open, setOpen] = useState(false);
+  useExclusiveModal("photoMode", open, setOpen);
   const [filter, setFilter] = useState<Filter>("anime");
 
   useEffect(() => {

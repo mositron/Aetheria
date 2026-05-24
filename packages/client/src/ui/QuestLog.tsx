@@ -5,11 +5,13 @@ import { useQuests } from "../hooks/useQuests";
 import { useDraggable } from "../hooks/useDraggable";
 import { keyEq } from "../utils/keyMatch";
 import { useT } from "../locales/useT";
+import { useExclusiveModal } from "../hooks/useExclusiveModal";
 
 export function QuestLog({ room }: { room: Room<WorldState> }) {
   const t = useT();
   const quests = useQuests(room);
   const [open, setOpen] = useState(false);
+  useExclusiveModal("questLog", open, setOpen);
   const drag = useDraggable("quest");
 
   useEffect(() => {

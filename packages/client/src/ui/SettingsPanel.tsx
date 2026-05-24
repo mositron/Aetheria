@@ -4,6 +4,7 @@ import { GameFrame } from "./GameFrame";
 import { keyEq } from "../utils/keyMatch";
 import { useStore } from "../store";
 import { useT } from "../locales/useT";
+import { useExclusiveModal } from "../hooks/useExclusiveModal";
 
 type Settings = {
   ambient: boolean;
@@ -30,6 +31,7 @@ function save(s: Settings) {
 export function SettingsPanel() {
   const t = useT();
   const [open, setOpen] = useState(false);
+  useExclusiveModal("settings", open, setOpen);
   const [vol, setVol] = useState(getSfxVolume());
   const [settings, setSettings] = useState<Settings>(load());
   const lang = useStore((s) => s.lang);

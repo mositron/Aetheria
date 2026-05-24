@@ -38,6 +38,7 @@ export const th = {
   "auth.login": "เข้าสู่โลก",
   "auth.register": "ผู้กล้าหน้าใหม่",
   "auth.loginButton": "▶ เข้าสู่โลก",
+  "auth.connecting": "กำลังเชื่อมต่อ...",
   "auth.registerButton": "✦ สร้างบัญชี",
   "auth.signIn": "⚔ ลงชื่อ",
   "auth.signUp": "✦ สมัครใหม่",
@@ -243,6 +244,19 @@ export const th = {
   "craft.make": "สร้าง",
   "craft.points": "แต้ม",
 
+  // ── Achievements ─────────────────────────────────────────────
+  "ach.title": "ความสำเร็จ",
+  "ach.unlocked": "ปลดล็อกความสำเร็จ!",
+  "ach.locked": "ยังไม่ปลดล็อก",
+  "ach.progress": "ความคืบหน้า",
+  "ach.total": "รวม",
+  "ach.myTitles": "ฉายาของฉัน",
+  "ach.none": "ไม่มี",
+  "ach.changeTitle": "เปลี่ยนฉายา?",
+  "ach.confirmChangeTitle": "เปลี่ยนฉายาเป็น \"{title}\"?",
+  "ach.confirmClearTitle": "ล้างฉายาปัจจุบัน?",
+  "ach.change": "เปลี่ยน",
+
 // ── NPC Dialog ───────────────────────────────────────────────
   "npc.buy": "ซื้อ",
   "npc.sell": "ขาย",
@@ -348,6 +362,7 @@ export const th = {
 
   // ── Party ────────────────────────────────────────────────────
   "party.title": "ปาร์ตี้",
+  "party.party": "ปาร์ตี้",
   "party.leave": "ออก",
   "party.invite": "เชิญ",
   "party.kick": "เตะ",
@@ -763,6 +778,20 @@ export const th = {
   "companion.recall": "เรียกกลับ",
   "companion.summon": "เรียก",
   "companion.selectCompanion": "เลือกคู่หูพลังเพื่อเรียกออกมาช่วยรบ",
+  "companion.palFlame": "นักสู้เพลิง",
+  "companion.palGrass": "ผู้พิทักษ์มอส",
+  "companion.palAqua": "จิตวิญญาณคลื่น",
+  "companion.palShock": "ดวงไฟสายฟ้า",
+  "companion.palEarth": "โกเลมหิน",
+  "companion.roleAttacker": "ผู้โจมตี",
+  "companion.roleDefender": "ผู้ป้องกัน",
+  "companion.roleSupport": "ผู้สนับสนุน",
+  "companion.palFlameSkill": "โจมตีเร็ว +50% ดาเมจไฟ",
+  "companion.palGrassSkill": "ดูดซับ +30% ดาเมจเป็นเกราะ",
+  "companion.palAquaSkill": "ฟื้น HP เจ้าของ 5%/วินาที",
+  "companion.palShockSkill": "โจมตีเร็วมาก ชะลอศัตรู",
+  "companion.palEarthSkill": "ลดดาเมจที่เจ้าของได้รับ 20%",
+  "companion.hint": "แตะคู่หูเพื่อเรียกออกมา (ครั้งละหนึ่งตัว)",
 
   // ── Dungeon UI ────────────────────────────────────────────────
   "dungeon.title": "หอคอยไม่มีที่สิ้นสุด — ชั้น {floor}",

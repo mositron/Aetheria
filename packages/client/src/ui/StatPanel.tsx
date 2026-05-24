@@ -3,9 +3,11 @@ import type { Room } from "colyseus.js";
 import { STAT_KEYS, STAT_NAMES, type Player, type StatKey, type WorldState, derived } from "@game/shared";
 import { keyEq } from "../utils/keyMatch";
 import { useT } from "../locales/useT";
+import { useExclusiveModal } from "../hooks/useExclusiveModal";
 
 export function StatPanel({ room }: { room: Room<WorldState> }) {
   const [open, setOpen] = useState(false);
+  useExclusiveModal("stats", open, setOpen);
   const [, setTick] = useState(0);
   const t = useT();
 

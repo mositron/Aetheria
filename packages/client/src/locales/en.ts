@@ -38,6 +38,7 @@ export const en = {
   "auth.login": "Enter World",
   "auth.register": "New Hero",
   "auth.loginButton": "▶ Enter World",
+  "auth.connecting": "Connecting...",
   "auth.registerButton": "✦ Create Account",
   "auth.signIn": "⚔ Sign In",
   "auth.signUp": "✦ Register",
@@ -789,6 +790,7 @@ export const en = {
   "companion.palAquaSkill": "Heals owner 5% HP/sec",
   "companion.palShockSkill": "Very fast attack, slows enemies",
   "companion.palEarthSkill": "Reduces owner damage taken by 20%",
+  "companion.hint": "Tap a companion to summon (one at a time)",
 
   "jobadv.skillsLabel": "Skills:",
 

@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { useStore, type Waypoint } from "../store";
 import { GameFrame } from "./GameFrame";
 import { useT } from "../locales/useT";
+import { useExclusiveModal } from "../hooks/useExclusiveModal";
 
 type Saved = Waypoint & { id: string };
 
@@ -23,6 +24,7 @@ function save(list: Saved[]) {
 
 export function WaypointsPanel() {
   const [open, setOpen] = useState(false);
+  useExclusiveModal("waypoints", open, setOpen);
   const [list, setList] = useState<Saved[]>(() => load());
   const [name, setName] = useState("");
   const waypoint = useStore((s) => s.waypoint);

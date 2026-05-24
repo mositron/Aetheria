@@ -6,10 +6,12 @@ import type { Room } from "colyseus.js";
 import { JOBS, JOB_ADVANCEMENT, type Player, type WorldState, type JobId } from "@game/shared";
 import { GameFrame } from "./GameFrame";
 import { useT } from "../locales/useT";
+import { useExclusiveModal } from "../hooks/useExclusiveModal";
 
 export function JobAdvancement({ room }: { room: Room<WorldState> }) {
   const t = useT();
   const [open, setOpen] = useState(false);
+  useExclusiveModal("jobAdvancement", open, setOpen);
   useEffect(() => {
     const onToggle = () => setOpen((o) => !o);
     window.addEventListener("toggle-job-advance", onToggle);

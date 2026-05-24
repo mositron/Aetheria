@@ -12,7 +12,8 @@ export type PanelId =
   | "auction" | "guild" | "friends" | "online" | "petbox" | "mailbox"
   | "skillTree" | "marriage" | "leaderboard" | "dailyReward"
   | "worldLobby" | "settings" | "photoMode" | "accountRecovery"
-  | "dungeonUI" | "jobAdvancement" | "jobPicker" | "characterSelect";
+  | "dungeonUI" | "jobAdvancement" | "jobPicker" | "characterSelect"
+  | "waypoints" | "worldCompanion" | "autoPotion" | "tradeWindow";
 
 export type CharacterSummary = {
   id: string;
