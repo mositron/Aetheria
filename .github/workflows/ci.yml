@@ -25,6 +25,17 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
+      - name: Prepare test environment
+        env:
+          DATABASE_URL: "file:./prisma/test.db"
+          JWT_SECRET: "ci-test-secret-not-used-in-prod-x9k2p1"
+        run: |
+          cd packages/server
+          echo "DATABASE_URL=$DATABASE_URL" > .env
+          echo "JWT_SECRET=$JWT_SECRET" >> .env
+          pnpm exec prisma generate
+          pnpm exec prisma db push --skip-generate
+
       - name: Build shared (emit .d.ts for downstream typecheck)
         run: pnpm --filter @game/shared build
 
@@ -38,6 +49,9 @@ jobs:
         run: cd packages/client && pnpm exec tsc --noEmit
 
       - name: Test server
+        env:
+          DATABASE_URL: "file:./prisma/test.db"
+          JWT_SECRET: "ci-test-secret-not-used-in-prod-x9k2p1"
         run: cd packages/server && pnpm test
 
       - name: Test shared
