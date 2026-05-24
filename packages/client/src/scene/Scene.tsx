@@ -23,8 +23,17 @@ import { isBlocked as isObstacle } from "./obstacles";
 const TERRAIN_CONFIG = { STEP: TERRAIN_STEP };
 import { HeroModel } from "./models/HeroModel";
 import { npcAppearance } from "./models/npcAppearance";
+import { NpcRoleProps, roleFromNpcId, appearanceForRole } from "./models/NpcRoleProps";
 import { SlimeModel } from "./models/SlimeModel";
 import { WolfModel } from "./models/WolfModel";
+import { BogWitchModel } from "./models/BogWitchModel";
+import { IceWraithModel } from "./models/IceWraithModel";
+import { SandWormModel } from "./models/SandWormModel";
+import { ScorpionLordModel } from "./models/ScorpionLordModel";
+import { SnowmanGiantModel } from "./models/SnowmanGiantModel";
+import { SwampSerpentModel } from "./models/SwampSerpentModel";
+import { DarklordModel } from "./models/DarklordModel";
+import { OrcModel } from "./models/OrcModel";
 
 const ATTACK_RANGE_BUFFER = 0.3;
 
@@ -709,11 +718,17 @@ function NpcView({ n, onClick, onHoverIn, onHoverOut }: { n: NpcDef; onClick: ()
         onPointerOver={(e) => { e.stopPropagation(); onHoverIn(); }}
         onPointerOut={(e) => { e.stopPropagation(); onHoverOut(); }}
       >
-        <HeroModel
-          bodyColor={n.color}
-          appearance={npcAppearance(n.id, n.color)}
-          isMoving={() => false}
-        />
+        {(() => {
+          const role = roleFromNpcId(n.id);
+          const baseApp = npcAppearance(n.id, n.color);
+          const app = appearanceForRole(role, baseApp);
+          return (
+            <>
+              <HeroModel bodyColor={n.color} appearance={app} isMoving={() => false} />
+              <NpcRoleProps role={role} />
+            </>
+          );
+        })()}
       </group>
       <NpcQuestMarker icon={markerIcon} color={markerColor} />
       <NpcLabel text={`${n.icon} ${n.name}`} y={2.4} />
@@ -1870,68 +1885,20 @@ const MonsterView = React.memo(function MonsterView({ m, selected, onClick, onHo
         {m.kind === "wolf" && <WolfModel isMoving={() => performance.now() - lastMoveAt.current < 200} isDead={() => m.dead} isAttacking={() => { const t = attackPulses.get(m.id); return !!t && performance.now() - t < 60; }} />}
         {m.kind === "orc" && (
           <group scale={1.4}>
-            <HeroModel
-              bodyColor="#5a8c3e"
-              appearance={{
-                skin: "#4a7c2a",       // green orc skin
-                hair: "#1a0f08",       // black hair
-                eye: "#fbbf24",        // yellow glowing eyes
-                shirt: "#3f5223",      // dark green tunic
-                pants: "#2a1a0a",      // brown leather
-                hairStyle: "spiky",
-                body: "wide",          // bulky brute
-                hat: "headband",
-                hatColor: "#7f1d1d",
-                glasses: "none",
-                scarf: "none",
-                scarfColor: "#ef4444",
-              }}
+            <OrcModel
               isMoving={() => performance.now() - lastMoveAt.current < 200}
               isDead={() => m.dead}
               isAttacking={() => { const t = attackPulses.get(m.id); return !!t && performance.now() - t < 60; }}
-              hasWeapon={() => true}
             />
-            {/* tusks */}
-            <mesh position={[-0.08, 1.55, 0.2]} rotation={[0, 0, 0.2]}>
-              <coneGeometry args={[0.04, 0.18, 4]} />
-              <meshStandardMaterial color="#fef3c7" flatShading />
-            </mesh>
-            <mesh position={[0.08, 1.55, 0.2]} rotation={[0, 0, -0.2]}>
-              <coneGeometry args={[0.04, 0.18, 4]} />
-              <meshStandardMaterial color="#fef3c7" flatShading />
-            </mesh>
           </group>
         )}
         {m.kind === "darklord" && (
-          <group scale={3.0}>
-            <HeroModel
-              bodyColor="#1a0a1f"
-              appearance={{
-                skin: "#3a1f3a",         // pale purple skin
-                hair: "#0a0a0a",         // jet black
-                eye: "#ef4444",          // glowing red eyes
-                shirt: "#1a0a1f",        // black armor
-                pants: "#0a0510",
-                hairStyle: "long",
-                body: "wide",
-                hat: "crown",
-                hatColor: "#7c2d12",     // dark gold crown
-                glasses: "none",
-                scarf: "long",
-                scarfColor: "#7c1d6f",   // purple cape
-              }}
+          <group scale={2.4}>
+            <DarklordModel
               isMoving={() => performance.now() - lastMoveAt.current < 200}
               isDead={() => m.dead}
               isAttacking={() => { const t = attackPulses.get(m.id); return !!t && performance.now() - t < 60; }}
-              hasWeapon={() => true}
             />
-            {/* aura ring at feet */}
-            <mesh position={[0, 0.02, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-              <ringGeometry args={[0.8, 1.1, 32]} />
-              <meshBasicMaterial color="#a855f7" transparent opacity={0.55} side={THREE.DoubleSide} />
-            </mesh>
-            <pointLight position={[0, 2, 0]} color="#a855f7" intensity={4} distance={14} />
-            <pointLight position={[0, 0.3, 0]} color="#ef4444" intensity={2} distance={6} />
           </group>
         )}
         {m.kind === "tree_node" && <ResourceTree />}
@@ -1941,7 +1908,13 @@ const MonsterView = React.memo(function MonsterView({ m, selected, onClick, onHo
         {m.kind === "crystal_node" && <ResourceCrystal />}
         {m.kind === "chicken" && <ChickenModel isMoving={() => performance.now() - lastMoveAt.current < 250} />}
         {m.kind === "scorpion" && <ScorpionModel isMoving={() => performance.now() - lastMoveAt.current < 200} isAttacking={() => { const t = attackPulses.get(m.id); return !!t && performance.now() - t < 60; }} />}
+        {m.kind === "scorpion_lord" && <ScorpionLordModel isMoving={() => performance.now() - lastMoveAt.current < 200} isDead={() => m.dead} isAttacking={() => { const t = attackPulses.get(m.id); return !!t && performance.now() - t < 60; }} />}
+        {m.kind === "sand_worm" && <SandWormModel isMoving={() => performance.now() - lastMoveAt.current < 200} isDead={() => m.dead} isAttacking={() => { const t = attackPulses.get(m.id); return !!t && performance.now() - t < 60; }} />}
         {m.kind === "yeti" && <YetiModel isMoving={() => performance.now() - lastMoveAt.current < 200} isAttacking={() => { const t = attackPulses.get(m.id); return !!t && performance.now() - t < 60; }} />}
+        {m.kind === "ice_wraith" && <IceWraithModel isDead={() => m.dead} isAttacking={() => { const t = attackPulses.get(m.id); return !!t && performance.now() - t < 60; }} />}
+        {m.kind === "snowman_giant" && <SnowmanGiantModel isDead={() => m.dead} isAttacking={() => { const t = attackPulses.get(m.id); return !!t && performance.now() - t < 60; }} />}
+        {m.kind === "bog_witch" && <BogWitchModel isMoving={() => performance.now() - lastMoveAt.current < 200} isDead={() => m.dead} isAttacking={() => { const t = attackPulses.get(m.id); return !!t && performance.now() - t < 60; }} />}
+        {m.kind === "swamp_serpent" && <SwampSerpentModel isMoving={() => performance.now() - lastMoveAt.current < 200} isDead={() => m.dead} isAttacking={() => { const t = attackPulses.get(m.id); return !!t && performance.now() - t < 60; }} />}
         {m.kind === "pig" && <PigModel isMoving={() => performance.now() - lastMoveAt.current < 250} />}
         {m.kind === "cow" && <CowModel isMoving={() => performance.now() - lastMoveAt.current < 250} />}
       </group>
