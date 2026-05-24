@@ -34,6 +34,7 @@ import { SnowmanGiantModel } from "./models/SnowmanGiantModel";
 import { SwampSerpentModel } from "./models/SwampSerpentModel";
 import { DarklordModel } from "./models/DarklordModel";
 import { OrcModel } from "./models/OrcModel";
+import { PlayerJobProps } from "./models/PlayerJobProps";
 
 const ATTACK_RANGE_BUFFER = 0.3;
 
@@ -1606,6 +1607,7 @@ const PlayerView = React.memo(function PlayerView({ p, self, selfRef, attackPuls
         hasWeapon={() => !!p.weapon}
         isFlying={() => p.flying}
       />
+      {!p.dead && <PlayerJobProps job={p.job} hasWeapon={!!p.weapon} />}
       </group>
       </FlyLift>
       <Billboard y={2.1}>
