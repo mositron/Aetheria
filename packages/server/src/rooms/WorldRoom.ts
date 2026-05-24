@@ -88,6 +88,7 @@ export class WorldRoom extends Room<WorldState> {
   daily = new DailyChallenge();
   // Spatial index for fast monster→player AI lookups. Rebuilt each tick.
   playerSpatialHash = new SpatialHash<{ id: string; x: number; z: number; sid: string; dead: boolean }>();
+  monsterSpatialHash = new SpatialHash<{ id: string; x: number; z: number; kind: string; dead: boolean }>();
   playerUserId = new Map<string, string>();
   playerCharId = new Map<string, string>();
   playerQuests = new Map<string, PlayerQuestState>();
@@ -707,7 +708,22 @@ export class WorldRoom extends Room<WorldState> {
         if (p?.name === to) { targetClient = c; break; }
       }
       if (!targetClient) {
-        client.send("system", { text: `ไม่พบผู้เล่นชื่อ "${to}" ในแมพนี้` });
+        // Offline: queue as mailbox subject so target sees it on next login.
+        this.mailboxSvc.send({
+          fromName: fromP.name,
+          toName: to,
+          subject: `💬 ${fromP.name}`,
+          body: text,
+          zeny: 0,
+        }).then((r) => {
+          if (r.ok) {
+            client.send("system", { text: `📬 ${to} ออฟไลน์ — ส่งเป็นจดหมายแทน` });
+          } else if (r.reason === "target-missing") {
+            client.send("system", { text: `ไม่พบผู้เล่นชื่อ "${to}"` });
+          } else {
+            client.send("system", { text: `ส่ง whisper ไม่สำเร็จ` });
+          }
+        });
         return;
       }
       targetClient.send("whisper", { from: fromP.name, text, ts: Date.now() });
@@ -1211,14 +1227,16 @@ export class WorldRoom extends Room<WorldState> {
       //   - aggroRange > 0  → hostile (slime/wolf/orc/darklord)  ✓ valid target
       //   - aggroRange === 0 → resource node (tree/rock/bush)     ✗ humans only
       //   - aggroRange === -1 → passive animal (chicken/pig/cow)  ✗ food source, humans only
+      // O(cells) via spatial hash instead of O(M) scan of every monster
       let nearestMon: Monster | null = null;
       let nearestD = 30;
-      for (const [, m] of this.state.monsters) {
-        if (m.dead) continue;
-        const cfg = (MONSTERS as any)[m.kind];
-        if (!cfg || cfg.aggroRange <= 0) continue; // hostile mobs ONLY
-        const d = Math.hypot(m.pos.x - p.pos.x, m.pos.z - p.pos.z);
-        if (d < nearestD) { nearestD = d; nearestMon = m; }
+      const hit = this.monsterSpatialHash.findNearest(p.pos.x, p.pos.z, 30, (e) => {
+        const cfg = (MONSTERS as any)[e.kind];
+        return !!cfg && cfg.aggroRange > 0; // hostile mobs ONLY
+      });
+      if (hit) {
+        nearestMon = this.state.monsters.get(hit.entity.id) ?? null;
+        nearestD = hit.distance;
       }
       // BOT PICKUP: only items that come from MONSTERS, never gathered resources.
       for (const [, g] of this.state.drops) {
@@ -1728,9 +1746,16 @@ export class WorldRoom extends Room<WorldState> {
   // Rolling tick duration stats (last 100 ticks)
   tickTimes: number[] = [];
   getTickStats() {
-    if (this.tickTimes.length === 0) return { avg: 0, max: 0 };
+    if (this.tickTimes.length === 0) return { avg: 0, p50: 0, p95: 0, max: 0 };
+    const sorted = [...this.tickTimes].sort((a, b) => a - b);
     const sum = this.tickTimes.reduce((a, b) => a + b, 0);
-    return { avg: Math.round(sum / this.tickTimes.length), max: Math.max(...this.tickTimes) };
+    const pct = (p: number) => sorted[Math.min(Math.floor(sorted.length * p), sorted.length - 1)];
+    return {
+      avg: Math.round(sum / this.tickTimes.length),
+      p50: Math.round(pct(0.5)),
+      p95: Math.round(pct(0.95)),
+      max: Math.round(Math.max(...this.tickTimes)),
+    };
   }
 
   tickInner(dtMs: number) {
@@ -1846,11 +1871,16 @@ export class WorldRoom extends Room<WorldState> {
     }
 
     const now = Date.now();
-    // Rebuild spatial hash for living players — O(P) instead of O(P*M) below
+    // Rebuild spatial hashes for living players + monsters — O(P+M) instead of O(P*M)
     this.playerSpatialHash.clear();
     for (const [sid, pp] of this.state.players) {
       if (pp.dead) continue;
       this.playerSpatialHash.update({ id: pp.id, sid, x: pp.pos.x, z: pp.pos.z, dead: false });
+    }
+    this.monsterSpatialHash.clear();
+    for (const [, m] of this.state.monsters) {
+      if (m.dead) continue;
+      this.monsterSpatialHash.update({ id: m.id, x: m.pos.x, z: m.pos.z, kind: m.kind, dead: false });
     }
 
     // Monster AI: passive wander/flee + hostile chase/attack

@@ -164,18 +164,28 @@ const gameServer = new Server(serverOpts);
 // one WorldRoom handles all mapIds; warp within same room via state.mapId changes
 gameServer.define("world", WorldRoom);
 
-// GET /health — server health + active player/room counts
+// GET /health — server health + active player/room counts + tick metrics
 app.get("/health", (_req, res) => {
   // @ts-ignore — rooms is a public registry map on Server
   const roomMap: Map<string, any> = (gameServer as any).rooms ?? new Map();
   let players = 0;
-  for (const [, room] of roomMap) {
+  const tick: Record<string, ReturnType<any>> = {};
+  for (const [id, room] of roomMap) {
     players += (room as any).clients?.length ?? 0;
+    if (typeof (room as any).getTickStats === "function") {
+      tick[id] = (room as any).getTickStats();
+    }
   }
+  const mem = process.memoryUsage();
   res.json({
     uptime: Math.floor(process.uptime()),
     players,
     rooms: roomMap.size,
+    tick,
+    mem: {
+      rssMb:  Math.round(mem.rss / 1024 / 1024),
+      heapMb: Math.round(mem.heapUsed / 1024 / 1024),
+    },
   });
 });
 

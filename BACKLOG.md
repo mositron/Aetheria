@@ -452,7 +452,7 @@ c747db8 feat(P4): Sentry, background music, password strength, JWT refresh, DB b
 e36b993 fix(P0): CORS strict whitelist + helmet + dual-rate-limit + HTTPS redirect
 ```
 
-### Cleanup pass — 2026-05-24
+### Cleanup pass — 2026-05-24 (commit `bb07343`)
 - Deleted dead `GameRoom.ts` (2240 lines) — server only registers WorldRoom.
 - Fixed `@game/shared` package emits `.d.ts` (declaration: true in tsconfig). Resolved TS7016 across server/client.
 - Lifted `engageRange` computation in Scene.tsx to fix use-before-declaration.
@@ -461,6 +461,17 @@ e36b993 fix(P0): CORS strict whitelist + helmet + dual-rate-limit + HTTPS redire
 - Added `ioredis-mock` type shim (`packages/server/src/types/shims.d.ts`).
 - CraftingPanel labels use translation keys instead of broken top-level `t()` calls.
 - CI: added pnpm setup action + client typecheck step + shared build-before-typecheck.
+- Extracted `Waypoint` + `Season` services from WorldRoom (+8 tests).
+- Inventory.handlePickup now credits zeny currency drops directly to `p.zeny` (was failing to add a non-existent item).
+- Added Dockerfile (multi-stage) + docker-compose (postgres + redis + 2 server) + POSTGRES_MIGRATION.md.
+
+### Improvement pass — 2026-05-24 (commit pending)
+- **Cleanup**: removed stale `LoadTestHarness.ts` (raw-WS, didn't pass matchmaking) + tests. Removed Storybook scaffold (was not installed). Fixed AntiCheat TODO comment.
+- **Load test infra**: `tools/seed-load-bots.ts` upserts N users+characters+JWT tokens to `.load-bots.json`. `harness-runner.ts` reads them and joins as real players. **Measured: 50 bots p50/p95/p99 = 10/49/64 ms** (target was p95 < 200ms ✅). Recorded in `docs/SERVER_SIZING_50_PLAYERS.md`.
+- **Observability**: `/health` now exposes per-room tick stats (avg/p50/p95/max) + process memory. `getTickStats()` reports percentiles instead of just avg/max.
+- **Whisper offline fallback**: when target is offline, whisper auto-queues to Mailbox so the message isn't lost. Player gets toast `"📬 X ออฟไลน์ — ส่งเป็นจดหมายแทน"`.
+- **Perf**: bot aggro loop now uses `monsterSpatialHash.findNearest()` — O(cells) instead of O(M) scan per bot per tick.
+- **Docs**: `docs/LOAD_TESTING.md` flow + `docs/SERVER_SIZING_50_PLAYERS.md` baseline numbers.
 
 Run `git log --oneline -20` for the full local view.
 

@@ -38,3 +38,7 @@ packages/server/prisma/dev.db-journal
 .cache/
 .parcel-cache/
 *.tmp
+
+# Load test bot credentials (regenerate via `pnpm seed:load-bots`)
+tools/.load-bots.json
+

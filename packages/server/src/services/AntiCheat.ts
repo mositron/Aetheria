@@ -3,7 +3,9 @@
 // Catches obvious cheating patterns BEFORE they mutate state. Currently:
 //   - Joystick input magnitude check (legit is [-1, 1])
 //   - Non-finite coordinates
-//   - Per-tick movement delta check (TODO — needs prev position tracking)
+// Per-tick movement bounds (teleport / speed hack detection) live in WorldRoom
+// via the playerLastPos Map — they need the world clock + speed stat that this
+// service deliberately does not know about.
 
 export type InputSample = {
   mx: number;

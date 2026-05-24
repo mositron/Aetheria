@@ -2,6 +2,39 @@
 
 เอกสารนี้สรุปสเปคเซิร์ฟเวอร์ที่แนะนำ และแผนการทดสอบโหลดสำหรับห้องขนาด 50 ผู้เล่น (authoritative server model).
 
+## ✅ Measured baseline — 2026-05-24
+
+Real harness run via `pnpm seed:load-bots && pnpm test:harness`:
+
+| Metric | Value | Target |
+|---|---|---|
+| Concurrent bots | 50/50 connected (0 failed) | 50 |
+| Test duration | 30 s | — |
+| Tick rate (server) | 20 Hz | 20 Hz |
+| Input rate (per bot) | 20 Hz | — |
+| RTT samples collected | 24,498 | — |
+| **RTT p50** | **10 ms** | < 100 ms ✅ |
+| **RTT p95** | **49 ms** | < 200 ms ✅ |
+| **RTT p99** | **64 ms** | < 500 ms ✅ |
+| Result | **PASS** | — |
+
+Hardware: developer workstation, single Node.js process, SQLite, no Redis,
+all 50 bots in the same `world` room. Server room cap raised from 8 → 50+ for
+harness mode if needed.
+
+For 100+ bots see `MAX_PLAYERS` env or `maxClients` in WorldRoom.onCreate.
+
+### When to add interest management
+
+Current schema broadcasts full state delta to every client. With p95 = 49ms at
+50 players this is fine. Add `@filter`-based interest management
+(Colyseus 0.16+) only when **any** of these triggers:
+- p95 > 100ms with target room size
+- bandwidth per client > 5 Mbps sustained
+- need to scale to 100+ players per room
+
+Pattern: decorate `Player`, `Monster`, `GroundItem` with `@filter((client, value, root) => distance(client.player, value) < 80)`. Cuts broadcast volume ~3-5×.
+
 ## สมมติฐานหลัก
 - ห้องเป็น authoritative server (Colyseus / Node.js) รับผิดชอบตำแหน่ง, state, rules
 - Tick rate: 20 Hz (configurable)
