@@ -15,6 +15,7 @@ export function NpcDialog({ room }: { room: Room<WorldState> }) {
   const [, setTick] = useState(0);
   const quests = useQuests(room);
 
+  const [branchReply, setBranchReply] = useState<string | null>(null);
 const [buying, setBuying] = useState<string | null>(null);
   const [turningIn, setTurningIn] = useState<string | null>(null);
   const [building, setBuilding] = useState(false);
@@ -23,6 +24,7 @@ const [buying, setBuying] = useState<string | null>(null);
     if (!npcId) return;
     setBuying(null); setTurningIn(null); setBuilding(false);
     setErr(null);
+    setBranchReply(null);
     // Pick first applicable tab so non-shop NPCs don't render an empty buy view.
     const n = NPCS.find((x) => x.id === npcId);
     const giverQuests = n ? (QUESTS_BY_GIVER[n.id] ?? []) : [];
@@ -66,7 +68,7 @@ return (
           <button onClick={close} aria-label={t("npc.close")}>✕</button>
         </span>
       </div>
-      <div className="text-[11px] text-slate-300 italic">"{npc.dialog}"</div>
+      <div className="text-[11px] text-slate-300 italic">"{branchReply ?? npc.dialog}"</div>
 
       {tooFar && <div className="text-rose-400 text-sm">Walk closer to interact.</div>}
 
@@ -74,6 +76,51 @@ return (
       {!tooFar && npc.id === "tutor_field" && <TutorialPanel />}
       {!tooFar && npc.id === "blacksmith_field" && me && <EnchantPanel room={room} me={me} />}
       {!tooFar && npc.id === "waypoint_npc_field" && me && <WaypointPanel room={room} me={me} />}
+      {!tooFar && npc.choices && npc.choices.length > 0 && (
+        <div className="space-y-1.5">
+          {npc.choices.map((c, i) => {
+            const req = c.requires ?? {};
+            const meLvl = me?.level ?? 1;
+            const qActiveOk = !req.questActive || (quests.active[req.questActive] !== undefined);
+            const qDoneOk = !req.questCompleted || quests.completed.includes(req.questCompleted);
+            const lvlOk = !req.minLevel || meLvl >= req.minLevel;
+            const zenyOk = !req.minZeny || (me?.zeny ?? 0) >= req.minZeny;
+            const visible = qActiveOk && qDoneOk;
+            if (!visible) return null;
+            const enabled = lvlOk && zenyOk;
+            return (
+              <button
+                key={i}
+                disabled={!enabled}
+                onClick={() => {
+                  const a = c.action;
+                  if (a.kind === "system") {
+                    // Show NPC's spoken reply inline (don't broadcast as chat).
+                    setBranchReply(a.text);
+                  } else if (a.kind === "acceptQuest") {
+                    room.send("questAccept" as any, { questId: a.questId });
+                    close();
+                  } else if (a.kind === "warp") {
+                    room.send("enterDungeon" as any, { floor: 1 });
+                    close();
+                  } else if (a.kind === "close") {
+                    close();
+                  }
+                }}
+                className={`w-full text-left text-[12px] px-2.5 py-1.5 rounded border transition ${
+                  enabled
+                    ? "bg-slate-800 hover:bg-slate-700 border-cyan-400/30 text-white"
+                    : "bg-slate-900 border-slate-700 text-slate-500 cursor-not-allowed"
+                }`}
+              >
+                {c.text}
+                {!lvlOk && req.minLevel && <span className="ml-2 text-rose-300 text-[10px]">(Lv {req.minLevel}+)</span>}
+                {!zenyOk && req.minZeny && <span className="ml-2 text-rose-300 text-[10px]">({req.minZeny}z)</span>}
+              </button>
+            );
+          })}
+        </div>
+      )}
       {!tooFar && npc.kind === "warp" && (
         <div className="space-y-2">
           <button

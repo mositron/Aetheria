@@ -22,7 +22,13 @@ export function FriendList({ room }: { room: Room<WorldState> }) {
     const onToggle = () => setOpen((o) => !o);
     window.addEventListener("toggle-friends", onToggle);
     const off = room.onMessage("friend:list" as any, (m: any) => {
-      setFriends(m.friends ?? []);
+      // Sort online friends first, then alphabetically by name.
+      const list = (m.friends ?? []).slice() as Friend[];
+      list.sort((a, b) => {
+        if (a.online !== b.online) return a.online ? -1 : 1;
+        return a.name.localeCompare(b.name);
+      });
+      setFriends(list);
     });
     const offAddOk = room.onMessage("friend:add:ok" as any, () => { setBusyAdd(false); setAddName(""); });
     const offAddErr = room.onMessage("friend:add:err" as any, () => setBusyAdd(false));

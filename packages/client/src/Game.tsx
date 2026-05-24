@@ -64,6 +64,7 @@ const WorldLobby = lazy(() => import("./ui/WorldLobby").then((m) => ({ default: 
 const SkillTreeUI = lazy(() => import("./ui/SkillTreeUI").then((m) => ({ default: m.SkillTreeUI })));
 const MarriageUI = lazy(() => import("./ui/MarriageUI").then((m) => ({ default: m.MarriageUI })));
 const WorldCompanionPanel = lazy(() => import("./ui/WorldCompanionPanel").then((m) => ({ default: m.WorldCompanionPanel })));
+const CombatLog = lazy(() => import("./ui/CombatLog").then((m) => ({ default: m.CombatLog })));
 
 const SERVER_WS = `ws://${location.hostname}:2567`;
 
@@ -152,7 +153,7 @@ export function Game() {
       currentRoom?.leave();
       setRoom(null);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [token, characterId, mapId]);
 
 // World companion panel toggle
@@ -234,6 +235,7 @@ return (
         <GuildPanel room={room} />
         <AuctionHouse room={room} />
         <TradeWindow room={room} />
+        <CombatLog room={room} />
       </Suspense>
       <HintSystem room={room} />
       <EmoteWheel room={room} />

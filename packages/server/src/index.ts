@@ -156,9 +156,9 @@ if (process.env.REDIS_URL) {
   try {
     const { RedisPresence } = await import("@colyseus/redis-presence");
     const { RedisDriver } = await import("@colyseus/redis-driver");
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     (serverOpts as any).presence = new RedisPresence(process.env.REDIS_URL);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     (serverOpts as any).driver = new RedisDriver(process.env.REDIS_URL);
     logger.info("server.scaleOut.enabled", { url: process.env.REDIS_URL.replace(/:[^:@]+@/, ":***@") });
   } catch (e) {

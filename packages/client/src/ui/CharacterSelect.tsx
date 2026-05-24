@@ -30,7 +30,7 @@ export function CharacterSelect() {
         }
       })
       .catch(() => { /* ignore */ });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [token]);
 
   if (creating) {

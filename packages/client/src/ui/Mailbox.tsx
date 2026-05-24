@@ -50,7 +50,7 @@ export function Mailbox({ room }: { room: Room<WorldState> }) {
     const off = room.onMessage("mailUpdated" as any, reload);
     const id = setInterval(() => setTick((t) => t + 1), 600);
     return () => { off?.(); clearInterval(id); };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [open, room]);
 
   if (!open) return null;

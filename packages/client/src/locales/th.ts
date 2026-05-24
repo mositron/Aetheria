@@ -140,6 +140,7 @@ export const th = {
   "menu.party": "ปาร์ตี้",
   "menu.friends": "เพื่อน",
   "menu.online": "ในเซิร์ฟ",
+  "menu.combatLog": "ประวัติสู้",
   "quest.nextChain": "เควสต่อไป",
   "death.killedBy": "ถูกฆ่าโดย",
   "online.title": "ผู้เล่นออนไลน์",

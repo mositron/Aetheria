@@ -11,7 +11,7 @@ import { describe, it, expect, beforeAll, afterAll } from "vitest";
  */
 let RedisMock: any;
 try {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
+   
   RedisMock = require("ioredis-mock");
 } catch {
   // ioredis-mock not installed
@@ -109,7 +109,7 @@ describeRealRedis("Redis pub/sub (real instance)", () => {
   let subClient: any;
 
   beforeAll(async () => {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
+     
     const IORedis = require("ioredis");
     pubClient = new IORedis(TEST_REDIS_URL, { lazyConnect: true, maxRetriesPerRequest: 3 });
     subClient = new IORedis(TEST_REDIS_URL, { lazyConnect: true, maxRetriesPerRequest: 3 });

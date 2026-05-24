@@ -140,6 +140,7 @@ export const en = {
   "menu.party": "Party",
   "menu.friends": "Friends",
   "menu.online": "Online",
+  "menu.combatLog": "Log",
   "quest.nextChain": "Next quest",
   "death.killedBy": "Killed by",
   "online.title": "Online",
