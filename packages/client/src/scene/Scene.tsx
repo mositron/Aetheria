@@ -73,8 +73,22 @@ export function Scene({ room }: { room: Room<WorldState> }) {
   const lastAutoSkill = useRef(new Map<string, number>());
   const [marker, setMarker] = useState<{ x: number; z: number; t: number } | null>(null);
 
-  // cursor helper
-  const setCursor = (c: string) => { document.body.style.cursor = c; };
+  // cursor helper — supports named cursors ("auto", "grab") and our custom
+  // sword/loot/dialog images via short aliases.
+  // Sword: 28×28 silver blade with gold guard, hot-spot at the tip (top-left).
+  const SWORD_CURSOR =
+    "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'>" +
+    "<g transform='rotate(-45 16 16)'>" +
+    "<rect x='15' y='3' width='2' height='20' fill='%23e2e8f0' stroke='%231e293b' stroke-width='0.8'/>" +
+    "<polygon points='14,3 18,3 16,0' fill='%23f1f5f9' stroke='%231e293b' stroke-width='0.8'/>" +
+    "<rect x='10' y='22' width='12' height='2.5' fill='%23fbbf24' stroke='%23713f12' stroke-width='0.6'/>" +
+    "<rect x='14.5' y='24.5' width='3' height='5' fill='%23713f12'/>" +
+    "<circle cx='16' cy='30' r='1.6' fill='%23fbbf24' stroke='%23713f12' stroke-width='0.5'/>" +
+    "</g></svg>\") 4 4, crosshair";
+  const setCursor = (c: string) => {
+    if (c === "sword") document.body.style.cursor = SWORD_CURSOR;
+    else document.body.style.cursor = c;
+  };
   useEffect(() => () => setCursor("auto"), []);
 
   // attack pulse: any entity (player or monster) that deals damage flashes its attack animation
@@ -633,7 +647,7 @@ export function Scene({ room }: { room: Room<WorldState> }) {
           m={m}
           selected={targetId === m.id}
           onClick={() => { setTarget(m.id); walkTarget.current = null; pickupTarget.current = null; }}
-          onHoverIn={() => setCursor("crosshair")}
+          onHoverIn={() => setCursor("sword")}
           onHoverOut={() => setCursor("auto")}
           attackPulses={attackPulses.current}
         />

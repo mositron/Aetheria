@@ -23,7 +23,10 @@ const [buying, setBuying] = useState<string | null>(null);
     if (!npcId) return;
     setBuying(null); setTurningIn(null); setBuilding(false);
     setErr(null);
-    setTab("buy");
+    // Pick first applicable tab so non-shop NPCs don't render an empty buy view.
+    const n = NPCS.find((x) => x.id === npcId);
+    const giverQuests = n ? (QUESTS_BY_GIVER[n.id] ?? []) : [];
+    setTab(n?.kind === "shop" ? "buy" : giverQuests.length > 0 ? "quests" : "buy");
     const off = room.onMessage("shopError", (m: any) => setErr(m.reason));
     const offBuyOk = room.onMessage("shopBuyOk" as any, () => { setBuying(null); setErr(null); });
     const offQuestOk = room.onMessage("questReward" as any, () => { setTurningIn(null); });
@@ -71,6 +74,20 @@ return (
       {!tooFar && npc.id === "tutor_field" && <TutorialPanel />}
       {!tooFar && npc.id === "blacksmith_field" && me && <EnchantPanel room={room} me={me} />}
       {!tooFar && npc.id === "waypoint_npc_field" && me && <WaypointPanel room={room} me={me} />}
+      {!tooFar && npc.kind === "warp" && (
+        <div className="space-y-2">
+          <button
+            onClick={() => {
+              const target = npc.id === "warp_shadow" ? "dungeon" : npc.id === "warp_frost" ? "dungeon" : "dungeon";
+              room.send("enterDungeon" as any, { floor: 1 });
+              close();
+            }}
+            className="w-full bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-500 hover:to-fuchsia-500 text-white font-bold py-2 rounded"
+          >
+            🌀 {t("npc.enter") || "เข้าสู่ดันเจี้ยน"}
+          </button>
+        </div>
+      )}
 
       {!tooFar && (
         <>
@@ -81,9 +98,9 @@ return (
             {err && <div className="ml-auto text-rose-400">{err}</div>}
           </div>
 
-          {tab === "buy" && (
+          {tab === "buy" && npc.kind === "shop" && npc.shop && (
             <div className="max-h-64 overflow-y-auto space-y-1">
-              {npc.shop!.map((e) => {
+              {npc.shop.map((e) => {
                 const def = ITEMS[e.itemId];
                 const canAfford = (me?.zeny ?? 0) >= e.price;
                 return (
@@ -107,7 +124,7 @@ return (
             </div>
           )}
 
-          {tab === "sell" && me && (
+          {tab === "sell" && me && npc.kind === "shop" && (
             <div className="max-h-64 overflow-y-auto space-y-1">
               {/* Bulk-sell shortcuts (sit at top of the sell list) */}
               <div className="flex gap-1.5 mb-1.5 sticky top-0 bg-slate-900/90 backdrop-blur-sm py-1 z-10">
