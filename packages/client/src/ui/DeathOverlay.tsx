@@ -9,6 +9,7 @@ export function DeathOverlay({ room }: { room: Room<WorldState> }) {
   const t = useT();
   const [, setTick] = useState(0);
   const [deathAt, setDeathAt] = useState<number | null>(null);
+  const [killer, setKiller] = useState<{ name: string; kind: string } | null>(null);
 
   useEffect(() => {
     const id = setInterval(() => {
@@ -18,9 +19,13 @@ export function DeathOverlay({ room }: { room: Room<WorldState> }) {
         if (deathAt === null) setDeathAt(performance.now());
       } else if (deathAt !== null) {
         setDeathAt(null);
+        setKiller(null);
       }
     }, 100);
-    return () => clearInterval(id);
+    const off = room.onMessage("death" as any, (m: any) => {
+      setKiller({ name: String(m?.killer ?? "?"), kind: String(m?.killerKind ?? "monster") });
+    });
+    return () => { clearInterval(id); off?.(); };
   }, [room, deathAt]);
 
   const me = room.state.players.get(room.sessionId);
@@ -54,6 +59,12 @@ export function DeathOverlay({ room }: { room: Room<WorldState> }) {
           {t("death.title")}
         </div>
         <div className="text-rose-300/80 text-sm italic">"{t("death.quote")}"</div>
+        {killer && (
+          <div className="text-rose-200 text-base">
+            {killer.kind === "player" ? "⚔" : "💀"} {t("death.killedBy") || "Killed by"}{" "}
+            <span className="font-bold text-rose-100">{killer.name}</span>
+          </div>
+        )}
         <div className="text-cyan-300 text-lg mt-6">
           {t("death.respawning")} <span className="text-5xl font-black text-white">{remainingSec}</span>
         </div>

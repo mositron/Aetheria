@@ -465,7 +465,14 @@ e36b993 fix(P0): CORS strict whitelist + helmet + dual-rate-limit + HTTPS redire
 - Inventory.handlePickup now credits zeny currency drops directly to `p.zeny` (was failing to add a non-existent item).
 - Added Dockerfile (multi-stage) + docker-compose (postgres + redis + 2 server) + POSTGRES_MIGRATION.md.
 
-### Improvement pass — 2026-05-24 (commit pending)
+### Improvement pass 2 — 2026-05-24 (commit pending)
+- **100-bot stress test** in one room: p50/p95/p99 = **27/132/221 ms** (still PASS, 2× target). Recorded in SERVER_SIZING_50_PLAYERS.md.
+- **Extracted services**: `ChatCommands` (parser + router, +9 tests) + `BossEvent` (scheduler, +4 tests). WorldRoom shrinks again.
+- **New UI: `OnlinePlayers` panel** — draggable live list of players in room, quick-action whisper + party invite. Wired to MenuBar 🟢 + locale keys.
+- **Death recap** — server sends `"death"` event with killer name; `DeathOverlay` shows "Killed by X" line.
+- **Silence fishing warning** — early no-op handler in Game.tsx prevents lazy-mount spam.
+
+### Improvement pass 1 — 2026-05-24 (commit `093a3d9`)
 - **Cleanup**: removed stale `LoadTestHarness.ts` (raw-WS, didn't pass matchmaking) + tests. Removed Storybook scaffold (was not installed). Fixed AntiCheat TODO comment.
 - **Load test infra**: `tools/seed-load-bots.ts` upserts N users+characters+JWT tokens to `.load-bots.json`. `harness-runner.ts` reads them and joins as real players. **Measured: 50 bots p50/p95/p99 = 10/49/64 ms** (target was p95 < 200ms ✅). Recorded in `docs/SERVER_SIZING_50_PLAYERS.md`.
 - **Observability**: `/health` now exposes per-room tick stats (avg/p50/p95/max) + process memory. `getTickStats()` reports percentiles instead of just avg/max.

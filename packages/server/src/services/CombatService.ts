@@ -13,6 +13,7 @@ export class CombatService {
     private lastAttack: Map<string, number>,
     private callbacks: {
       broadcast: (type: string, data: any) => void;
+      sendToSid?: (sid: string, type: string, data: any) => void;
     }
   ) {}
 
@@ -138,6 +139,14 @@ export class CombatService {
             this.callbacks.broadcast("damage", { targetId: nearest.id, amount: dmg, from: m.id });
             if (nearest.hp === 0) {
               nearest.dead = true;
+              // Death recap: notify the dying player so client can show killer name.
+              // hit.entity.sid is the player's Colyseus session id (lookup target).
+              if (hit) {
+                this.callbacks.sendToSid?.(hit.entity.sid, "death", {
+                  killer: def.name ?? m.kind,
+                  killerKind: "monster",
+                });
+              }
             }
           }
         }

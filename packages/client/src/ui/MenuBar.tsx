@@ -58,6 +58,7 @@ if (collapsed) {
         <IconBtn label="🐾" name={t("menu.pets")} title="Pets" onClick={() => window.dispatchEvent(new Event("toggle-pets"))} />
         <IconBtn label="👥" name={t("menu.party")} title="Party" onClick={() => window.dispatchEvent(new Event("toggle-party"))} />
         <IconBtn label="🤝" name={t("menu.friends")} title="Friends" onClick={() => window.dispatchEvent(new Event("toggle-friends"))} />
+        <IconBtn label="🟢" name={t("menu.online") || "Online"} title="Online players" onClick={() => window.dispatchEvent(new Event("toggle-online"))} />
         <IconBtn label="⚔" name={t("menu.guild")} title="Guild" onClick={() => window.dispatchEvent(new Event("toggle-guild"))} />
         <IconBtn label="🏛" name={t("menu.auction")} title="Auction House" onClick={() => window.dispatchEvent(new Event("toggle-auction"))} />
         <IconBtn label="🌍" name={t("menu.worlds")} title={t("world.title")} onClick={() => window.dispatchEvent(new Event("toggle-worlds"))} />

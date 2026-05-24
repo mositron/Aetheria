@@ -56,6 +56,7 @@ const PetBox = lazy(() => import("./ui/PetBox").then((m) => ({ default: m.PetBox
 const Leaderboard = lazy(() => import("./ui/Leaderboard").then((m) => ({ default: m.Leaderboard })));
 const Mailbox = lazy(() => import("./ui/Mailbox").then((m) => ({ default: m.Mailbox })));
 const FriendList = lazy(() => import("./ui/FriendList").then((m) => ({ default: m.FriendList })));
+const OnlinePlayers = lazy(() => import("./ui/OnlinePlayers").then((m) => ({ default: m.OnlinePlayers })));
 const GuildPanel = lazy(() => import("./ui/GuildPanel").then((m) => ({ default: m.GuildPanel })));
 const AuctionHouse = lazy(() => import("./ui/AuctionHouse").then((m) => ({ default: m.AuctionHouse })));
 const TradeWindow = lazy(() => import("./ui/TradeWindow").then((m) => ({ default: m.TradeWindow })));
@@ -109,6 +110,10 @@ export function Game() {
         setReady(true);
         r.onMessage("chat", (m: any) => pushChat(m));
         r.onMessage("whisper" as any, (m: any) => pushChat({ from: `🔒 ${m.from}`, text: m.text, ts: m.ts }));
+        // Early sink for "fishing" — the InteractionPrompt panel that owns
+        // this message mounts lazily, so without a placeholder colyseus.js
+        // spams "onMessage() not registered" until the panel appears.
+        r.onMessage("fishing" as any, () => {});
         r.onMessage("proposal_received", ({ fromName }: any) => {
           if (confirm(`💍 ${fromName} ขอแต่งงานกับคุณ! ยอมรับหรือไม่?`)) {
             r.send("accept_proposal", { proposerName: fromName });
@@ -225,6 +230,7 @@ return (
         <Leaderboard />
         <Mailbox room={room} />
         <FriendList room={room} />
+        <OnlinePlayers room={room} />
         <GuildPanel room={room} />
         <AuctionHouse room={room} />
         <TradeWindow room={room} />

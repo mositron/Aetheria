@@ -64,6 +64,8 @@ import { estimateHeight, checkPortal, clamp } from "../services/MovementService.
 import { AuditService, auditService } from "../services/AuditService.js";
 import { getCurrentSeason } from "../services/Season.js";
 import { tryWaypoint } from "../services/Waypoint.js";
+import { parseCommand, routeCommand, randomHomeCoord } from "../services/ChatCommands.js";
+import { BossEventScheduler } from "../services/BossEvent.js";
 
 
 type Intent = { mx: number; mz: number; rotY: number };
@@ -127,8 +129,7 @@ export class WorldRoom extends Room<WorldState> {
   }
   mpRegenAcc = 0;
   autoSaveAcc = 0;
-  bossEventAcc = 0;
-  bossEventActive = false;
+  bossEventSched = new BossEventScheduler();
   weatherAcc = 0;
   botIds = new Set<string>();
   botState = new Map<string, { wander: { x: number; z: number; until: number }; nextActionAt: number }>();
@@ -179,6 +180,10 @@ export class WorldRoom extends Room<WorldState> {
       this.lastAttack,
       {
         broadcast: (type, data) => this.broadcast(type, data),
+        sendToSid: (sid, type, data) => {
+          const c = this.clients.find((cc) => cc.sessionId === sid);
+          c?.send(type as any, data);
+        },
       }
     );
 
@@ -886,6 +891,9 @@ export class WorldRoom extends Room<WorldState> {
       if (target.hp === 0) {
         target.dead = true;
         this.broadcast("system", { text: `⚔ ${attacker.name} เอาชนะ ${target.name}!` });
+        // Death recap for the victim
+        const victimClient = this.clients.find((c) => this.state.players.get(c.sessionId) === target);
+        victimClient?.send("death" as any, { killer: attacker.name, killerKind: "player" });
       }
     });
 
@@ -901,35 +909,32 @@ export class WorldRoom extends Room<WorldState> {
       const text = String(payload.text ?? "").slice(0, 200).trim();
       if (!text) return;
       // ── Slash commands ───────────────────────────────────────────────
-      if (text.startsWith("/")) {
-        const [cmd, ...args] = text.slice(1).split(/\s+/);
-        switch (cmd.toLowerCase()) {
-          case "help":
-            client.send("system", { text: "📜 คำสั่ง: /help · /w ชื่อ ข้อความ · /pvp · /home · /who" });
-            return;
-          case "pvp":
-            p.pvpFlag = !p.pvpFlag;
-            client.send("system", { text: p.pvpFlag ? "⚔ PvP เปิดแล้ว" : "🕊 PvP ปิดแล้ว" });
-            return;
-          case "home": {
-            // Spawn near center but offset slightly so we don't land inside the fountain/houses
-            const a = Math.random() * Math.PI * 2;
-            const r = 3 + Math.random() * 3;
-            p.pos.x = Math.cos(a) * r;
-            p.pos.z = Math.sin(a) * r;
-            client.send("system", { text: "🏡 กลับสู่หมู่บ้าน" });
-            return;
-          }
-          case "who": {
-            const names: string[] = [];
-            for (const [, q] of this.state.players) if (!this.botIds.has(q.id)) names.push(q.name);
-            client.send("system", { text: `👥 ออนไลน์: ${names.join(", ")}` });
-            return;
-          }
-          case "w":
-            // Already handled via whisper handler — forward
-            if (args.length >= 2) {
-              const to = args[0]; const body = args.slice(1).join(" ");
+      const parsed = parseCommand(text);
+      if (parsed) {
+        const effect = routeCommand(parsed);
+        if (effect) {
+          switch (effect.kind) {
+            case "help":
+              client.send("system", { text: effect.text });
+              return;
+            case "togglePvp":
+              p.pvpFlag = !p.pvpFlag;
+              client.send("system", { text: p.pvpFlag ? "⚔ PvP เปิดแล้ว" : "🕊 PvP ปิดแล้ว" });
+              return;
+            case "warpHome": {
+              const c = randomHomeCoord();
+              p.pos.x = c.x; p.pos.z = c.z;
+              client.send("system", { text: "🏡 กลับสู่หมู่บ้าน" });
+              return;
+            }
+            case "listOnline": {
+              const names: string[] = [];
+              for (const [, q] of this.state.players) if (!this.botIds.has(q.id)) names.push(q.name);
+              client.send("system", { text: `👥 ออนไลน์: ${names.join(", ")}` });
+              return;
+            }
+            case "whisper": {
+              const to = effect.to, body = effect.body;
               let target: Client | null = null;
               for (const c of this.clients) {
                 const pp = this.state.players.get(c.sessionId);
@@ -938,9 +943,11 @@ export class WorldRoom extends Room<WorldState> {
               if (!target) return client.send("system", { text: `ไม่พบ "${to}" ในแมพ` });
               target.send("whisper", { from: p.name, text: body, ts: Date.now() });
               client.send("whisper", { from: `${p.name} → ${to}`, text: body, ts: Date.now() });
+              return;
             }
-            return;
+          }
         }
+        // Unknown slash command: fall through to broadcast as plain text
       }
       this.broadcast("chat", { from: p.name, text, ts: Date.now() });
     });
@@ -1801,26 +1808,21 @@ export class WorldRoom extends Room<WorldState> {
       }
     }
 
-    // Boss world event — every ~10 min spawn a roaming boss in field
+    // Boss world event — pure scheduler decides when/where
     if (this.state.mapId === "field") {
-      this.bossEventAcc += dt;
-      if (!this.bossEventActive && this.bossEventAcc > 600) {
-        this.bossEventAcc = 0;
-        const a = Math.random() * Math.PI * 2;
-        const r = (MAPS["field"].size / 2) * 0.6;
-        const bx = Math.cos(a) * r;
-        const bz = Math.sin(a) * r;
-        this.spawnMonster("darklord", bx, bz);
-        this.bossEventActive = true;
-        this.broadcast("system", { text: `⚜ ผู้พิทักษ์เงา (Dark Lord) ปรากฏที่ (${bx.toFixed(0)}, ${bz.toFixed(0)})!` });
-      }
-      // Reset event flag when no darklord alive
-      if (this.bossEventActive) {
-        let alive = false;
-        for (const [, m] of this.state.monsters) {
-          if (m.kind === "darklord" && !m.dead) { alive = true; break; }
-        }
-        if (!alive) this.bossEventActive = false;
+      const decision = this.bossEventSched.tick(
+        dt,
+        MAPS["field"].size / 2,
+        () => {
+          for (const [, m] of this.state.monsters) {
+            if (m.kind === "darklord" && !m.dead) return true;
+          }
+          return false;
+        },
+      );
+      if (decision.kind === "spawn") {
+        this.spawnMonster("darklord", decision.x, decision.z);
+        this.broadcast("system", { text: decision.message });
       }
     }
 

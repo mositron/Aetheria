@@ -18,11 +18,27 @@ Real harness run via `pnpm seed:load-bots && pnpm test:harness`:
 | **RTT p99** | **64 ms** | < 500 ms ✅ |
 | Result | **PASS** | — |
 
-Hardware: developer workstation, single Node.js process, SQLite, no Redis,
-all 50 bots in the same `world` room. Server room cap raised from 8 → 50+ for
-harness mode if needed.
+### Stretch — 100 bots in ONE room (single instance)
 
-For 100+ bots see `MAX_PLAYERS` env or `maxClients` in WorldRoom.onCreate.
+| Metric | Value | Target |
+|---|---|---|
+| Concurrent bots | 100/100 connected (0 failed) | 100 |
+| Test duration | 30 s | — |
+| RTT samples | 50,798 | — |
+| **RTT p50** | **27 ms** | < 100 ms ✅ |
+| **RTT p95** | **132 ms** | < 200 ms ✅ |
+| **RTT p99** | **221 ms** | < 500 ms ✅ |
+| Result | **PASS** | — |
+
+Hardware: developer workstation, single Node.js process, SQLite, no Redis.
+Bots pinned to one room via `worldId: "loadtest"` + `maxPlayers: 200`.
+
+Headroom: server still passes p95 < 200ms at 2× target capacity. The
+spatial-hash refactor on bot aggro (commit `093a3d9`) further reduces tick
+cost; next stretch test would be 200 bots to find the actual ceiling.
+
+For >200 bots, switch to multi-instance: Redis presence + room sharding
+(2 server replicas already wired in `docker-compose.yml`).
 
 ### When to add interest management
 

@@ -60,6 +60,10 @@ async function main() {
           const room = await client.joinOrCreate("world", {
             token: creds[i].token,
             characterId: creds[i].characterId,
+            // Pin all bots into one room so we actually stress a single instance.
+            // Defaults to 200, override with MAX_PLAYERS env.
+            maxPlayers: parseInt(process.env.MAX_PLAYERS ?? "200", 10),
+            worldId: "loadtest",
           });
           connected++;
           const bot: Bot = { id: i, room, alive: true };
