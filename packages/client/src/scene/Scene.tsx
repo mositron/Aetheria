@@ -22,6 +22,7 @@ import { getHeight as terrainHeight, isWater as terrainIsWater, SPAWN_RADIUS, ST
 import { isBlocked as isObstacle } from "./obstacles";
 const TERRAIN_CONFIG = { STEP: TERRAIN_STEP };
 import { HeroModel } from "./models/HeroModel";
+import { npcAppearance } from "./models/npcAppearance";
 import { SlimeModel } from "./models/SlimeModel";
 import { WolfModel } from "./models/WolfModel";
 
@@ -708,7 +709,11 @@ function NpcView({ n, onClick, onHoverIn, onHoverOut }: { n: NpcDef; onClick: ()
         onPointerOver={(e) => { e.stopPropagation(); onHoverIn(); }}
         onPointerOut={(e) => { e.stopPropagation(); onHoverOut(); }}
       >
-        <HeroModel bodyColor={n.color} isMoving={() => false} />
+        <HeroModel
+          bodyColor={n.color}
+          appearance={npcAppearance(n.id, n.color)}
+          isMoving={() => false}
+        />
       </group>
       <NpcQuestMarker icon={markerIcon} color={markerColor} />
       <NpcLabel text={`${n.icon} ${n.name}`} y={2.4} />
@@ -1864,14 +1869,69 @@ const MonsterView = React.memo(function MonsterView({ m, selected, onClick, onHo
         {m.kind === "slime" && <SlimeModel isDead={() => m.dead} isAttacking={() => { const t = attackPulses.get(m.id); return !!t && performance.now() - t < 60; }} />}
         {m.kind === "wolf" && <WolfModel isMoving={() => performance.now() - lastMoveAt.current < 200} isDead={() => m.dead} isAttacking={() => { const t = attackPulses.get(m.id); return !!t && performance.now() - t < 60; }} />}
         {m.kind === "orc" && (
-          <group scale={1.2}>
-            <HeroModel bodyColor="#5a8c3e" isMoving={() => performance.now() - lastMoveAt.current < 200} isDead={() => m.dead} isAttacking={() => { const t = attackPulses.get(m.id); return !!t && performance.now() - t < 60; }} hasWeapon={() => true} />
+          <group scale={1.4}>
+            <HeroModel
+              bodyColor="#5a8c3e"
+              appearance={{
+                skin: "#4a7c2a",       // green orc skin
+                hair: "#1a0f08",       // black hair
+                eye: "#fbbf24",        // yellow glowing eyes
+                shirt: "#3f5223",      // dark green tunic
+                pants: "#2a1a0a",      // brown leather
+                hairStyle: "spiky",
+                body: "wide",          // bulky brute
+                hat: "headband",
+                hatColor: "#7f1d1d",
+                glasses: "none",
+                scarf: "none",
+                scarfColor: "#ef4444",
+              }}
+              isMoving={() => performance.now() - lastMoveAt.current < 200}
+              isDead={() => m.dead}
+              isAttacking={() => { const t = attackPulses.get(m.id); return !!t && performance.now() - t < 60; }}
+              hasWeapon={() => true}
+            />
+            {/* tusks */}
+            <mesh position={[-0.08, 1.55, 0.2]} rotation={[0, 0, 0.2]}>
+              <coneGeometry args={[0.04, 0.18, 4]} />
+              <meshStandardMaterial color="#fef3c7" flatShading />
+            </mesh>
+            <mesh position={[0.08, 1.55, 0.2]} rotation={[0, 0, -0.2]}>
+              <coneGeometry args={[0.04, 0.18, 4]} />
+              <meshStandardMaterial color="#fef3c7" flatShading />
+            </mesh>
           </group>
         )}
         {m.kind === "darklord" && (
-          <group scale={2.2}>
-            <HeroModel bodyColor="#7c1d6f" isMoving={() => performance.now() - lastMoveAt.current < 200} isDead={() => m.dead} isAttacking={() => { const t = attackPulses.get(m.id); return !!t && performance.now() - t < 60; }} hasWeapon={() => true} />
-            <pointLight position={[0, 2, 0]} color="#a855f7" intensity={3} distance={10} />
+          <group scale={3.0}>
+            <HeroModel
+              bodyColor="#1a0a1f"
+              appearance={{
+                skin: "#3a1f3a",         // pale purple skin
+                hair: "#0a0a0a",         // jet black
+                eye: "#ef4444",          // glowing red eyes
+                shirt: "#1a0a1f",        // black armor
+                pants: "#0a0510",
+                hairStyle: "long",
+                body: "wide",
+                hat: "crown",
+                hatColor: "#7c2d12",     // dark gold crown
+                glasses: "none",
+                scarf: "long",
+                scarfColor: "#7c1d6f",   // purple cape
+              }}
+              isMoving={() => performance.now() - lastMoveAt.current < 200}
+              isDead={() => m.dead}
+              isAttacking={() => { const t = attackPulses.get(m.id); return !!t && performance.now() - t < 60; }}
+              hasWeapon={() => true}
+            />
+            {/* aura ring at feet */}
+            <mesh position={[0, 0.02, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+              <ringGeometry args={[0.8, 1.1, 32]} />
+              <meshBasicMaterial color="#a855f7" transparent opacity={0.55} side={THREE.DoubleSide} />
+            </mesh>
+            <pointLight position={[0, 2, 0]} color="#a855f7" intensity={4} distance={14} />
+            <pointLight position={[0, 0.3, 0]} color="#ef4444" intensity={2} distance={6} />
           </group>
         )}
         {m.kind === "tree_node" && <ResourceTree />}
