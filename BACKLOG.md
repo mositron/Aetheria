@@ -465,7 +465,18 @@ e36b993 fix(P0): CORS strict whitelist + helmet + dual-rate-limit + HTTPS redire
 - Inventory.handlePickup now credits zeny currency drops directly to `p.zeny` (was failing to add a non-existent item).
 - Added Dockerfile (multi-stage) + docker-compose (postgres + redis + 2 server) + POSTGRES_MIGRATION.md.
 
-### Responsive pass — 2026-05-24 (commit pending)
+### Visual + close-out pass — 2026-05-24 (commits 871c644 → b613148)
+- **NPCs all looked identical** — built `npcAppearance(id)` (hash → distinct skin/hair/body) + `NpcRoleProps` (carpenter hammer+apron, blacksmith anvil, scholar scroll+glasses, merchant scale, tutor glowing wand, waypoint orb staff, guard shield+spear).
+- **Boss / Orc**: dedicated `DarklordModel` (horns, glowing eyes, cape, sword, aura) + `OrcModel` (green brute with club). Wired 6 pre-existing but unimported boss models (Bog Witch, Ice Wraith, Sand Worm, Scorpion Lord, Snowman Giant, Swamp Serpent).
+- **Per-job player props** (`PlayerJobProps.tsx`) — swordsman shield, mage staff orb, archer bow+quiver, acolyte halo+mace, thief daggers + T2 variants (Knight cape, Wizard floating tomes, Sniper longbow, Priest wings, Assassin hood).
+- **NPC click crash fixed** — `npc.shop!.map(...)` ran for all NPCs in default "buy" tab. Now smart-tab + guarded.
+- **Sword cursor** on monster hover (inline SVG data URI).
+- **Companion system wired end-to-end** — `summon_companion` / `recall_companion` server handlers, `tickCompanions(dt)` follow AI, CompanionModel rendered next to owner.
+- **Quest chain UI** — "→ เควสต่อไป: {next}" hint in NpcDialog quest tab + QuestLog.
+- **CLAUDE.md sync** — "What hasn't been built" rewritten (everything once listed there is built).
+- **CI fixed twice**: removed pnpm `version: 10` (conflicted with packageManager field); added DATABASE_URL + JWT_SECRET + prisma generate/push to test step.
+
+### Responsive pass — 2026-05-24 (commit `df67bc4`)
 - **Single-active-modal guarantee**: `useExclusiveModal(id, open, setOpen)` hook + `PanelId` union in store. Wired into 13 modals (Inventory, Crafting, Stats-coverage via toggleInventory, AuctionHouse, GuildPanel, FriendList, Mailbox, PetBox, AchievementsPanel, Leaderboard, SkillTreeUI, MarriageUI, OnlinePlayers). Opening any modal auto-closes the previous one via window CustomEvent — no two modals can overlap visually.
 - **Safe-zone CSS var system** in index.css: `--hud-top`, `--hud-side`, `--bottom-safe`, `--side-panel-top`. Media queries: phone (max-width:768px or max-height:540px) bumps bottom-safe to 9rem to clear joystick + action buttons; landscape (max-height:500px) shrinks. `@supports (padding: max(0px))` adds iOS safe-area-inset.
 - **Reusable zone utilities**: `.zone-top-left`, `.zone-top-right`, `.zone-bottom-left`, `.zone-bottom-right`, `.zone-side-panel`, `.modal-overlay`.
