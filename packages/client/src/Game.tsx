@@ -65,6 +65,7 @@ const SkillTreeUI = lazy(() => import("./ui/SkillTreeUI").then((m) => ({ default
 const MarriageUI = lazy(() => import("./ui/MarriageUI").then((m) => ({ default: m.MarriageUI })));
 const WorldCompanionPanel = lazy(() => import("./ui/WorldCompanionPanel").then((m) => ({ default: m.WorldCompanionPanel })));
 const CombatLog = lazy(() => import("./ui/CombatLog").then((m) => ({ default: m.CombatLog })));
+const WorldMap = lazy(() => import("./ui/WorldMap").then((m) => ({ default: m.WorldMap })));
 
 const SERVER_WS = `ws://${location.hostname}:2567`;
 
@@ -236,6 +237,7 @@ return (
         <AuctionHouse room={room} />
         <TradeWindow room={room} />
         <CombatLog room={room} />
+        <WorldMap room={room} />
       </Suspense>
       <HintSystem room={room} />
       <EmoteWheel room={room} />

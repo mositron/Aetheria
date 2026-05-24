@@ -13,7 +13,7 @@ export type PanelId =
   | "skillTree" | "marriage" | "leaderboard" | "dailyReward"
   | "worldLobby" | "settings" | "photoMode" | "accountRecovery"
   | "dungeonUI" | "jobAdvancement" | "jobPicker" | "characterSelect"
-  | "waypoints" | "worldCompanion" | "autoPotion" | "tradeWindow";
+  | "waypoints" | "worldCompanion" | "autoPotion" | "tradeWindow" | "worldMap";
 
 export type CharacterSummary = {
   id: string;
