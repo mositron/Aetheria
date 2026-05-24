@@ -147,3 +147,19 @@ model AuditLog {
   metadata    String?  // JSON string
   ip          String?
 }
+
+// Weekly leaderboard — one row per (weekStart, characterName).
+// weekStart is the ms timestamp of the Monday 00:00 the score belongs to.
+// Old weeks are kept for history; getTop() filters by current week.
+model LeaderboardEntry {
+  id        String   @id @default(cuid())
+  weekStart BigInt
+  name      String
+  score     Int      @default(0)
+  kills     Int      @default(0)
+  level     Int      @default(1)
+  updatedAt DateTime @updatedAt
+
+  @@unique([weekStart, name])
+  @@index([weekStart, score])
+}

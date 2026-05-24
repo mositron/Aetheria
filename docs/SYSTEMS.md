@@ -478,17 +478,19 @@ All modal panels (Inventory, Crafting, Mailbox, etc.) cover full screen as trans
 
 ---
 
-## 🛣 Roadmap (not yet built)
+## 🛣 Roadmap
 
-Things explicitly designed for but not implemented — good first-PR opportunities:
+Done since this section was first written:
 
-- Guild / Crew system (shared chat + crest)
-- More job advancement tiers (Lv50+)
-- Player trade window (face-to-face)
-- Auction house
-- More NPC story quests + dialog trees
-- Save replay highlights
-- Server-persisted leaderboard (currently in-memory)
-- Anti-cheat sanity checks (speed hack detection)
-- Localization (i18n) — currently mixed Thai + English
-- Larger world / multi-map streaming
+- ✅ Guild / Crew system (Guild.ts service + GuildPanel + chat)
+- ✅ More job advancement tiers — Lv30 (2nd-class) + Lv50 (3rd-class T2: lord_knight, high_wizard, sniper_t2, high_priest, assassin_t2)
+- ✅ Player trade window (Trade.ts + TradeWindow.tsx, race-safe)
+- ✅ Auction house (Auction.ts + AuctionHouse.tsx)
+- ✅ Anti-cheat speed/teleport detection (WorldRoom playerLastPos)
+- ✅ Localization (i18n) — locales/en.ts + locales/th.ts, 540+ keys, full parity
+
+Genuinely still open:
+
+- More NPC story quests + branching dialog trees (linear `next` chain works; no branches yet)
+- Save replay highlights — kill streaks / boss kills (not started)
+- Larger world / multi-map seamless streaming — discrete maps + portals exist (field/dungeon); no chunk streaming

@@ -1,5 +1,16 @@
 # Avatar Integration Strategy
 
+> ⚠️ **DEPRECATED — out of scope per CLAUDE.md**
+>
+> Project policy is "procedural everything / no external asset downloads"
+> (CLAUDE.md `## What the user is like`). GLTF / Ready Player Me / Mixamo
+> are explicit non-goals for the current MVP.
+>
+> Kept for reference — if the policy ever changes, the steps below still
+> describe a workable migration path. The procedural HeroModel +
+> PlayerJobProps + per-NPC accessory system in `scene/models/` is the
+> current production path.
+
 สรุปแผนทางเลือกการเพิ่มตัวละครสมจริง (ไม่ต้องปั้น 3D เอง)
 
 ## เป้าหมาย

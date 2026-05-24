@@ -1,5 +1,13 @@
 # Server-Hosted World Plan
 
+> ✅ **IMPLEMENTED** (BACKLOG P3.29). Player-created worlds with invite
+> codes work end-to-end: `WorldRoom` accepts `worldId/worldName/worldMode/
+> worldTemplate/maxPlayers`, `WorldManager` tracks invite codes, Colyseus
+> room instantiated lazily via `joinOrCreate("world", { worldId })`,
+> Co-op / PvP / Adventure mode flags enforced server-side. HUD shows
+> world name + mode badge + player count. This document is kept as
+> historical design context.
+
 สำหรับเกมแนว Open-World ที่ผู้เล่นไม่ต้องสร้างแผนที่เอง แต่สามารถสร้าง world ใหม่จากระบบ แล้วชวนเพื่อนเข้าเล่นได้
 
 ## เป้าหมายหลัก

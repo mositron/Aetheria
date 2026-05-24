@@ -110,7 +110,11 @@ Designed to feel snappy at low levels, gradually requiring quests/party/boss far
 
 ## PvP
 
-Currently no PvP — attack messages only target monsters. PvP toggle is on the future roadmap.
+Opt-in PvP — players type `/pvp` in chat to toggle their `pvpFlag`. Once
+flagged, other flagged players can target them with `attack_player`
+(handled in WorldRoom). Non-flagged players are immune. The flag persists
+on the Colyseus schema during the session; reset to off on next login.
+Killing another flagged player drops a "⚔ X เอาชนะ Y!" broadcast.
 
 ## Win condition
 
