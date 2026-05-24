@@ -96,12 +96,57 @@ export function WorldMap({ room }: { room: Room<WorldState> }) {
         const cx = (cave.x + half) * scale;
         const cy = (cave.z + half) * scale;
         const rPx = cave.r * scale;
+        // Mouth direction = toward village (origin). atan2 in canvas space:
+        //   world x = canvas x; world z = canvas y; village is at (vx, vy).
+        const mouthAngle = Math.atan2(vy - cy, vx - cx);
+        const gapHalf = Math.PI / 7; // ~26° opening
         // dark filled disc
         ctx.fillStyle = "rgba(40,20,12,0.78)";
         ctx.beginPath(); ctx.arc(cx, cy, rPx, 0, Math.PI * 2); ctx.fill();
+        // outline as an arc with a gap at the mouth
         ctx.strokeStyle = "#fbbf24";
         ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.arc(cx, cy, rPx, mouthAngle + gapHalf, mouthAngle - gapHalf + Math.PI * 2);
         ctx.stroke();
+        // Mouth markers — two arch boulders at the gap edges + gold line across
+        const mx1 = cx + Math.cos(mouthAngle + gapHalf) * rPx;
+        const my1 = cy + Math.sin(mouthAngle + gapHalf) * rPx;
+        const mx2 = cx + Math.cos(mouthAngle - gapHalf) * rPx;
+        const my2 = cy + Math.sin(mouthAngle - gapHalf) * rPx;
+        // gold "entry" line across the opening
+        ctx.strokeStyle = "#fde047";
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        ctx.moveTo(mx1, my1);
+        ctx.lineTo(mx2, my2);
+        ctx.stroke();
+        // two boulder dots at the arch pillars
+        ctx.fillStyle = "#78350f";
+        ctx.beginPath(); ctx.arc(mx1, my1, 3, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(mx2, my2, 3, 0, Math.PI * 2); ctx.fill();
+        // arrow from mouth pointing outward (the way you'd walk to enter)
+        const entryX = cx + Math.cos(mouthAngle) * (rPx + 6);
+        const entryY = cy + Math.sin(mouthAngle) * (rPx + 6);
+        const midX = cx + Math.cos(mouthAngle) * rPx;
+        const midY = cy + Math.sin(mouthAngle) * rPx;
+        ctx.strokeStyle = "#fde047";
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(midX, midY);
+        ctx.lineTo(entryX, entryY);
+        ctx.stroke();
+        // small arrowhead
+        const ah = 4;
+        const perpX = -Math.sin(mouthAngle);
+        const perpY = Math.cos(mouthAngle);
+        ctx.fillStyle = "#fde047";
+        ctx.beginPath();
+        ctx.moveTo(entryX, entryY);
+        ctx.lineTo(entryX - Math.cos(mouthAngle) * ah + perpX * ah * 0.6, entryY - Math.sin(mouthAngle) * ah + perpY * ah * 0.6);
+        ctx.lineTo(entryX - Math.cos(mouthAngle) * ah - perpX * ah * 0.6, entryY - Math.sin(mouthAngle) * ah - perpY * ah * 0.6);
+        ctx.closePath();
+        ctx.fill();
         // cave icon
         ctx.font = `${Math.max(14, rPx * 0.5)}px sans-serif`;
         ctx.textAlign = "center";
