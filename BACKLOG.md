@@ -465,7 +465,15 @@ e36b993 fix(P0): CORS strict whitelist + helmet + dual-rate-limit + HTTPS redire
 - Inventory.handlePickup now credits zeny currency drops directly to `p.zeny` (was failing to add a non-existent item).
 - Added Dockerfile (multi-stage) + docker-compose (postgres + redis + 2 server) + POSTGRES_MIGRATION.md.
 
-### Improvement pass 2 — 2026-05-24 (commit pending)
+### Responsive pass — 2026-05-24 (commit pending)
+- **Single-active-modal guarantee**: `useExclusiveModal(id, open, setOpen)` hook + `PanelId` union in store. Wired into 13 modals (Inventory, Crafting, Stats-coverage via toggleInventory, AuctionHouse, GuildPanel, FriendList, Mailbox, PetBox, AchievementsPanel, Leaderboard, SkillTreeUI, MarriageUI, OnlinePlayers). Opening any modal auto-closes the previous one via window CustomEvent — no two modals can overlap visually.
+- **Safe-zone CSS var system** in index.css: `--hud-top`, `--hud-side`, `--bottom-safe`, `--side-panel-top`. Media queries: phone (max-width:768px or max-height:540px) bumps bottom-safe to 9rem to clear joystick + action buttons; landscape (max-height:500px) shrinks. `@supports (padding: max(0px))` adds iOS safe-area-inset.
+- **Reusable zone utilities**: `.zone-top-left`, `.zone-top-right`, `.zone-bottom-left`, `.zone-bottom-right`, `.zone-side-panel`, `.modal-overlay`.
+- **Dialog safe-area override**: attribute selector `[role="dialog"][aria-modal="true"].absolute` injects `padding-bottom: var(--bottom-safe)` and `padding-top: var(--hud-top)` so existing modals stay clear of bottom bar/joystick without per-component refactor.
+- **OnlinePlayers position fix**: `top-16 right-4` (which overlapped the minimap on small screens) → `.zone-side-panel` (anchors below HUD on every breakpoint).
+- **Verified via DOM probe**: media queries (768/540/500), safe-area support, zone utilities, dialog override — all loaded correctly on production CSS.
+
+### Improvement pass 2 — 2026-05-24 (commit `bc12ff7`)
 - **100-bot stress test** in one room: p50/p95/p99 = **27/132/221 ms** (still PASS, 2× target). Recorded in SERVER_SIZING_50_PLAYERS.md.
 - **Extracted services**: `ChatCommands` (parser + router, +9 tests) + `BossEvent` (scheduler, +4 tests). WorldRoom shrinks again.
 - **New UI: `OnlinePlayers` panel** — draggable live list of players in room, quick-action whisper + party invite. Wired to MenuBar 🟢 + locale keys.

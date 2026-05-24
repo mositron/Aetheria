@@ -8,10 +8,12 @@ import type { Room } from "colyseus.js";
 import type { WorldState, Player } from "@game/shared";
 import { GameFrame } from "./GameFrame";
 import { useT } from "../locales/useT";
+import { useExclusiveModal } from "../hooks/useExclusiveModal";
 
 export function OnlinePlayers({ room }: { room: Room<WorldState> }) {
   const t = useT();
   const [open, setOpen] = useState(false);
+  useExclusiveModal("online", open, setOpen);
   const [, force] = useState(0);
   const [selected, setSelected] = useState<string | null>(null);
 
@@ -55,7 +57,7 @@ export function OnlinePlayers({ room }: { room: Room<WorldState> }) {
   };
 
   return (
-    <div data-no-screen-joy className="absolute top-16 right-4 z-30 w-64 max-w-[88vw]">
+    <div data-no-screen-joy className="zone-side-panel z-30 w-64 max-w-[88vw]">
       <GameFrame title={`${t("online.title") || "Online"} (${rows.length})`}>
         <button
           onClick={() => setOpen(false)}

@@ -4,6 +4,7 @@ import { ITEMS, type Player, type WorldState } from "@game/shared";
 import { useStore } from "../store";
 import { useT } from "../locales/useT";
 import { GameFrame } from "./GameFrame";
+import { useExclusiveModal } from "../hooks/useExclusiveModal";
 
 type Mail = {
   id: string;
@@ -23,6 +24,7 @@ export function Mailbox({ room }: { room: Room<WorldState> }) {
   const token = useStore((s) => s.token);
   const t = useT();
   const [open, setOpen] = useState(false);
+  useExclusiveModal("mailbox", open, setOpen);
   const [mails, setMails] = useState<Mail[]>([]);
   const [mode, setMode] = useState<"inbox" | "send">("inbox");
   const [, setTick] = useState(0);

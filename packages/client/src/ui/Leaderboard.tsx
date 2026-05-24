@@ -1,12 +1,14 @@
 import { useEffect, useState } from "react";
 import { GameFrame } from "./GameFrame";
 import { useT } from "../locales/useT";
+import { useExclusiveModal } from "../hooks/useExclusiveModal";
 
 type Entry = { name: string; score: number; kills: number; level: number };
 
 export function Leaderboard() {
   const t = useT();
   const [open, setOpen] = useState(false);
+  useExclusiveModal("leaderboard", open, setOpen);
   const [entries, setEntries] = useState<Entry[]>([]);
   const [loading, setLoading] = useState(false);
 

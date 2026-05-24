@@ -5,6 +5,7 @@ import FocusTrap from "focus-trap-react";
 import { SKILL_TREES, JOBS, type JobId } from "@game/shared";
 import { GameFrame } from "./GameFrame";
 import { useT } from "../locales/useT";
+import { useExclusiveModal } from "../hooks/useExclusiveModal";
 
 const JOB_COLORS: Record<string, string> = {
   swordsman: "#ef4444",
@@ -37,6 +38,7 @@ function isUnlocked(node: SkillNode, unlocked: string[]): boolean {
 
 export function SkillTreeUI({ room }: { room: Room<WorldState> }) {
   const [open, setOpen] = useState(false);
+  useExclusiveModal("skillTree", open, setOpen);
   const t = useT();
 
   useEffect(() => {

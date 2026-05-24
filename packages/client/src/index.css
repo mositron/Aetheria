@@ -4,6 +4,78 @@
 
 html, body, #root { width: 100%; height: 100%; }
 
+/* ── Responsive UI safe-zone vars ───────────────────────────────────────
+   Used by panels/HUD so nothing overlaps on any screen.
+   - --hud-top: room for top HUD (player stats + minimap).
+   - --hud-side: horizontal margin from edge.
+   - --bottom-safe: distance from bottom to clear bottombar/joystick/action btns.
+   - --side-panel-top: where side panels (OnlinePlayers, etc) start vertically.
+*/
+:root {
+  --hud-top: 0.5rem;
+  --hud-side: 0.5rem;
+  --bottom-safe: 5.5rem;   /* desktop: hotbar (~5rem) + breathing */
+  --side-panel-top: 4.5rem; /* under HUD on desktop */
+}
+/* Tablet portrait + phone (small viewport either dimension) */
+@media (max-width: 768px), (max-height: 540px) {
+  :root {
+    --hud-top: 0.25rem;
+    --hud-side: 0.25rem;
+    --bottom-safe: 9rem;     /* clear joystick + action buttons */
+    --side-panel-top: 7.5rem; /* under HUD + minimap stack */
+  }
+}
+/* Phone landscape: short height, side joystick layout */
+@media (max-height: 500px) and (orientation: landscape) {
+  :root {
+    --bottom-safe: 5rem;
+    --side-panel-top: 3.5rem;
+  }
+}
+/* iOS notch / Android nav bar */
+@supports (padding: max(0px)) {
+  :root {
+    --hud-top: max(0.5rem, env(safe-area-inset-top));
+    --hud-side: max(0.5rem, env(safe-area-inset-left));
+    --bottom-safe: max(5.5rem, calc(5.5rem + env(safe-area-inset-bottom)));
+  }
+}
+
+/* Reusable zone utilities — pin to an edge with safe-area baked in */
+.zone-top-left    { position: absolute; top: var(--hud-top); left: var(--hud-side); }
+.zone-top-right   { position: absolute; top: var(--hud-top); right: var(--hud-side); }
+.zone-bottom-left { position: absolute; bottom: var(--bottom-safe); left: var(--hud-side); }
+.zone-bottom-right{ position: absolute; bottom: var(--bottom-safe); right: var(--hud-side); }
+.zone-side-panel  { position: absolute; top: var(--side-panel-top); right: var(--hud-side); }
+/* Modal container — full-screen overlay, content centered, bottom padded */
+.modal-overlay {
+  position: absolute; inset: 0; z-index: 40;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(0,0,0,0.65); backdrop-filter: blur(4px);
+  padding-top: calc(var(--hud-top) + 2.5rem);
+  padding-bottom: calc(var(--bottom-safe) + 1rem);
+  padding-left: 1rem; padding-right: 1rem;
+  overflow-y: auto;
+}
+/* Existing modals that use the role="dialog" pattern get the same safe-area
+   padding so they never overlap with bottombar / joystick on mobile. */
+[role="dialog"][aria-modal="true"].absolute {
+  padding-bottom: calc(var(--bottom-safe) + 0.5rem) !important;
+  padding-top: calc(var(--hud-top) + 0.5rem) !important;
+}
+/* Inside a modal: ensure the inner content can scroll if too tall, never
+   pushed under the joystick. */
+[role="dialog"][aria-modal="true"] > * {
+  max-height: 100%;
+}
+.modal-content {
+  max-width: 100%;
+  max-height: 100%;
+  width: auto;
+}
+
+
 /* Achievement unlock banner animation */
 @keyframes slide-down {
   from { transform: translate(-50%, -120%); opacity: 0; }

@@ -7,12 +7,14 @@ import FocusTrap from "focus-trap-react";
 import { ITEMS, type Player, type WorldState } from "@game/shared";
 import { GameFrame } from "./GameFrame";
 import { useT } from "../locales/useT";
+import { useExclusiveModal } from "../hooks/useExclusiveModal";
 
 type Listing = { id: string; sellerName: string; itemId: string; qty: number; pricePer: number };
 
 export function AuctionHouse({ room }: { room: Room<WorldState> }) {
   const t = useT();
   const [open, setOpen] = useState(false);
+  useExclusiveModal("auction", open, setOpen);
   const [tab, setTab] = useState<"browse" | "sell">("browse");
   const [listings, setListings] = useState<Listing[]>([]);
   const [search, setSearch] = useState("");

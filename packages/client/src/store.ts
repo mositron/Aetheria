@@ -6,6 +6,14 @@ type ChatEntry = { from: string; text: string; ts: number };
 
 export type Waypoint = { x: number; z: number; label: string; icon?: string };
 
+/** Single-active-modal registry. Add a new panel id here when wiring a new modal. */
+export type PanelId =
+  | "inventory" | "crafting" | "stats" | "questLog" | "achievements"
+  | "auction" | "guild" | "friends" | "online" | "petbox" | "mailbox"
+  | "skillTree" | "marriage" | "leaderboard" | "dailyReward"
+  | "worldLobby" | "settings" | "photoMode" | "accountRecovery"
+  | "dungeonUI" | "jobAdvancement" | "jobPicker" | "characterSelect";
+
 export type CharacterSummary = {
   id: string;
   name: string;
@@ -37,6 +45,13 @@ type S = {
   musicEnabled: boolean;
   musicVolume: number;
   viewMode: "3d" | "2d";
+  // Single-active-modal: only one full-screen panel can be open at a time.
+  // null = no modal. Any side panel listens to this and closes when activeModal
+  // changes to a different value.
+  activeModal: PanelId | null;
+  openModal: (id: PanelId) => void;
+  closeModal: () => void;
+  toggleModal: (id: PanelId) => void;
   setLang: (lang: "th" | "en") => void;
   setMusicEnabled: (v: boolean) => void;
   setMusicVolume: (v: number) => void;
@@ -82,6 +97,10 @@ export const useStore = create<S>((set, get) => ({
   musicEnabled: localStorage.getItem("musicEnabled") !== "false",
   musicVolume: parseFloat(localStorage.getItem("musicVolume") ?? "0.4"),
   viewMode: "3d",
+  activeModal: null,
+  openModal: (id) => set({ activeModal: id }),
+  closeModal: () => set({ activeModal: null }),
+  toggleModal: (id) => set((s) => ({ activeModal: s.activeModal === id ? null : id })),
   setLang: (lang: "th" | "en") => set({ lang }),
   setMusicEnabled: (v: boolean) => {
     try { localStorage.setItem("musicEnabled", String(v)); } catch {}

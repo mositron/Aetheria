@@ -5,10 +5,12 @@ import { ACHIEVEMENTS, type WorldState, type Player } from "@game/shared";
 import { GameFrame } from "./GameFrame";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { useT } from "../locales/useT";
+import { useExclusiveModal } from "../hooks/useExclusiveModal";
 
 export function AchievementsPanel({ room }: { room: Room<WorldState> }) {
   const t = useT();
   const [open, setOpen] = useState(false);
+  useExclusiveModal("achievements", open, setOpen);
   const [, setTick] = useState(0);
   const [pendingTitle, setPendingTitle] = useState<string | null>(null);
   const [bannerAchievement, setBannerAchievement] = useState<typeof ACHIEVEMENTS[number] | null>(null);

@@ -5,6 +5,7 @@ import type { Player, WorldState } from "@game/shared";
 import { useT } from "../locales/useT";
 import { GameFrame } from "./GameFrame";
 import { ConfirmDialog } from "./ConfirmDialog";
+import { useExclusiveModal } from "../hooks/useExclusiveModal";
 
 const KIND_ICONS: Record<string, string> = {
   chicken: "🐔", pig: "🐷", cow: "🐮",
@@ -13,6 +14,7 @@ const KIND_ICONS: Record<string, string> = {
 export function PetBox({ room }: { room: Room<WorldState> }) {
   const t = useT();
   const [open, setOpen] = useState(false);
+  useExclusiveModal("petbox", open, setOpen);
   const [, setTick] = useState(0);
   const [breedA, setBreedA] = useState<string | null>(null);
   const [breedB, setBreedB] = useState<string | null>(null);

@@ -4,6 +4,7 @@ import { RECIPES, ITEMS, CRAFTING_BENCHES, QUALITY_COLORS, QUALITY_NAMES, type R
 import { GameFrame } from "./GameFrame";
 import { keyEq } from "../utils/keyMatch";
 import { useT } from "../locales/useT";
+import { useExclusiveModal } from "../hooks/useExclusiveModal";
 
 type CategoryId = "cooking" | "potion" | "weapon" | "armor";
 const CATEGORIES: Array<{ id: CategoryId; labelKey: string; icon: string }> = [
@@ -34,6 +35,7 @@ function qualityChanceBar(qc: Recipe["qualityChance"], benchBonus: number, t: Re
 export function CraftingPanel({ room }: { room: Room<WorldState> }) {
   const t = useT();
   const [open, setOpen] = useState(false);
+  useExclusiveModal("crafting", open, setOpen);
   const [cat, setCat] = useState<Recipe["category"]>("cooking");
   const [benchIdx, setBenchIdx] = useState(0);
   const [tab, setTab] = useState<Tab>("craft");

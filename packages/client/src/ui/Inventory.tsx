@@ -7,6 +7,7 @@ import { GameFrame } from "./GameFrame";
 import { keyEq } from "../utils/keyMatch";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { useT } from "../locales/useT";
+import { useExclusiveModal } from "../hooks/useExclusiveModal";
 
 type FilterKey = "all" | "weapon" | "armor" | "consumable" | "material" | "structure";
 
@@ -14,6 +15,7 @@ export function Inventory({ room }: { room: Room<WorldState> }) {
   const t = useT();
   const open = useStore((s) => s.inventoryOpen);
   const toggle = useStore((s) => s.toggleInventory);
+  useExclusiveModal("inventory", open, () => { if (open) toggle(); });
   const [, setTick] = useState(0);
   const [filter, setFilter] = useState<FilterKey>("all");
   const [confirmUnequip, setConfirmUnequip] = useState<{ slot: "weapon" | "armor"; itemId: string } | null>(null);

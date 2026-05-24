@@ -5,10 +5,12 @@ import FocusTrap from "focus-trap-react";
 import { useT } from "../locales/useT";
 import { GameFrame } from "./GameFrame";
 import { ConfirmDialog } from "./ConfirmDialog";
+import { useExclusiveModal } from "../hooks/useExclusiveModal";
 
 export function MarriageUI({ room }: { room: Room<WorldState> }) {
   const t = useT();
   const [open, setOpen] = useState(false);
+  useExclusiveModal("marriage", open, setOpen);
   const [targetName, setTargetName] = useState("");
   const [confirmDivorce, setConfirmDivorce] = useState(false);
 

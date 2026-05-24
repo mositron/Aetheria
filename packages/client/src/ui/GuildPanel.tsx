@@ -6,6 +6,7 @@ import type { Room } from "colyseus.js";
 import type { WorldState } from "@game/shared";
 import { GameFrame } from "./GameFrame";
 import { useT } from "../locales/useT";
+import { useExclusiveModal } from "../hooks/useExclusiveModal";
 
 type GuildInfo = { id: string; name: string; tag: string; leader: string; members: string[] } | null;
 type ChatMsg = { from: string; text: string; ts: number };
@@ -13,6 +14,7 @@ type ChatMsg = { from: string; text: string; ts: number };
 export function GuildPanel({ room }: { room: Room<WorldState> }) {
   const t = useT();
   const [open, setOpen] = useState(false);
+  useExclusiveModal("guild", open, setOpen);
   const [info, setInfo] = useState<GuildInfo>(null);
   const [createName, setCreateName] = useState("");
   const [createTag, setCreateTag] = useState("");

@@ -5,12 +5,14 @@ import type { Room } from "colyseus.js";
 import type { WorldState } from "@game/shared";
 import { GameFrame } from "./GameFrame";
 import { useT } from "../locales/useT";
+import { useExclusiveModal } from "../hooks/useExclusiveModal";
 
 type Friend = { name: string; online: boolean };
 
 export function FriendList({ room }: { room: Room<WorldState> }) {
   const t = useT();
   const [open, setOpen] = useState(false);
+  useExclusiveModal("friends", open, setOpen);
   const [friends, setFriends] = useState<Friend[]>([]);
   const [addName, setAddName] = useState("");
   const [busyAdd, setBusyAdd] = useState(false);
