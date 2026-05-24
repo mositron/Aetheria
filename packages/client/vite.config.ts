@@ -51,7 +51,10 @@ export default defineConfig({
   ],
   server: {
     port: 5173,
-proxy: {
+    // Bind to all interfaces so phones/tablets on the same LAN can connect
+    // by visiting http://<dev-machine-LAN-IP>:5173. Localhost still works.
+    host: true,
+    proxy: {
       "/leaderboard": "http://localhost:2567",
       "/api": "http://localhost:2567",
     },

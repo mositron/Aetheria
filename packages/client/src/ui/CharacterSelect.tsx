@@ -177,19 +177,19 @@ export function CharacterSelect() {
         </div>
       )}
 
-      {/* Bottom action bar */}
-      <div className="absolute bottom-3 sm:bottom-6 left-4 right-4 sm:left-0 sm:right-0 flex justify-center sm:px-0">
+      {/* Bottom action bar — wraps on narrow screens so nothing clips */}
+      <div className="absolute bottom-3 sm:bottom-6 left-2 right-2 sm:left-0 sm:right-0 flex justify-center sm:px-0">
         <GameFrame>
-          <div className="flex items-center gap-2 sm:gap-3 px-2">
-            {err && <div className="text-rose-300 text-xs sm:text-sm">⚠ {err}</div>}
-            <button onClick={logout} className="btn-game muted text-[10px] sm:text-xs">⏻ {t("charselect.logout")}</button>
+          <div className="flex flex-wrap items-center justify-center gap-1.5 sm:gap-3 px-2 max-w-[92vw]">
+            {err && <div className="basis-full text-rose-300 text-xs sm:text-sm text-center">⚠ {err}</div>}
+            <button onClick={logout} className="btn-game muted text-[10px] sm:text-xs whitespace-nowrap">⏻ {t("charsel.logout")}</button>
             {selected && (
-              <button disabled={busy} onClick={() => onDelete(selected.id)} className="btn-game danger text-[10px] sm:text-xs">
-                🗑 {t("charselect.delete")}
+              <button disabled={busy} onClick={() => onDelete(selected.id)} className="btn-game danger text-[10px] sm:text-xs whitespace-nowrap">
+                🗑 {t("charsel.delete")}
               </button>
             )}
-            <button disabled={!selected || busy} onClick={onPlay} className="btn-game text-base sm:text-lg px-6 sm:px-12">
-              ▶ {t("charselect.enterGame")}
+            <button disabled={!selected || busy} onClick={onPlay} className="btn-game text-sm sm:text-lg px-4 sm:px-12 whitespace-nowrap">
+              ▶ {t("charsel.enterGame")}
             </button>
           </div>
         </GameFrame>

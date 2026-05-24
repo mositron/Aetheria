@@ -27,8 +27,15 @@ if (process.env.SENTRY_DSN) {
 // ── App + HTTP ─────────────────────────────────────────────────────────────
 const app = express();
 app.use(express.json({ limit: "256kb" }));
+// CORS: explicit whitelist + LAN regex (192.168.*, 10.*, 172.16-31.*) so
+// phones/tablets on the same Wi-Fi can connect to the dev server.
+const LAN_RE = /^https?:\/\/(localhost|127\.0\.0\.1|192\.168\.\d{1,3}\.\d{1,3}|10\.\d{1,3}\.\d{1,3}\.\d{1,3}|172\.(1[6-9]|2[0-9]|3[0-1])\.\d{1,3}\.\d{1,3})(:\d+)?$/;
 app.use(cors({
-  origin: ["http://localhost:5173", "http://localhost:4173", "http://127.0.0.1:5173", "http://127.0.0.1:4173"],
+  origin: (origin, cb) => {
+    if (!origin) return cb(null, true);        // server-to-server / native clients
+    if (LAN_RE.test(origin)) return cb(null, true);
+    return cb(new Error("Not allowed by CORS"));
+  },
   credentials: true,
 }));
 app.use(helmet());

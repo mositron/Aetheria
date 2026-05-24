@@ -118,7 +118,7 @@ export const th = {
   "charsel.map": "แผนที่",
   "charsel.delete": "ลบ",
   "charsel.deleteConfirm": "ลบตัวละครนี้? ข้อมูลจะหายถาวร",
-  "charsel.enterGame": "▶ เข้าเกม",
+  "charsel.enterGame": "เข้าเกม",
   "charsel.logout": "ออก",
   "charsel.noChars": "ยังไม่มีตัวละคร",
   "charsel.noCharsHint": "สร้างหนึ่งเพื่อเริ่มเล่น",
@@ -148,6 +148,7 @@ export const th = {
   "menu.guild": "กิลด์",
   "menu.auction": "ตลาด",
   "menu.worlds": "โลก",
+  "world.title": "เลือกโลก",
   "menu.waypoints": "หมุด",
   "menu.chat": "แชต",
   "menu.emote": "อิโมท",
@@ -238,6 +239,9 @@ export const th = {
   "craft.bench": "เตาหลอม",
   "craft.craftBtnText": "สร้าง",
   "craft.notEnoughMaterialsText": "ขาดวัตถุดิบ",
+  "craft.missingMaterials": "วัตถุดิบไม่พอ",
+  "craft.make": "สร้าง",
+  "craft.points": "แต้ม",
 
 // ── NPC Dialog ───────────────────────────────────────────────
   "npc.buy": "ซื้อ",

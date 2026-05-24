@@ -27,6 +27,16 @@ export function MenuBar() {
   }, []);
 
   const [open, setOpen] = useState(false);
+  // Burger menu is also a modal — listen for any other modal opening and close ourselves.
+  useEffect(() => {
+    const onOpened = (e: Event) => {
+      const detail = (e as CustomEvent<{ id: string }>).detail;
+      // Close burger when ANY other modal opens (we don't have our own panel id).
+      if (detail?.id && open) setOpen(false);
+    };
+    window.addEventListener("modal-opened", onOpened);
+    return () => window.removeEventListener("modal-opened", onOpened);
+  }, [open]);
 
   // ── Mobile: burger stays at SAME anchor (right:8rem top:0.5rem) for both
   //    collapsed (☰) AND expanded (✕). Map (110px) sits to its right.
@@ -43,9 +53,21 @@ if (collapsed) {
     return (
       <FocusTrap focusTrapOptions={{ allowOutsideClick: true }}>
       <div
-        className="absolute select-none touch-none grid grid-cols-5 gap-1 z-30"
-        style={{ ...ANCHOR, direction: "rtl" }}
+        role="dialog"
+        aria-modal="true"
+        className="absolute inset-0 z-40 select-none flex items-start justify-center bg-black/55 backdrop-blur-sm"
+        style={{
+          paddingTop: "var(--side-panel-top)",
+          paddingBottom: "calc(var(--bottom-safe) + 0.5rem)",
+          paddingLeft: "var(--hud-side)",
+          paddingRight: "var(--hud-side)",
+        }}
+        onClick={(e) => { if (e.target === e.currentTarget) setOpen(false); }}
         data-no-screen-joy
+      >
+      <div
+        className="grid grid-cols-5 gap-1 touch-none"
+        style={{ maxWidth: "min(420px, 96vw)", maxHeight: "100%", overflowY: "auto" }}
       >
 <IconBtn label="✕" title={t("menu.close")} onClick={() => setOpen(false)} variant="rose" ariaLabel={t("menu.close")} />
         <IconBtn label="📦" name={t("menu.inventory")} title="Inventory (I)" onClick={toggleInv} />
@@ -70,6 +92,7 @@ if (collapsed) {
         <IconBtn label="⚙" name={t("menu.settings")} title="Settings" onClick={() => window.dispatchEvent(new Event("toggle-settings"))} />
 <IconBtn label="👤" name={t("menu.character")} title={t("charsel.title")} onClick={exitToSelect} variant="violet" ariaLabel={t("menu.character")} />
         <IconBtn label="⏻" name={t("menu.logout")} title={t("menu.logout")} onClick={logout} variant="rose" ariaLabel={t("menu.logout")} />
+      </div>
       </div>
       </FocusTrap>
     );

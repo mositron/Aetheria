@@ -118,7 +118,7 @@ export const en = {
   "charsel.map": "Map",
   "charsel.delete": "Delete",
   "charsel.deleteConfirm": "Delete this character? Data will be permanently lost",
-  "charsel.enterGame": "▶ Enter Game",
+  "charsel.enterGame": "Enter Game",
   "charsel.logout": "Logout",
   "charsel.noChars": "No characters yet",
   "charsel.noCharsHint": "Create one to start playing",
@@ -148,6 +148,7 @@ export const en = {
   "menu.guild": "Guild",
   "menu.auction": "Auction",
   "menu.worlds": "Worlds",
+  "world.title": "Worlds",
   "menu.waypoints": "Waypoints",
   "menu.chat": "Chat",
   "menu.emote": "Emote",
@@ -238,6 +239,9 @@ export const en = {
   "craft.bench": "Bench",
   "craft.craftBtnText": "Craft",
   "craft.notEnoughMaterialsText": "Missing materials",
+  "craft.missingMaterials": "Missing materials",
+  "craft.make": "Craft",
+  "craft.points": "pts",
 
   // ── NPC Dialog ───────────────────────────────────────────────
 "npc.buy": "Buy",
