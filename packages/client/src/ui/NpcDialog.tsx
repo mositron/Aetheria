@@ -191,6 +191,13 @@ onClick={() => {
                       {q.objective.kind === "kill" ? `Kill ${q.objective.count} ${q.objective.monster}` : `Collect ${q.objective.count} ${q.objective.itemId}`}
                       {isActive && <span className="ml-2 text-amber-300">{progress}/{goal}</span>}
                     </div>
+                    {/* Chain hint — if this quest has a `next` field, show it
+                        so players see what comes next. */}
+                    {(q as any).next && QUESTS[(q as any).next] && (
+                      <div className="text-[10px] text-cyan-300 italic">
+                        → {t("quest.nextChain") || "เควสต่อไป"}: {QUESTS[(q as any).next].name}
+                      </div>
+                    )}
                     <div>
                       {isDone && <span className="text-emerald-400 text-xs">✓ Completed</span>}
 {!isDone && !isActive && (me?.level ?? 1) >= q.minLevel && (

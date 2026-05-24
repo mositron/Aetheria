@@ -35,6 +35,7 @@ import { SwampSerpentModel } from "./models/SwampSerpentModel";
 import { DarklordModel } from "./models/DarklordModel";
 import { OrcModel } from "./models/OrcModel";
 import { PlayerJobProps } from "./models/PlayerJobProps";
+import { CompanionModel } from "./models/CompanionModel";
 
 const ATTACK_RANGE_BUFFER = 0.3;
 
@@ -50,6 +51,7 @@ export function Scene({ room }: { room: Room<WorldState> }) {
   const [monsters, setMonsters] = useState<Monster[]>([]);
   const [drops, setDrops] = useState<GroundItem[]>([]);
   const [plants, setPlants] = useState<PlantNode[]>([]);
+  const [companions, setCompanions] = useState<any[]>([]);
   const sessionId = room.sessionId;
   const setTarget = useStore((s) => s.setTarget);
   const targetId = useStore((s) => s.targetMonsterId);
@@ -154,7 +156,8 @@ export function Scene({ room }: { room: Room<WorldState> }) {
     const refreshMonsters = () => setMonsters(Array.from(room.state.monsters.values()));
     const refreshDrops = () => setDrops(Array.from(room.state.drops.values()));
     const refreshPlants = () => setPlants(Array.from(room.state.plants.values()));
-    refreshPlayers(); refreshMonsters(); refreshDrops(); refreshPlants();
+    const refreshCompanions = () => setCompanions(Array.from((room.state as any).companions?.values?.() ?? []));
+    refreshPlayers(); refreshMonsters(); refreshDrops(); refreshPlants(); refreshCompanions();
     const $ = getStateCallbacks(room);
     const offs = [
       $(room.state).players.onAdd(refreshPlayers),
@@ -165,6 +168,8 @@ export function Scene({ room }: { room: Room<WorldState> }) {
       $(room.state).drops.onRemove(refreshDrops),
       $(room.state).plants.onAdd(refreshPlants),
       $(room.state).plants.onRemove(refreshPlants),
+      $((room.state as any)).companions?.onAdd?.(refreshCompanions),
+      $((room.state as any)).companions?.onRemove?.(refreshCompanions),
     ];
     return () => offs.forEach((o) => o && o());
   }, [room]);
@@ -666,6 +671,17 @@ export function Scene({ room }: { room: Room<WorldState> }) {
 
       {/* Waypoint trail — cute floating stars guiding to destination */}
       <WaypointTrail room={room} sessionId={sessionId} />
+
+      {/* Companions — summoned pal floats next to its owner */}
+      {companions.map((c) => (
+        <group key={c.id} position={[c.x, 0.5, c.z]}>
+          <CompanionModel
+            kind={c.kind as any}
+            isDead={() => c.hp <= 0}
+            isAttacking={() => false}
+          />
+        </group>
+      ))}
 
       {/* Plants — render at appropriate stage; click to harvest if ripe */}
       {plants.map((pl) => (

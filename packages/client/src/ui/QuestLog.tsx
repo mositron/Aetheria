@@ -54,6 +54,11 @@ export function QuestLog({ room }: { room: Room<WorldState> }) {
             <div className="h-1 bg-slate-950 rounded mt-0.5">
               <div className="h-full bg-amber-500 rounded" style={{ width: `${pct}%` }} />
             </div>
+            {(q as any).next && QUESTS[(q as any).next] && (
+              <div className="text-[10px] text-cyan-300 italic mt-0.5">
+                → {t('quest.nextChain') || 'เควสต่อไป'}: {QUESTS[(q as any).next].name}
+              </div>
+            )}
           </div>
         );
       })}

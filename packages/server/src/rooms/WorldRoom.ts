@@ -13,6 +13,7 @@ function validate<T>(schema: z.ZodSchema<T>, data: unknown): T | null {
 }
 import {
   WorldState, Player, Monster, GroundItem, PlantNode, plantStage, ItemStack, StatusEffect,
+  CompanionSchema, COMPANIONS, type CompanionKind,
   GAME_CONFIG, MONSTERS, type MonsterKind,
   ITEMS, MONSTER_DROPS, GATHERED_RESOURCE_ITEMS,
   HOUSE_SLOTS, HOUSE_COST,
@@ -953,6 +954,40 @@ export class WorldRoom extends Room<WorldState> {
     });
 
     // ── Housing / visit system ──────────────────────────────────────────────────
+    // ── Companions: summon / recall ──────────────────────────────────────────
+    this.onMessage("summon_companion", (client, msg: { companionId: string }) => {
+      const p = this.state.players.get(client.sessionId);
+      if (!p) return;
+      const kind = String(msg?.companionId ?? "") as CompanionKind;
+      const def = (COMPANIONS as any)[kind];
+      if (!def) { client.send("system", { text: "ไม่พบคู่หูนี้" }); return; }
+      // One companion per owner — recall any existing first.
+      for (const [cid, c] of this.state.companions) {
+        if (c.ownerId === p.id) this.state.companions.delete(cid);
+      }
+      const c = new CompanionSchema();
+      c.id = `comp_${p.id}_${Date.now().toString(36)}`;
+      c.ownerId = p.id;
+      c.kind = kind;
+      c.x = p.pos.x + 1.2;
+      c.z = p.pos.z + 0.5;
+      c.maxHp = def.maxHp ?? 100;
+      c.hp = c.maxHp;
+      c.state = "follow";
+      this.state.companions.set(c.id, c);
+      client.send("system", { text: `🐾 เรียก ${def.name ?? kind} ออกมาแล้ว` });
+    });
+
+    this.onMessage("recall_companion", (client, _msg: any) => {
+      const p = this.state.players.get(client.sessionId);
+      if (!p) return;
+      let removed = 0;
+      for (const [cid, c] of this.state.companions) {
+        if (c.ownerId === p.id) { this.state.companions.delete(cid); removed++; }
+      }
+      if (removed > 0) client.send("system", { text: "🏠 คู่หูกลับเข้ากระเป๋าแล้ว" });
+    });
+
     this.onMessage("visitHouse", (client, msg: { ownerName: string }) => {
       const visitor = this.state.players.get(client.sessionId);
       if (!visitor) return;
@@ -1152,6 +1187,13 @@ export class WorldRoom extends Room<WorldState> {
     await this.savePlayer(sid);
     this.partySvc.leave(sid);
     auditService.log("player.leave", { userId, characterId, metadata: { charName: this.state.players.get(sid)?.name } });
+    // Recall any companions belonging to this player so they don't orphan.
+    const leavingPlayer = this.state.players.get(sid);
+    if (leavingPlayer) {
+      for (const [cid, c] of this.state.companions) {
+        if (c.ownerId === leavingPlayer.id) this.state.companions.delete(cid);
+      }
+    }
     this.state.players.delete(sid);
     this.intents.delete(sid);
     this.lastAttack.delete(sid);
@@ -1765,6 +1807,26 @@ export class WorldRoom extends Room<WorldState> {
     };
   }
 
+  /** Companion follow AI — drift toward owner at idle speed, stay within 2.5m. */
+  tickCompanions(dt: number) {
+    if (this.state.companions.size === 0) return;
+    // Build sid → player.id lookup
+    const ownerById = new Map<string, Player>();
+    for (const [, p] of this.state.players) ownerById.set(p.id, p);
+    for (const [, c] of this.state.companions) {
+      const owner = ownerById.get(c.ownerId);
+      if (!owner) continue;
+      const dx = owner.pos.x - c.x;
+      const dz = (owner.pos.z + 0.6) - c.z;  // hover slightly behind
+      const d = Math.hypot(dx, dz);
+      if (d > 1.8) {
+        const sp = 3.5;
+        c.x += (dx / d) * sp * dt;
+        c.z += (dz / d) * sp * dt;
+      }
+    }
+  }
+
   tickInner(dtMs: number) {
     const dt = dtMs / 1000;
     const mapDef = MAPS[this.state.mapId as MapId];
@@ -1772,6 +1834,7 @@ export class WorldRoom extends Room<WorldState> {
 
     this.tickStatuses();
     this.tickBots(Date.now());
+    this.tickCompanions(dt);
     this.fishingSvc.resolveFishingForAll(
       new Map(this.clients.map(c => [c.sessionId, c]))
     );

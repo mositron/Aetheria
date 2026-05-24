@@ -89,17 +89,30 @@ Expect `[done] all smoke checks passed`. If schema changes, also run `pnpm db:pu
 
 ## What hasn't been built (yet)
 
-- Whisper / DM
-- Friend list
-- Guild
-- PvP toggle / WoE
-- Crafting from materials
-- Auction house
-- More job tiers (2nd-class advancement)
-- Pets / mounts
-- Achievements
-- Quest chains (next field exists in QuestDef but UI doesn't show)
-- Sprite/3D model asset loading (loader infra not built; would need user to source files)
+Out-of-scope per CLAUDE.md / explicit MVP cut:
+- 2FA (TOTP) — explicit non-goal
+- WoE / Guild war (basic guild + chat exists; war system not built)
+- Sprite/3D GLTF model asset loading — procedural-only per "no asset downloads"
+- Multi-region / global horizontal scale (Redis presence is single-region multi-instance)
+
+What's actually built and in-game (don't re-implement):
+- Whisper / DM — `/w name msg` works, offline auto-queues to mailbox
+- Friend list — `Friend.ts` service + `FriendList.tsx` UI
+- Guild — create / join / leave / chat (no war)
+- PvP toggle — `/pvp` command, opt-in
+- Crafting from materials — `CraftingPanel` + benches (workbench/forge/enchanter/master_forge)
+- Auction house — list / browse / buy / cancel, race-safe
+- 2nd-class job advancement at Lv30 + skill trees per job + `PlayerJobProps` visuals
+- 3rd-class tier (lord_knight/high_wizard/sniper_t2/high_priest/assassin_t2) at Lv50
+- Pets (chickens/pigs/cows, breeding, rare golden variants) + mounts
+- Achievements (13) with titles + leaderboard contribution
+- Per-NPC visual variety (hash-derived appearance + role props) + dedicated boss models
+- Single-active-modal UI + responsive safe-zones for all viewport sizes
+
+Genuinely still open:
+- Quest chains UI — `QuestDef.next` field exists, "→ next quest: X" not surfaced after turn-in
+- Companion system — UI panel + locale exists but Player schema has no `companionKind`
+  field and no server summon handler. Either wire end-to-end or remove the dead UI.
 
 If asked to build any of these, refer to `docs/DEVELOPMENT.md` for the add-content patterns.
 
