@@ -39,7 +39,7 @@ export function EventFeed({ room }: { room: Room<WorldState> }) {
 
   if (entries.length === 0) return null;
 return (
-    <div aria-live="polite" className="absolute top-2 left-1/2 -translate-x-1/2 space-y-0.5 pointer-events-none">
+    <div aria-live="polite" className="absolute top-28 left-1/2 -translate-x-1/2 space-y-0.5 pointer-events-none z-20">
       {entries.map((e) => {
         const age = (Date.now() - e.born) / 6000;
         return (
