@@ -79,13 +79,9 @@ export class CombatService {
     isStunned: (e: Player | Monster) => boolean,
     speedMultOf: (e: Player | Monster) => number,
   ) {
-    // Rebuild player spatial hash — caller should have already added players,
-    // but we rebuild here so this function is self-contained
-    playerSpatialHash.clear();
-    for (const [sid, pp] of this.state.players) {
-      if (pp.dead) continue;
-      playerSpatialHash.update({ id: pp.id, sid, x: pp.pos.x, z: pp.pos.z, dead: false });
-    }
+    // playerSpatialHash is pre-built by the caller (WorldRoom tick) — see
+    // WorldRoom.ts:2041-2045. Previously rebuilt here defensively; that was
+    // pure O(P) waste on every tick.
 
     for (const [, m] of this.state.monsters) {
       if (m.dead) continue;

@@ -1335,10 +1335,16 @@ export class WorldRoom extends Room<WorldState> {
         nearestD = hit.distance;
       }
       // BOT PICKUP: only items that come from MONSTERS, never gathered resources.
+      // Axis-aligned bbox reject avoids hypot+sqrt on the 99% of drops that
+      // aren't anywhere near the bot — N bots × M drops shrinks dramatically.
+      const PICKUP_R = 2;
       for (const [, g] of this.state.drops) {
         if (GATHERED_RESOURCE_ITEMS.has(g.itemId)) continue; // wood/stone/berry/raw_meat
-        const d = Math.hypot(g.pos.x - p.pos.x, g.pos.z - p.pos.z);
-        if (d < 2) { this.handlePickup(sid, g.id); break; }
+        const dx = g.pos.x - p.pos.x;
+        if (dx > PICKUP_R || dx < -PICKUP_R) continue;
+        const dz = g.pos.z - p.pos.z;
+        if (dz > PICKUP_R || dz < -PICKUP_R) continue;
+        if (dx * dx + dz * dz < PICKUP_R * PICKUP_R) { this.handlePickup(sid, g.id); break; }
       }
 
       let mx = 0, mz = 0;

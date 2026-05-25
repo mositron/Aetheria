@@ -9,7 +9,9 @@ export function Hotbar({ room }: { room: Room<WorldState> }) {
   const lastCastRef = useRef<Map<string, number>>(new Map());
 
   useEffect(() => {
-    const id = setInterval(() => setTick((t) => t + 1), 80); // faster for cooldown smoothness
+    // 200ms = 5Hz. Matches other UI panels + CLAUDE.md polling rule.
+    // Skill cooldowns 800ms+ still get 4-75 visible frames; sweep stays readable.
+    const id = setInterval(() => setTick((t) => t + 1), 200);
     return () => clearInterval(id);
   }, []);
 
