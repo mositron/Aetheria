@@ -136,6 +136,7 @@ export class Inventory {
       p.pos.x = home.x;
       p.pos.z = home.z;
       this.callbacks.sendToClient(sid, "system", { text: "🪨 อัญเชิญกลับหมู่บ้าน" });
+      this.callbacks.sendToClient(sid, "recallCooldown", { until: now + cdMs });
     }
     if (def.hpRestore) p.hp = Math.min(p.maxHp, p.hp + def.hpRestore);
     if (def.mpRestore) p.mp = Math.min(p.maxMp, p.mp + def.mpRestore);

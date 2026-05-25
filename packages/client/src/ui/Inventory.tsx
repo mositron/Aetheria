@@ -8,6 +8,7 @@ import { keyEq } from "../utils/keyMatch";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { useT } from "../locales/useT";
 import { useExclusiveModal } from "../hooks/useExclusiveModal";
+import { useRecallCooldown } from "../hooks/useRecallCooldown";
 
 type FilterKey = "all" | "weapon" | "armor" | "consumable" | "material" | "structure";
 
@@ -19,6 +20,7 @@ export function Inventory({ room }: { room: Room<WorldState> }) {
   const [, setTick] = useState(0);
   const [filter, setFilter] = useState<FilterKey>("all");
   const [confirmUnequip, setConfirmUnequip] = useState<{ slot: "weapon" | "armor"; itemId: string } | null>(null);
+  const recallCd = useRecallCooldown(room);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -109,10 +111,12 @@ return (
                     key={gridIdx}
                     stack={stack}
                     t={t}
+                    cooldownSec={stack?.itemId === "recall_stone" ? recallCd : 0}
                     onUse={() => {
                       if (!stack) return;
                       const def = ITEMS[stack.itemId];
                       if (!def) return;
+                      if (stack.itemId === "recall_stone" && recallCd > 0) return;
                       if (def.slot === "weapon" || def.slot === "armor") room.send("equip", { invIndex: realIdx });
                       else if (def.slot === "consumable") room.send("useItem", { invIndex: realIdx });
                       else if (stack.itemId.startsWith("struct_")) {
@@ -152,9 +156,10 @@ onCancel={() => setConfirmUnequip(null)}
   );
 }
 
-function ItemSlot({ stack, onUse, onDrop, t }: { stack?: { itemId: string; qty: number }; onUse: () => void; onDrop: () => void; t: ReturnType<typeof useT> }) {
+function ItemSlot({ stack, onUse, onDrop, t, cooldownSec = 0 }: { stack?: { itemId: string; qty: number }; onUse: () => void; onDrop: () => void; t: ReturnType<typeof useT>; cooldownSec?: number }) {
   const def = stack ? ITEMS[stack.itemId] : null;
   const longPressTimer = useRef<number | null>(null);
+  const onCooldown = cooldownSec > 0;
 
   function startLongPress() {
     if (!stack) return;
@@ -181,9 +186,14 @@ function ItemSlot({ stack, onUse, onDrop, t }: { stack?: { itemId: string; qty: 
       onPointerLeave={cancelLongPress}
       onContextMenu={(e) => { e.preventDefault(); if (stack) onDrop(); }}
     >
-      {def?.icon}
+      <span style={{ filter: onCooldown ? "grayscale(1) brightness(0.5)" : "none" }}>{def?.icon}</span>
       {stack && stack.qty > 1 && (
         <span className="absolute bottom-0 right-0.5 text-[10px] bg-slate-900 rounded px-1 font-bold text-amber-200">{stack.qty}</span>
+      )}
+      {onCooldown && (
+        <span className="absolute inset-0 flex items-center justify-center text-xs font-bold text-rose-200 bg-black/60 rounded pointer-events-none">
+          {cooldownSec}s
+        </span>
       )}
     </div>
   );
