@@ -50,7 +50,7 @@ export function ChestModel({
 
   return (
     <group
-      onClick={(e) => { e.stopPropagation(); if (!opened) onClick(); }}
+      onClick={(e) => { e.stopPropagation(); onClick(); }}
       onPointerOver={(e) => { e.stopPropagation(); onHoverIn?.(); }}
       onPointerOut={() => onHoverOut?.()}
     >

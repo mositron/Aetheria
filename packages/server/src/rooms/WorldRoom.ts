@@ -1608,12 +1608,21 @@ export class WorldRoom extends Room<WorldState> {
     if (!p || p.dead) return;
     const chest = this.state.chests.get(chestId);
     if (!chest) return;
-    if (Math.hypot(p.pos.x - chest.x, p.pos.z - chest.z) > CHEST_OPEN_RADIUS) return;
+    const c = this.clients.find((cl) => cl.sessionId === sid);
+    if (Math.hypot(p.pos.x - chest.x, p.pos.z - chest.z) > CHEST_OPEN_RADIUS) {
+      c?.send("system", { text: "💎 ใกล้หีบไม่พอ — เดินเข้าไปอีก" });
+      return;
+    }
     const loot = tryOpenChest(chest, sid, Date.now());
-    if (!loot) return; // already opened
+    if (!loot) {
+      const remainMs = Math.max(0, chest.respawnAt - Date.now());
+      const m = Math.floor(remainMs / 60000);
+      const s = Math.floor((remainMs % 60000) / 1000);
+      c?.send("system", { text: `💎 หีบนี้ถูกเปิดแล้ว — รออีก ${m}m ${s}s` });
+      return;
+    }
     void this.inventorySvc.addToInventoryOrMail(p, loot.itemId, loot.qty, "CHEST");
     const def = ITEMS[loot.itemId];
-    const c = this.clients.find((cl) => cl.sessionId === sid);
     c?.send("system", { text: `💎 หีบสมบัติ: ${def?.icon ?? ""} ${def?.name ?? loot.itemId} ×${loot.qty}` });
     this.broadcast("chestOpened", { chestId });
   }
