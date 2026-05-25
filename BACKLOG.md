@@ -3,8 +3,8 @@
 > **Single source of truth สำหรับงานที่เหลือ.** อ่านไฟล์นี้ก่อนเริ่ม session ใหม่
 > เพื่อให้รู้ว่าสถานะอะไร, อยู่ที่ไหน, ทำอะไรต่อ.
 
-Last updated: 2026-05-25 — Docker production stack complete + verified locally
-Total commits to date: 90+
+Last updated: 2026-05-26 — Perf audit landed (P0+P1) + UX bugs from live test fixed
+Total commits to date: 100+
 
 ---
 
@@ -469,6 +469,78 @@ e36b993 fix(P0): CORS strict whitelist + helmet + dual-rate-limit + HTTPS redire
 - Extracted `Waypoint` + `Season` services from WorldRoom (+8 tests).
 - Inventory.handlePickup now credits zeny currency drops directly to `p.zeny` (was failing to add a non-existent item).
 - Added Dockerfile (multi-stage) + docker-compose (postgres + redis + 2 server) + POSTGRES_MIGRATION.md.
+
+### Smoketest backlog (still owed, deferred from 2026-05-26 sessions)
+
+Manual browser tests that need real player time to walk far enough — not
+worth automating. Pick up when next playing:
+- Recall stone end-to-end (buy from Mira 500z → bind hotbar → use → verify
+  warp to village + cooldown overlay on slot).
+- Cave entrance visuals (walk to forest_cave +78/-60 or swamp_cave 0/+85,
+  screenshot torches flickering + pulsing name label).
+- Chest interaction (walk into a cave, click chest → loot toast +
+  lid animates open. Click again → "already opened" + respawn countdown).
+- Mesh LOD verification — confirm tree/rock meshes pop in as player crosses
+  the 60m radius (inferred working from billboard LOD using same code path,
+  not directly observed).
+
+### Perf audit + UX polish pass — 2026-05-26 (11 commits)
+
+Two big themes this session: (a) the user explicitly asked me to
+**audit before implement** instead of jumping in, and (b) flagged
+performance + UX issues spotted in the live Docker stack.
+
+**Audit-first discipline paid off:**
+- 4 P0 perf recs from `docs/PERFORMANCE_AUDIT.md` — verified each
+  before touching code. #4 (botState delete) turned out to be a
+  **false positive** — already at WorldRoom.ts:1256. The agent
+  missed it.
+- #3 (dropSpatialHash) — that hash didn't exist; downgraded scope to
+  a cheap axis-aligned bbox-reject instead of building a new service.
+- 7 P1 recs — 4 of them turned out to be micro-optimizations behind
+  already-solved bottlenecks. Skipped with documented reasons.
+
+**Shipped (perf):**
+- `perf(P0)` Hotbar setInterval 80ms→200ms (-60% renders), dropped the
+  duplicate spatial-hash rebuild in CombatService (O(P) savings/tick),
+  bot drop-scan bbox pre-reject (skips hypot+sqrt on ~99% of drops).
+- `perf(P1)` Shared text-texture LRU cache (`scene/textCache.ts`) —
+  combat crit-spam no longer churns GPU textures; same NPC name → one
+  texture across all instances. Stripped `castShadow` from tree leaves
+  (CLAUDE.md violation) — trunks still cast for silhouette.
+- `perf(scene)` Distance-LOD culling — `MOB_BILLBOARD_RADIUS=18`,
+  `MOB_MODEL_RADIUS=60`, `MOB_MINIMAP_RADIUS=25`. Selected target
+  always visible. Throttled to ~5Hz with hysteresis (only assign
+  `.visible` when value actually changes — first pass dirtied scene
+  graph 60×/sec which user immediately felt as "ค้างนานขึ้น").
+
+**Shipped (UX bugs from live testing):**
+- `fix(combat)` Player killed by mob regular attack never respawned
+  — only the status-effect death path was scheduling respawn.
+  CombatService.scheduleRespawn() mirrors the logic.
+- `fix(ui)` NPC dialog draggable + z-30 (user screenshot showed Bren
+  build dialog with chat input bleeding through; not draggable).
+- `fix(ui)` Top-center HUD bars (5 components anchored at top-2
+  left-1/2) staggered to top-14 / top-28 so BossBar/TargetDisplay/
+  EventFeed don't overlap.
+- `i18n` Added missing `inventory.searchPlaceholder` string (TH+EN)
+  — caught by browser smoketest showing the raw key.
+- `chore(docker)` Unpublish redis :6379 to host so it doesn't collide
+  with other local redis containers.
+
+**Verified via browser smoketest (6 audit rounds):**
+- R1 typecheck + tests (all 3 packages, 180/180 server, 19/19 shared)
+- R2 HP bar LOD — only nearby mobs labeled (verified)
+- R3 mesh LOD — inferred from same code path (didn't walk far enough)
+- R4 minimap radius — sparse dots, no longer dot soup
+- R5 NPC dialog drag — title bar drag works, position persists via
+  localStorage
+- R6 perf — no console errors, scene smooth
+
+**Docs:**
+- `docs/PERFORMANCE_AUDIT.md` — comprehensive audit grouped by
+  severity with file:line refs + concrete fix snippets + "already
+  passing" matrix so nobody regresses correct work.
 
 ### Production-readiness pass — 2026-05-25 (16 tasks, 10 commits)
 
