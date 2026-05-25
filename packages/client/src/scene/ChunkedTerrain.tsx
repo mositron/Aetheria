@@ -218,15 +218,18 @@ function TreeInstanced({ trees }: { trees: Array<{ x: number; z: number; scale: 
   const n = trees.length;
   return (
     <group>
+      {/* Trunk only — leaves don't cast shadow (CLAUDE.md: shadows only on
+          torsos/bodies, not foliage). Cuts shadowmap rasterization for the
+          ~3 cone leaves per tree across thousands of instances. */}
       <instancedMesh ref={trunk} args={[undefined as any, undefined as any, n]} castShadow>
         <boxGeometry args={[1, 1, 1]} />
         <meshToonMaterial color="#6b3917" gradientMap={toonGradient} />
       </instancedMesh>
-      <instancedMesh ref={leaf1} args={[undefined as any, undefined as any, n]} castShadow>
+      <instancedMesh ref={leaf1} args={[undefined as any, undefined as any, n]}>
         <coneGeometry args={[1, 1, 6, 1]} />
         <meshToonMaterial color="#3fb555" gradientMap={toonGradient} />
       </instancedMesh>
-      <instancedMesh ref={leaf2} args={[undefined as any, undefined as any, n]} castShadow>
+      <instancedMesh ref={leaf2} args={[undefined as any, undefined as any, n]}>
         <coneGeometry args={[1, 1, 6, 1]} />
         <meshToonMaterial color="#6bd66e" gradientMap={toonGradient} />
       </instancedMesh>

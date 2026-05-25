@@ -378,12 +378,13 @@ function Decor({ type, x, z, s, r, seed, pal }: { type: "tree" | "rock" | "bush"
           <boxGeometry args={[0.35, trunkH, 0.35]} />
           <meshToonMaterial color={pal.trunk} gradientMap={toonGradient} />
         </mesh>
-        {/* Faceted conical canopy (cone gives proper Pagonia-style) */}
-        <mesh position={[0, trunkH + leafSize * 0.6, 0]} castShadow>
+        {/* Leaves don't cast shadow — CLAUDE.md says shadows only on
+            torsos/bodies, not foliage. Trunk casts the main silhouette. */}
+        <mesh position={[0, trunkH + leafSize * 0.6, 0]}>
           <coneGeometry args={[leafSize * 1.1, leafSize * 1.4, 6, 1]} />
           <meshToonMaterial color={pal.leavesA} gradientMap={toonGradient} />
         </mesh>
-        <mesh position={[ox1, trunkH + leafSize * 1.4, oz1]} castShadow>
+        <mesh position={[ox1, trunkH + leafSize * 1.4, oz1]}>
           <coneGeometry args={[leafSize * 0.85, leafSize * 1.1, 6, 1]} />
           <meshToonMaterial color={pal.leavesB} gradientMap={toonGradient} />
         </mesh>

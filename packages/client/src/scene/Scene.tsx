@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useFrame, useThree, type ThreeEvent } from "@react-three/fiber";
 import * as THREE from "three";
 import { getStateCallbacks, type Room } from "colyseus.js";
+import { getTextTexture } from "./textCache";
 import {
   GAME_CONFIG, MAPS, ITEMS, NPCS, JOBS, MONSTERS, GATHERED_RESOURCE_ITEMS, HOUSE_SLOTS,
   plantStage,
@@ -859,17 +860,8 @@ function NpcLabel({ text, y }: { text: string; y: number }) {
   useFrame(({ camera }) => {
     if (ref.current) ref.current.quaternion.copy(camera.quaternion as any);
   });
-  const tex = useMemo(() => {
-    const c = document.createElement("canvas");
-    c.width = 512; c.height = 64;
-    const x = c.getContext("2d")!;
-    x.font = "bold 30px sans-serif";
-    x.fillStyle = "#fde68a";
-    x.strokeStyle = "black"; x.lineWidth = 5;
-    x.textAlign = "center"; x.textBaseline = "middle";
-    x.strokeText(text, 256, 32); x.fillText(text, 256, 32);
-    const t = new THREE.CanvasTexture(c); t.needsUpdate = true; return t;
-  }, [text]);
+  // Shared LRU cache — same NPC name across components reuses one texture.
+  const tex = useMemo(() => getTextTexture(text, { fill: "#fde68a", width: 512 }), [text]);
   return (
     <sprite ref={ref} position={[0, y, 0]} scale={[2.4, 0.4, 1]}>
       <spriteMaterial map={tex} transparent depthTest={false} />

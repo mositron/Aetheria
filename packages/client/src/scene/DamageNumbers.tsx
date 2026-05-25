@@ -3,6 +3,7 @@ import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import type { Room } from "colyseus.js";
 import type { WorldState } from "@game/shared";
+import { getTextTexture } from "./textCache";
 
 type Popup = {
   id: number;
@@ -75,10 +76,14 @@ export function DamageNumbers({ room }: { room: Room<WorldState> }) {
 
 function Pop({ p }: { p: Popup }) {
   const ref = useRef<THREE.Sprite>(null);
-  const tex = useMemo(() => makeText(p.text, p.color, p.kind === "crit"), [p.text, p.color, p.kind]);
-  // Dispose the canvas texture when this popup unmounts — otherwise each unique
-  // damage number leaks a GPU texture for the whole session.
-  useEffect(() => () => { tex.dispose(); }, [tex]);
+  // Shared LRU cache — no per-instance dispose needed (cache owns texture).
+  const tex = useMemo(() => {
+    const bold = p.kind === "crit";
+    return getTextTexture(p.text, {
+      fill: p.color,
+      font: `${bold ? "900" : "bold"} ${bold ? 38 : 30}px sans-serif`,
+    });
+  }, [p.text, p.color, p.kind]);
   useFrame(() => {
     if (!ref.current) return;
     const age = (performance.now() - p.born) / LIFE;
@@ -104,20 +109,3 @@ function Pop({ p }: { p: Popup }) {
   );
 }
 
-function makeText(text: string, color: string, bold: boolean) {
-  const canvas = document.createElement("canvas");
-  canvas.width = 256; canvas.height = 64;
-  const ctx = canvas.getContext("2d")!;
-  ctx.clearRect(0, 0, 256, 64);
-  ctx.font = `${bold ? "900" : "bold"} ${bold ? 38 : 30}px sans-serif`;
-  ctx.fillStyle = color;
-  ctx.strokeStyle = "black";
-  ctx.lineWidth = 5;
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-  ctx.strokeText(text, 128, 32);
-  ctx.fillText(text, 128, 32);
-  const t = new THREE.CanvasTexture(canvas);
-  t.needsUpdate = true;
-  return t;
-}
