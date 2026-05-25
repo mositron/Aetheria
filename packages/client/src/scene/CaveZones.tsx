@@ -249,6 +249,38 @@ function CaveMouth({ r, rockColor, archColor }: { r: number; rockColor: string; 
         <ringGeometry args={[0.5, 0.9, 16]} />
         <meshBasicMaterial color="#fbbf24" transparent opacity={0.45} side={THREE.DoubleSide} />
       </mesh>
+      {/* Twin entrance torches — warm flicker draws players at dusk/night */}
+      <EntranceTorch position={[-halfGap - 1.4, 2.9, r * 0.92]} />
+      <EntranceTorch position={[halfGap + 1.4, 2.9, r * 0.92]} />
+    </group>
+  );
+}
+
+function EntranceTorch({ position }: { position: [number, number, number] }) {
+  const flameRef = useRef<THREE.Mesh>(null);
+  const lightRef = useRef<THREE.PointLight>(null);
+  useFrame((state) => {
+    const t = state.clock.getElapsedTime() * 5;
+    // Cheap deterministic flicker — sin + sin combination feels organic
+    const flicker = 0.85 + Math.sin(t) * 0.08 + Math.sin(t * 1.7) * 0.07;
+    if (lightRef.current) lightRef.current.intensity = 1.8 * flicker;
+    if (flameRef.current) {
+      flameRef.current.scale.set(flicker, flicker * 1.1, flicker);
+    }
+  });
+  return (
+    <group position={position}>
+      {/* tiny torch holder */}
+      <mesh position={[0, -0.3, 0]}>
+        <cylinderGeometry args={[0.08, 0.06, 0.4, 6]} />
+        <meshStandardMaterial color="#4a2a18" />
+      </mesh>
+      {/* flame */}
+      <mesh ref={flameRef} position={[0, 0.15, 0]}>
+        <coneGeometry args={[0.18, 0.5, 8]} />
+        <meshBasicMaterial color="#fb923c" transparent opacity={0.95} />
+      </mesh>
+      <pointLight ref={lightRef} color="#fb923c" intensity={1.8} distance={6} decay={2} />
     </group>
   );
 }
