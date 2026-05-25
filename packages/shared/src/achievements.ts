@@ -29,6 +29,14 @@ export const ACHIEVEMENTS: AchievementDef[] = [
   { id: "farmer",       icon: "🌾",  name: "ชาวสวน",        desc: "เก็บเกี่ยวพืช 10 ครั้ง",           counter: "harvests",    goal: 10,   reward: { itemId: "berry_seed", qty: 10 }, title: "🌾 ชาวสวน" },
   { id: "explorer",     icon: "🗺",  name: "นักผจญภัย",     desc: "เยี่ยม 5 biomes",                  counter: "biomes",      goal: 5,    reward: { zeny: 300 }, title: "🗺 นักผจญภัย" },
   { id: "darklord",     icon: "⚜",   name: "ผู้พิชิตเงา",   desc: "ปราบ Dark Lord",                   counter: "darklord",    goal: 1,    reward: { zeny: 5000, itemId: "blade_of_dawn", qty: 1 }, title: "⚜ ผู้พิชิตเงา" },
+  // ── Cave-clear chain — kill the boss inside each cave ─────────────────────
+  { id: "cave_shadow_clear",     icon: "🕳", name: "ถ้ำเงา conquered",       desc: "ปราบบอสในถ้ำเงา",       counter: "cave_shadow",     goal: 1, reward: { zeny: 200, itemId: "dark_crystal", qty: 1 }, title: "🕳 ผู้พิชิตเงา" },
+  { id: "cave_frost_clear",      icon: "❄", name: "ถ้ำน้ำแข็ง conquered",   desc: "ปราบบอสในถ้ำน้ำแข็ง",    counter: "cave_frost",      goal: 1, reward: { zeny: 200, itemId: "ice_crystal", qty: 1 }, title: "❄ ผู้พิชิตน้ำแข็ง" },
+  { id: "cave_desert_clear",     icon: "🏜", name: "ถ้ำทะเลทราย conquered",  desc: "ปราบบอสในถ้ำทะเลทราย",   counter: "cave_desert",     goal: 1, reward: { zeny: 200, itemId: "desert_pearl", qty: 1 }, title: "🏜 ผู้พิชิตทราย" },
+  { id: "cave_swamp_clear",      icon: "🐍", name: "ถ้ำบึงเลน conquered",     desc: "ปราบบอสในถ้ำบึงเลน",    counter: "cave_swamp",      goal: 1, reward: { zeny: 200, itemId: "swamp_herb", qty: 3 }, title: "🐍 ผู้พิชิตบึง" },
+  { id: "cave_forest_clear",     icon: "🌲", name: "ถ้ำป่าลึก conquered",     desc: "เคลียร์ออร์คในถ้ำป่า",  counter: "cave_forest",     goal: 5, reward: { zeny: 200, itemId: "orc_tusk", qty: 3 }, title: "🌲 ผู้พิชิตป่า" },
+  { id: "cave_wilderness_clear", icon: "⚜", name: "ถ้ำผู้พิทักษ์ conquered", desc: "ปราบ Dark Lord ในถ้ำ",  counter: "cave_wilderness", goal: 1, reward: { zeny: 500, itemId: "recall_stone", qty: 3 }, title: "⚜ ผู้พิชิตป่ารกร้าง" },
+  { id: "cave_master",           icon: "👑", name: "เจ้าแห่งถ้ำ",             desc: "เคลียร์ถ้ำทั้ง 6",       counter: "caves_cleared",   goal: 6, reward: { zeny: 5000, itemId: "warp_stone", qty: 1 }, title: "👑 Cave Master" },
 ];
 
 export type AchievementProgress = {

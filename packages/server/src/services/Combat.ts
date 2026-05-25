@@ -1,6 +1,26 @@
 import {
-  Player, Monster, StatusEffect, StatusKind, STATUS_DEFS, MONSTERS, MonsterKind, GAME_CONFIG, JOBS, JobId, derived, maxMpFor, ITEMS, HOUSE_SLOTS, STAT_POINTS_PER_LEVEL
+  Player, Monster, StatusEffect, StatusKind, STATUS_DEFS, MONSTERS, MonsterKind, GAME_CONFIG, JOBS, JobId, derived, maxMpFor, ITEMS, HOUSE_SLOTS, STAT_POINTS_PER_LEVEL,
+  caveAt, ACHIEVEMENTS,
 } from "@game/shared";
+
+// Which monster kind counts toward each cave's clear achievement.
+// Keys are CaveDef.id from shared/biomes.ts.
+const CAVE_BOSS: Record<string, MonsterKind> = {
+  shadow_cave: "orc",
+  frost_cave: "snowman_giant",
+  desert_cave: "scorpion_lord",
+  swamp_cave: "bog_witch",
+  forest_cave: "orc",
+  wilderness_cave: "darklord",
+};
+const CAVE_COUNTER: Record<string, string> = {
+  shadow_cave: "cave_shadow",
+  frost_cave: "cave_frost",
+  desert_cave: "cave_desert",
+  swamp_cave: "cave_swamp",
+  forest_cave: "cave_forest",
+  wilderness_cave: "cave_wilderness",
+};
 
 export class Combat {
   constructor(
@@ -201,6 +221,13 @@ export class Combat {
       if (target.kind === "tree_node") { this.callbacks.bumpAchievement(sid, "trees"); this.callbacks.bumpDailyChallenge(sid, "harvest"); }
       if (target.kind === "rock_node" || target.kind === "ore_node" || target.kind === "crystal_node") { this.callbacks.bumpAchievement(sid, "rocks"); this.callbacks.bumpDailyChallenge(sid, "harvest"); }
       if (target.kind === "darklord") this.callbacks.bumpAchievement(sid, "darklord");
+      // Cave-clear detection: if monster is the cave's tracked kind + inside that cave radius
+      {
+        const cid = caveAt(target.pos.x, target.pos.z);
+        if (cid && CAVE_BOSS[cid] === (target.kind as MonsterKind)) {
+          this.callbacks.bumpAchievement(sid, CAVE_COUNTER[cid]);
+        }
+      }
       this.callbacks.dropLoot(target);
       const spawn = this.callbacks.monsterSpawn.get(target.id);
       const delay = spawn?.kind === "darklord" ? GAME_CONFIG.BOSS_RESPAWN_MS : GAME_CONFIG.RESPAWN_MS;

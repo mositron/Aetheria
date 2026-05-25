@@ -1567,10 +1567,16 @@ export class WorldRoom extends Room<WorldState> {
     p.achievementsJson = JSON.stringify(progress);
     if (unlocked.length === 0) return;
     const client = this.clients.find((c) => c.sessionId === sid);
+    let bumpMeta = 0;
     for (const u of unlocked) {
       client?.send("system", { text: `🏅 ปลดล็อก: ${u.icon} ${u.name}` });
       if (u.reward?.zeny) p.zeny += u.reward.zeny;
       if (u.reward?.itemId) this.addToInventory(p, u.reward.itemId, u.reward.qty ?? 1);
+      if (u.id.startsWith("cave_") && u.id.endsWith("_clear")) bumpMeta++;
+    }
+    if (bumpMeta > 0) {
+      // recurse via the meta counter (bounded — meta itself doesn't bump anything)
+      this.bumpAchievement(sid, "caves_cleared", bumpMeta);
     }
   }
 
