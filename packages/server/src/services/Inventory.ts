@@ -1,7 +1,9 @@
 import {
-  Player, ItemStack, ITEMS, GroundItem
+  Player, ItemStack, ITEMS, GroundItem, GATHERED_RESOURCE_ITEMS
 } from "@game/shared";
 import { randomHomeCoord } from "./ChatCommands.js";
+
+const PET_PICKUP_RADIUS = 3;
 
 const INVENTORY_SIZE = 200;
 
@@ -206,5 +208,32 @@ export class Inventory {
       return;
     }
     this.state.drops.delete(dropId);
+  }
+
+  /**
+   * Pet auto-pickup: for each player with an active (un-mounted) pet, scan
+   * ground drops within PET_PICKUP_RADIUS and credit the owner. Skips items
+   * from gathering (trees/rocks/etc) so pets don't trivialize resource runs.
+   * Called from the room tick.
+   */
+  tickPetPickup(): void {
+    for (const [sid, p] of this.state.players) {
+      if (p.dead || !p.petKind || p.mounted) continue;
+      const toDelete: string[] = [];
+      for (const [id, g] of this.state.drops) {
+        if (GATHERED_RESOURCE_ITEMS.has(g.itemId)) continue;
+        const d = Math.hypot(p.pos.x - g.pos.x, p.pos.z - g.pos.z);
+        if (d > PET_PICKUP_RADIUS) continue;
+        if (g.itemId === "zeny") {
+          p.zeny += g.qty;
+          toDelete.push(id);
+        } else if (this.addToInventory(p, g.itemId, g.qty)) {
+          toDelete.push(id);
+        } else {
+          break; // inventory full — stop trying so we don't drain CPU
+        }
+      }
+      for (const id of toDelete) this.state.drops.delete(id);
+    }
   }
 }

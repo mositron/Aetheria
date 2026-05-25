@@ -134,6 +134,7 @@ export class WorldRoom extends Room<WorldState> {
   autoSaveAcc = 0;
   bossEventSched = new BossEventScheduler();
   bossTimerAcc = 0;
+  petPickupAcc = 0;
   weatherAcc = 0;
   botIds = new Set<string>();
   botState = new Map<string, { wander: { x: number; z: number; until: number }; nextActionAt: number }>();
@@ -1943,6 +1944,13 @@ export class WorldRoom extends Room<WorldState> {
     // Chest respawn — re-arm any chests whose timer elapsed
     if (this.state.mapId === "field") {
       tickChests(this.state.chests.values(), Date.now());
+    }
+
+    // Pet auto-pickup — runs on field + dungeons. ~10Hz is fine since tick is 20Hz.
+    this.petPickupAcc = (this.petPickupAcc ?? 0) + dt;
+    if (this.petPickupAcc >= 0.1) {
+      this.petPickupAcc = 0;
+      this.inventorySvc.tickPetPickup();
     }
 
     // Boss world event — pure scheduler decides when/where
