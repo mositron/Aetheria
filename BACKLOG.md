@@ -3,7 +3,7 @@
 > **Single source of truth สำหรับงานที่เหลือ.** อ่านไฟล์นี้ก่อนเริ่ม session ใหม่
 > เพื่อให้รู้ว่าสถานะอะไร, อยู่ที่ไหน, ทำอะไรต่อ.
 
-Last updated: 2026-05-24 (commit `947afdc`)
+Last updated: 2026-05-25 (next-session ideas A–J all landed)
 Total commits to date: 70+
 
 ---
@@ -464,6 +464,19 @@ e36b993 fix(P0): CORS strict whitelist + helmet + dual-rate-limit + HTTPS redire
 - Extracted `Waypoint` + `Season` services from WorldRoom (+8 tests).
 - Inventory.handlePickup now credits zeny currency drops directly to `p.zeny` (was failing to add a non-existent item).
 - Added Dockerfile (multi-stage) + docker-compose (postgres + redis + 2 server) + POSTGRES_MIGRATION.md.
+
+### Session pass — 2026-05-25 (shipped all 10 next-session items)
+- **A. Quest markers on World Map** — `WorldMap.tsx` draws pulsing 🔴 dots at every kill-quest spawn coord, dashed pink line player→nearest objective, legend toggle chip.
+- **B. Treasure chests in caves** — `ChestSchema` + `chests: MapSchema`, `ChestService.ts` (race-safe open, 5-min respawn, theme loot tables), 2 chests per cave spawned on `onCreate`, `openChest` message, `ChestModel.tsx` procedural mesh (wood + iron banding + lock + animated lid + sparkle when open + theme-colored gem glow).
+- **C. Recall stone item** — `recall: true` flag on ITEMS, server `Inventory.handleUseItem` warps to village + 60s cooldown via `lastAttack` map, buy from Merchant Mira (500z).
+- **D. Mount on minimap + worldmap** — `p.mounted && p.petKind` renders 🐔/🐷/🐮 emoji instead of dot in both views.
+- **E. Boss respawn countdown UI** — `BossEventScheduler.nextSpawnIn()`, server broadcasts `bossTimer` every 5s while idle, `BossBar.tsx` shows "⚜ Dark Lord respawns in M:SS" with 1s local tick-down between server broadcasts.
+- **F. Cave-cleared achievements + warp stone** — 6 per-cave + 1 meta `cave_master` achievements, detection in `Combat.dealDamageToMonster` via `caveAt()`, meta counter `caves_cleared` bumps recursively on each cave clear, `warp_stone` item.
+- **G. /metrics dashboard** — inline-HTML page in `server/index.ts` polling `/health` every 2s, token-gated via `ADMIN_TOKEN` env var, bars for uptime/players/rooms/memory + per-room tick avg/p50/p95/max.
+- **H. Pulsing cave label** — `CaveLabel` sprite scale + opacity sin pulse at 2Hz via `useFrame`.
+- **I. Boss spawn server-wide toast** — `bossSpawn` broadcast, `BossSpawnToast.tsx` slide-down banner with "📍 View on Map" button (sets waypoint + opens M).
+- **J. Friend → cave nav** — `Friend.registerHandlers` enriched with `getLocation` callback, `friend:list` entries include `cave/x/z`, `FriendList.tsx` shows "🕳 cave name · [📍 ไป]" for friends inside a cave.
+- All packages typecheck clean. Client vite build green. Shared tests 19/19 pass. Server tests 156 pass (7 pre-existing recovery.test.ts DB-file failures, unrelated to this pass).
 
 ### 🎯 Next-session ideas (proposed 2026-05-25, not started)
 
