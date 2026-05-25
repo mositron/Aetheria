@@ -19,6 +19,7 @@ export function Inventory({ room }: { room: Room<WorldState> }) {
   useExclusiveModal("inventory", open, () => { if (open) toggle(); });
   const [, setTick] = useState(0);
   const [filter, setFilter] = useState<FilterKey>("all");
+  const [search, setSearch] = useState("");
   const [confirmUnequip, setConfirmUnequip] = useState<{ slot: "weapon" | "armor"; itemId: string } | null>(null);
   const recallCd = useRecallCooldown(room);
 
@@ -43,12 +44,16 @@ export function Inventory({ room }: { room: Room<WorldState> }) {
   if (!me) return null;
   // Keep original indices so equip/use messages still work
   const itemsWithIdx = Array.from(me.inventory.values()).map((s, idx) => ({ s, idx }));
+  const q = search.trim().toLowerCase();
   const filtered = itemsWithIdx.filter(({ s }) => {
-    if (filter === "all") return true;
     const def = ITEMS[s.itemId];
     if (!def) return false;
-    if (filter === "structure") return s.itemId.startsWith("struct_");
-    return def.slot === filter;
+    if (filter !== "all") {
+      if (filter === "structure") { if (!s.itemId.startsWith("struct_")) return false; }
+      else if (def.slot !== filter) return false;
+    }
+    if (q) return def.name.toLowerCase().includes(q) || s.itemId.toLowerCase().includes(q);
+    return true;
   });
 
 return (
@@ -80,6 +85,24 @@ return (
               <EquipSlot label={t('inventory.armor')} itemId={me.armor} onUnequip={() => setConfirmUnequip({ slot: "armor", itemId: me.armor })} t={t} />
             </div>
 
+            {/* Search bar */}
+            <div className="relative">
+              <input
+                type="text"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder={t('inventory.searchPlaceholder') || "🔍 ค้นหาของในกระเป๋า..."}
+                className="w-full bg-slate-900/80 border border-cyan-400/30 rounded px-2 py-1 text-xs text-white placeholder-slate-500 focus:border-cyan-400 outline-none"
+              />
+              {search && (
+                <button
+                  onClick={() => setSearch("")}
+                  className="absolute right-1 top-1/2 -translate-y-1/2 text-rose-300 hover:text-rose-200 px-1 text-xs"
+                  aria-label="Clear search"
+                >✕</button>
+              )}
+            </div>
+
             {/* Filter chips */}
             <div className="flex flex-wrap gap-1 mb-1">
               {([
@@ -103,7 +126,7 @@ return (
             </div>
 
             <div className="grid grid-cols-6 gap-1.5 bg-black/40 p-2 rounded max-h-[70vh] overflow-y-auto game-scroll">
-              {(filter === "all" ? Array.from({ length: 200 }).map((_, i) => itemsWithIdx[i]) : filtered).map((entry, gridIdx) => {
+              {(filter === "all" && !q ? Array.from({ length: 200 }).map((_, i) => itemsWithIdx[i]) : filtered).map((entry, gridIdx) => {
                 const stack = entry?.s;
                 const realIdx = entry?.idx ?? -1;
                 return (
@@ -112,10 +135,15 @@ return (
                     stack={stack}
                     t={t}
                     cooldownSec={stack?.itemId === "recall_stone" ? recallCd : 0}
-                    onUse={() => {
+                    onUse={(modShift) => {
                       if (!stack) return;
                       const def = ITEMS[stack.itemId];
                       if (!def) return;
+                      // Shift+click on a consumable binds it to the next free hotbar slot
+                      if (modShift && def.slot === "consumable") {
+                        window.dispatchEvent(new CustomEvent("hotbar:bind", { detail: { itemId: stack.itemId } }));
+                        return;
+                      }
                       if (stack.itemId === "recall_stone" && recallCd > 0) return;
                       if (def.slot === "weapon" || def.slot === "armor") room.send("equip", { invIndex: realIdx });
                       else if (def.slot === "consumable") room.send("useItem", { invIndex: realIdx });
@@ -156,7 +184,7 @@ onCancel={() => setConfirmUnequip(null)}
   );
 }
 
-function ItemSlot({ stack, onUse, onDrop, t, cooldownSec = 0 }: { stack?: { itemId: string; qty: number }; onUse: () => void; onDrop: () => void; t: ReturnType<typeof useT>; cooldownSec?: number }) {
+function ItemSlot({ stack, onUse, onDrop, t, cooldownSec = 0 }: { stack?: { itemId: string; qty: number }; onUse: (modShift: boolean) => void; onDrop: () => void; t: ReturnType<typeof useT>; cooldownSec?: number }) {
   const def = stack ? ITEMS[stack.itemId] : null;
   const longPressTimer = useRef<number | null>(null);
   const onCooldown = cooldownSec > 0;
@@ -179,8 +207,8 @@ function ItemSlot({ stack, onUse, onDrop, t, cooldownSec = 0 }: { stack?: { item
     <div
       className="slot text-2xl relative"
       style={{ minHeight: 44 }}
-      title={def?.name ?? ""}
-      onClick={() => { cancelLongPress(); onUse(); }}
+      title={def ? `${def.name}${def.slot === "consumable" ? " · shift+click → bind to hotbar" : ""}` : ""}
+      onClick={(e) => { cancelLongPress(); onUse(e.shiftKey); }}
       onPointerDown={startLongPress}
       onPointerUp={cancelLongPress}
       onPointerLeave={cancelLongPress}

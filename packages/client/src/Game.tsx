@@ -34,6 +34,7 @@ import { DailyReward } from "./ui/DailyReward";
 import { TutorialFinger } from "./ui/TutorialFinger";
 import { LevelUpCelebration } from "./ui/LevelUpCelebration";
 import { BossSpawnToast } from "./ui/BossSpawnToast";
+import { ItemHotbar } from "./ui/ItemHotbar";
 import { ScreenJoystick } from "./ui/ScreenJoystick";
 import { WaypointControls } from "./ui/WaypointControls";
 import { QuestTracker } from "./ui/QuestTracker";
@@ -256,6 +257,7 @@ return (
       <TutorialFinger room={room} />
       <LevelUpCelebration room={room} />
       <BossSpawnToast room={room} />
+      <ItemHotbar room={room} />
       <ScreenJoystick />
       <WaypointControls />
       <QuestTracker room={room} />

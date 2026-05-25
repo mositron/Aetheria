@@ -48,6 +48,8 @@ type S = {
   viewMode: "3d" | "2d";
   mailUnread: number;
   setMailUnread: (n: number) => void;
+  hotbar: (string | null)[]; // length 5 — itemId or null per slot
+  setHotbarSlot: (slot: number, itemId: string | null) => void;
   // Single-active-modal: only one full-screen panel can be open at a time.
   // null = no modal. Any side panel listens to this and closes when activeModal
   // changes to a different value.
@@ -102,6 +104,23 @@ export const useStore = create<S>((set, get) => ({
   viewMode: "3d",
   mailUnread: 0,
   setMailUnread: (n: number) => set({ mailUnread: Math.max(0, n | 0) }),
+  hotbar: (() => {
+    try {
+      const raw = localStorage.getItem("hotbar");
+      if (raw) {
+        const arr = JSON.parse(raw);
+        if (Array.isArray(arr) && arr.length === 5) return arr.map((x) => (typeof x === "string" ? x : null));
+      }
+    } catch {}
+    return [null, null, null, null, null];
+  })(),
+  setHotbarSlot: (slot: number, itemId: string | null) => set((s) => {
+    if (slot < 0 || slot > 4) return s;
+    const next = s.hotbar.slice();
+    next[slot] = itemId;
+    try { localStorage.setItem("hotbar", JSON.stringify(next)); } catch {}
+    return { hotbar: next };
+  }),
   activeModal: null,
   openModal: (id) => set({ activeModal: id }),
   closeModal: () => set({ activeModal: null }),
