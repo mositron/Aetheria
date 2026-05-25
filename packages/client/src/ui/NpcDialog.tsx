@@ -5,6 +5,7 @@ import { ITEMS, NPCS, QUESTS, QUESTS_BY_GIVER, HOUSE_COST, type Player, type Wor
 import { useStore } from "../store";
 import { useQuests } from "../hooks/useQuests";
 import { useT } from "../locales/useT";
+import { useDraggable } from "../hooks/useDraggable";
 
 export function NpcDialog({ room }: { room: Room<WorldState> }) {
   const t = useT();
@@ -50,6 +51,8 @@ const [buying, setBuying] = useState<string | null>(null);
     return () => window.removeEventListener("keydown", onKey);
   }, [npcId]);
 
+  const draggable = useDraggable("npc-dialog");
+
   if (!npcId) return null;
   const npc = NPCS.find((n) => n.id === npcId);
   if (!npc) return null;
@@ -59,9 +62,14 @@ const [buying, setBuying] = useState<string | null>(null);
 
 return (
     <FocusTrap focusTrapOptions={{ allowOutsideClick: true }}>
-    <div data-no-screen-joy className="panel absolute inset-x-0 bottom-32 mx-auto w-[20rem] sm:w-[24rem] md:w-[28rem] space-y-2">
+    <div
+      data-no-screen-joy
+      ref={draggable.elRef}
+      className="panel absolute inset-x-0 bottom-32 mx-auto w-[20rem] sm:w-[24rem] md:w-[28rem] space-y-2 z-30"
+      style={draggable.style}
+    >
       <div className="panel-corners" />
-      <div className="panel-title">
+      <div className="panel-title" {...draggable.titleProps}>
         <span>{npc.icon} {npc.name}</span>
         <span className="flex items-center gap-2">
           <span className="normal-case text-yellow-200">💰 {me?.zeny ?? 0}z</span>
