@@ -465,6 +465,49 @@ e36b993 fix(P0): CORS strict whitelist + helmet + dual-rate-limit + HTTPS redire
 - Inventory.handlePickup now credits zeny currency drops directly to `p.zeny` (was failing to add a non-existent item).
 - Added Dockerfile (multi-stage) + docker-compose (postgres + redis + 2 server) + POSTGRES_MIGRATION.md.
 
+### 🎯 Next-session ideas (proposed 2026-05-25, not started)
+
+Compiled at end of session 2026-05-25 after world map + 6 caves shipped.
+Ranked by impact/effort.
+
+**High ROI — pick one of these first:**
+- **A. Quest markers on World Map** — overlay objective dots on the
+  map (e.g. red dots where "kill 5 slime" mobs spawn). Uses
+  QuestDef.objective + MAPS[field].spawns coords. ~1-2h.
+- **B. Treasure chests in caves** — new `Chest` schema (server) + mesh
+  (client). 1-2 chests per cave, themed loot, 5min respawn. Gives a
+  reason to push deep into caves beyond mob farming. ~2h.
+- **A+B combined** is the recommended next push — players know
+  *where to go* AND *what to find*.
+
+**QoL polish (15-30m each):**
+- **C. Recall stone item** — usable item that warps to village,
+  60s cooldown. /home command exists but item is more discoverable.
+- **D. Mount visible on map** — render 🐎 on minimap/world map when
+  mounted instead of plain dot.
+- **H. Pulsing cave label** — CaveLabel sprite scale-pulse + glow so
+  it grabs attention from across the field.
+- **I. Boss alert toast** — when Dark Lord spawns in wilderness_cave,
+  broadcast a server-wide "⚜ Dark Lord ปรากฏ!" toast.
+- **J. Friend → cave nav** — in FriendList, if friend is inside a
+  cave, show cave name + a "join" button that sets waypoint to it.
+
+**Bigger systems (half-day+):**
+- **E. Boss respawn UI** — "⚜ Dark Lord respawns in 4:23" mini-widget.
+  Server already runs BossEventScheduler; expose nextSpawnIn() and a
+  client poll.
+- **F. Cave-cleared achievements** — kill the boss in each cave →
+  unlock "🏆 ถ้ำเงา conquered" etc. Clear all 6 → unlock a key item /
+  title.
+- **G. Server `/metrics` dashboard** — simple HTML page (no framework)
+  served at `/metrics` showing live tick stats / player count / mem.
+  Tick stats already exposed on `/health`.
+
+Genuinely huge (days):
+- Multi-map seamless streaming (replace discrete dungeon maps).
+- Replay highlights system (kill streaks / boss kills recorded).
+- Guild war / GvG.
+
 ### Visual + close-out pass — 2026-05-24 (commits 871c644 → b613148)
 - **NPCs all looked identical** — built `npcAppearance(id)` (hash → distinct skin/hair/body) + `NpcRoleProps` (carpenter hammer+apron, blacksmith anvil, scholar scroll+glasses, merchant scale, tutor glowing wand, waypoint orb staff, guard shield+spear).
 - **Boss / Orc**: dedicated `DarklordModel` (horns, glowing eyes, cape, sword, aura) + `OrcModel` (green brute with club). Wired 6 pre-existing but unimported boss models (Bog Witch, Ice Wraith, Sand Worm, Scorpion Lord, Snowman Giant, Swamp Serpent).
