@@ -6,14 +6,36 @@ import { GAME_CONFIG, JOBS, type JobId } from "@game/shared";
 import { logger } from "./logger.js";
 import { auditService } from "./services/AuditService.js";
 
-// JWT_SECRET must be set in env. In dev only, allow a clearly-marked fallback
-// but log a loud warning so it's obvious if it's accidentally used in prod.
+// JWT_SECRET hardening:
+//   - Production: REQUIRE ≥32 chars + reject known dev defaults. Refuse to start.
+//   - Dev: allow a clearly-marked fallback but log a loud warning.
+const KNOWN_BAD_SECRETS = new Set([
+  "dev-only-insecure-fallback-DO-NOT-USE-IN-PROD",
+  "dev-only-change-me",
+  "local-dev-secret-change-me-32+chars",
+  "local-dev-secret-change-me-at-least-32-chars",
+  "changeme",
+  "secret",
+]);
 const SECRET = (() => {
   const s = process.env.JWT_SECRET;
-  if (s && s.length >= 16) return s;
-  if (process.env.NODE_ENV === "production") {
-    throw new Error("[FATAL] JWT_SECRET must be set (>= 16 chars) in production");
+  const isProd = process.env.NODE_ENV === "production";
+  if (isProd) {
+    if (!s) {
+      console.error("[FATAL] JWT_SECRET env var is required in production");
+      process.exit(1);
+    }
+    if (s.length < 32) {
+      console.error(`[FATAL] JWT_SECRET must be ≥32 chars (got ${s.length}). Generate one with: openssl rand -base64 48`);
+      process.exit(1);
+    }
+    if (KNOWN_BAD_SECRETS.has(s)) {
+      console.error("[FATAL] JWT_SECRET is a known dev/example value — refusing to start");
+      process.exit(1);
+    }
+    return s;
   }
+  if (s && s.length >= 16) return s;
   logger.warn("auth.jwtSecret.insecureFallback", { reason: "missing or too short" });
   return "dev-only-insecure-fallback-DO-NOT-USE-IN-PROD";
 })();
@@ -79,10 +101,29 @@ function summarizeCharacter(c: any) {
   };
 }
 
+async function verifyCaptcha(token: string | undefined, ip: string): Promise<boolean> {
+  const secret = process.env.CAPTCHA_SECRET;
+  if (!secret) return true; // captcha disabled in this environment
+  if (!token || typeof token !== "string") return false;
+  try {
+    const body = new URLSearchParams({ secret, response: token, remoteip: ip });
+    const r = await fetch("https://hcaptcha.com/siteverify", { method: "POST", body });
+    const j = await r.json() as { success?: boolean };
+    return !!j.success;
+  } catch (e) {
+    console.error("[captcha.verify]", e);
+    return false;
+  }
+}
+
 authRouter.post("/register", async (req, res) => {
-  const { username, password, securityQuestion1, securityAnswer1, securityQuestion2, securityAnswer2 } = req.body ?? {};
+  const { username, password, securityQuestion1, securityAnswer1, securityQuestion2, securityAnswer2, captchaToken } = req.body ?? {};
   if (typeof username !== "string" || typeof password !== "string" || username.length < 3) {
     return res.status(400).json({ error: "invalid username/password" });
+  }
+  // Captcha verify — no-op if CAPTCHA_SECRET env not set.
+  if (!(await verifyCaptcha(captchaToken, req.ip ?? ""))) {
+    return res.status(400).json({ error: "captcha failed — please re-verify" });
   }
   const passwordError = validatePassword(password);
   if (passwordError) return res.status(400).json({ error: passwordError });

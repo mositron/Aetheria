@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Canvas } from "@react-three/fiber";
 import { useStore } from "../store";
 import { MenuScene } from "./MenuScene";
@@ -44,39 +44,61 @@ function PasswordStrength({ password }: { password: string }) {
 export function Login() {
   const t = useT();
   const setAuth = useStore((s) => s.setAuth);
-  // Pre-fill from saved credentials if "remember me" was previously checked.
-  const saved = (() => {
-    try {
-      const raw = localStorage.getItem("savedCreds");
-      if (!raw) return null;
-      return JSON.parse(raw) as { u: string; p: string };
-    } catch { return null; }
+  // Username remembered (low risk), password is NEVER stored — JWT in localStorage
+  // already keeps the session, and storing plaintext password was a security hole.
+  // Wipe any legacy savedCreds blob on every mount so old installs heal themselves.
+  if (typeof window !== "undefined") {
+    try { localStorage.removeItem("savedCreds"); } catch {}
+  }
+  const savedUsername = (() => {
+    try { return localStorage.getItem("savedUsername") ?? ""; } catch { return ""; }
   })();
-  const [username, setU] = useState(saved?.u ?? "");
-  const [password, setP] = useState(saved?.p ?? "");
-  const [remember, setRemember] = useState(saved !== null);
+  const [username, setU] = useState(savedUsername);
+  const [password, setP] = useState("");
+  const [remember, setRemember] = useState(!!savedUsername);
   const [mode, setMode] = useState<"login" | "register">("login");
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [showRecovery, setShowRecovery] = useState(false);
+  const captchaSiteKey = (import.meta as any).env?.VITE_CAPTCHA_SITE_KEY as string | undefined;
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+
+  // Lazy-load hCaptcha script + render widget when register mode is shown.
+  useEffect(() => {
+    if (mode !== "register" || !captchaSiteKey) return;
+    if (!document.getElementById("hcaptcha-script")) {
+      const s = document.createElement("script");
+      s.id = "hcaptcha-script";
+      s.src = "https://js.hcaptcha.com/1/api.js";
+      s.async = true; s.defer = true;
+      document.head.appendChild(s);
+    }
+    (window as any).onCaptchaVerified = (tok: string) => setCaptchaToken(tok);
+    (window as any).onCaptchaExpired = () => setCaptchaToken(null);
+    return () => { setCaptchaToken(null); };
+  }, [mode, captchaSiteKey]);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setErr(null);
+    if (mode === "register" && captchaSiteKey && !captchaToken) {
+      setErr("Please complete the captcha");
+      return;
+    }
     setBusy(true);
     try {
 const res = await fetch(`/api/auth/${mode}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, password }),
+        body: JSON.stringify({ username, password, captchaToken }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "failed");
-      // Persist or wipe credentials depending on the checkbox state.
+      // Persist username only (so the login form is pre-filled next visit).
       if (remember) {
-        localStorage.setItem("savedCreds", JSON.stringify({ u: username, p: password }));
+        localStorage.setItem("savedUsername", username);
       } else {
-        localStorage.removeItem("savedCreds");
+        localStorage.removeItem("savedUsername");
       }
       setAuth(data.token, data.username, data.characters ?? []);
     } catch (e: any) {
@@ -146,6 +168,15 @@ const res = await fetch(`/api/auth/${mode}`, {
                 <div className="game-label">{t("auth.password")}</div>
                 <input className="game-input text-sm" placeholder="••••••" type="password" value={password} onChange={(e) => setP(e.target.value)} />
                 {mode === "register" && <PasswordStrength password={password} />}
+                {mode === "register" && captchaSiteKey && (
+                  <div
+                    className="h-captcha mt-2"
+                    data-sitekey={captchaSiteKey}
+                    data-callback="onCaptchaVerified"
+                    data-expired-callback="onCaptchaExpired"
+                    data-theme="dark"
+                  />
+                )}
               </div>
               <label className="flex items-center gap-2 text-xs text-cyan-100 cursor-pointer select-none">
                 <input
