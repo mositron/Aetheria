@@ -3,6 +3,9 @@ import express from "express";
 import cors from "cors";
 import helmet from "helmet";
 import http from "http";
+import path from "path";
+import { fileURLToPath } from "url";
+import fs from "fs";
 import { Server } from "@colyseus/core";
 import { WebSocketTransport } from "@colyseus/ws-transport";
 import rateLimit from "express-rate-limit";
@@ -59,8 +62,11 @@ const authLimiter = rateLimit({
 app.use("/api/auth/login", authLimiter);
 app.use("/api/auth/register", authLimiter);
 
-// ── HTTPS enforcement (production) ────────────────────────────────────────
-if (process.env.NODE_ENV === "production") {
+// ── HTTPS enforcement ─────────────────────────────────────────────────────
+// Opt-in via ENFORCE_HTTPS=true. Skip in local Docker so http://localhost works
+// even with NODE_ENV=production. Enable on the production VPS (Caddy sets
+// x-forwarded-proto=https when terminating TLS).
+if (process.env.ENFORCE_HTTPS === "true") {
   app.use((req, res, next) => {
     const proto = (req.headers["x-forwarded-proto"] as string) ?? req.protocol;
     if (proto !== "https") {
@@ -264,6 +270,28 @@ poll(); setInterval(poll, 2000);
 </script>
 </body></html>`);
 });
+
+// ── Static client (production) ─────────────────────────────────────────────
+// In Docker/prod, the server serves the built Vite client. In dev, vite's
+// own dev server handles this on :5173. Resolved from the runtime image
+// layout: dist/server/src/index.js + dist/client/dist/
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const CLIENT_DIST_CANDIDATES = [
+  path.resolve(__dirname, "../../client/dist"),         // build output: packages/server/dist/src + packages/client/dist
+  path.resolve(__dirname, "../../../client/dist"),      // if rootDir differs
+  path.resolve(process.cwd(), "packages/client/dist"),  // monorepo run from root
+];
+const clientDist = CLIENT_DIST_CANDIDATES.find((p) => fs.existsSync(path.join(p, "index.html")));
+if (clientDist) {
+  logger.info("client.static.serving", { from: clientDist });
+  app.use(express.static(clientDist, { maxAge: "1h", index: false }));
+  // SPA fallback — anything not /api, /health, /metrics, /matchmake → index.html
+  app.get(/^\/(?!api|health|metrics|matchmake).*/, (_req, res) => {
+    res.sendFile(path.join(clientDist, "index.html"));
+  });
+} else {
+  logger.info("client.static.skipped", { reason: "no dist found — assuming dev mode" });
+}
 
 // ── Graceful shutdown ──────────────────────────────────────────────────────
 let shuttingDown = false;
