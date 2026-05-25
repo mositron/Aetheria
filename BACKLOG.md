@@ -484,6 +484,31 @@ worth automating. Pick up when next playing:
   the 60m radius (inferred working from billboard LOD using same code path,
   not directly observed).
 
+### Unverified commits — landed 2026-05-26 with TC+tests only, NOT browser-verified
+
+Honest accounting on user's "audit ที่แก้ไปทั้งหมดแล้วเหรอ" pushback.
+All 6 below typecheck + tests green, but were NOT exercised in a real
+browser before push. Drive each in `claude-in-chrome` next session
+before considering them validated:
+
+- `a30d15e fix(combat): respawn after mob kill` — verify by getting Tester01
+  killed by a slime and watching `me.dead` flip back to false at ~5s.
+- `d533547 fix(ui): stagger top-center HUD bars` — open game with
+  BossBar visible + select a target + take a hit so EventFeed fires;
+  confirm no visual overlap.
+- `9cd456d i18n: inventory.searchPlaceholder` — open Inventory, confirm
+  placeholder reads "🔍 ค้นหาของในกระเป๋า..." not the raw key.
+- `4733bc8 perf P0: Hotbar 80→200, dup hash, bot bbox` — cast a skill,
+  confirm cooldown sweep doesn't feel chunky. Watch a dev bot pick up
+  loot to confirm bbox-reject didn't break the inner check.
+- `6490b45 perf P1: text cache + tree shadow` — kill several mobs in
+  rapid succession, confirm damage numbers still render (cache hit
+  path). Look at trees in daylight — leaves should NOT cast shadows,
+  trunks SHOULD.
+- Optionally hit `/metrics?token=local-admin` after a few minutes of bot
+  load to compare tick p50/p95 against the pre-perf baseline (49ms p95
+  at 50 bots, 132ms p95 at 100 bots).
+
 ### Perf audit + UX polish pass — 2026-05-26 (11 commits)
 
 Two big themes this session: (a) the user explicitly asked me to
