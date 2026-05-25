@@ -1,13 +1,14 @@
 generator client {
-  provider = "prisma-client-js"
+  provider      = "prisma-client-js"
+  // Alpine (musl) needs an explicit binary target so the query engine
+  // resolves correctly inside the Docker image.
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
 }
 
 datasource db {
-  // Default is SQLite for fast local dev. For Postgres in prod:
-  //   1. Change provider to "postgresql"
-  //   2. Set DATABASE_URL in env to a Postgres URL
-  //   3. Re-baseline migrations: `pnpm prisma migrate dev --name postgres_baseline`
-  provider = "sqlite"
+  // Postgres for Docker / prod. For local non-Docker dev with SQLite,
+  // temporarily switch provider to "sqlite" + use file:./prisma/dev.db.
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 

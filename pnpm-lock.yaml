@@ -153,6 +153,9 @@ importers:
       jsonwebtoken:
         specifier: ^9.0.2
         version: 9.0.3
+      prisma:
+        specifier: ^5.22.0
+        version: 5.22.0
       zod:
         specifier: ^4.4.3
         version: 4.4.3
@@ -175,9 +178,6 @@ importers:
       colyseus.js:
         specifier: ^0.16.0
         version: 0.16.22
-      prisma:
-        specifier: ^5.22.0
-        version: 5.22.0
       tsx:
         specifier: ^4.19.2
         version: 4.22.1
