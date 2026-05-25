@@ -2,12 +2,13 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { Room } from "colyseus.js";
-import type { WorldState } from "@game/shared";
+import { CAVES, type WorldState } from "@game/shared";
 import { GameFrame } from "./GameFrame";
 import { useT } from "../locales/useT";
 import { useExclusiveModal } from "../hooks/useExclusiveModal";
+import { useStore } from "../store";
 
-type Friend = { name: string; online: boolean };
+type Friend = { name: string; online: boolean; cave?: string | null; x?: number; z?: number };
 
 export function FriendList({ room }: { room: Room<WorldState> }) {
   const t = useT();
@@ -17,6 +18,7 @@ export function FriendList({ room }: { room: Room<WorldState> }) {
   const [addName, setAddName] = useState("");
   const [busyAdd, setBusyAdd] = useState(false);
   const refreshed = useRef(false);
+  const setWaypoint = useStore((s) => s.setWaypoint);
 
   useEffect(() => {
     const onToggle = () => setOpen((o) => !o);
@@ -82,22 +84,40 @@ export function FriendList({ room }: { room: Room<WorldState> }) {
                 <div className="text-slate-400 text-xs text-center py-4">{t("friend.empty")}</div>
               )}
               {friends.map((f) => (
-                <div key={f.name} className="flex items-center gap-2 bg-slate-900/60 border border-white/10 rounded px-2 py-1.5">
-                  <span className={`w-2 h-2 rounded-full ${f.online ? "bg-emerald-400" : "bg-slate-600"}`} title={f.online ? t("friend.onlineStatus") : t("friend.offlineStatus")} />
-                  <div className="flex-1 text-xs font-bold text-white truncate">{f.name}</div>
-                  {f.online && (
+                <div key={f.name} className="flex flex-col gap-1 bg-slate-900/60 border border-white/10 rounded px-2 py-1.5">
+                  <div className="flex items-center gap-2">
+                    <span className={`w-2 h-2 rounded-full ${f.online ? "bg-emerald-400" : "bg-slate-600"}`} title={f.online ? t("friend.onlineStatus") : t("friend.offlineStatus")} />
+                    <div className="flex-1 text-xs font-bold text-white truncate">{f.name}</div>
+                    {f.online && (
+                      <button
+                        onClick={() => room.send("whisper", { to: f.name, text: "Hi!" })}
+                        className="bg-violet-700 hover:bg-violet-600 rounded px-2 py-0.5 text-[10px] font-bold text-white"
+                      >💬 hi</button>
+                    )}
                     <button
-                      onClick={() => room.send("whisper", { to: f.name, text: "Hi!" })}
-                      className="bg-violet-700 hover:bg-violet-600 rounded px-2 py-0.5 text-[10px] font-bold text-white"
-                    >💬 hi</button>
-                  )}
-                  <button
-                    onClick={() => {
-                      if (!confirm(t("friend.removeConfirm", { name: f.name }))) return;
-                      room.send("friend:remove" as any, { name: f.name });
-                    }}
-                    className="bg-rose-700 hover:bg-rose-600 rounded px-2 py-0.5 text-[10px] font-bold text-white"
-                  >✕</button>
+                      onClick={() => {
+                        if (!confirm(t("friend.removeConfirm", { name: f.name }))) return;
+                        room.send("friend:remove" as any, { name: f.name });
+                      }}
+                      className="bg-rose-700 hover:bg-rose-600 rounded px-2 py-0.5 text-[10px] font-bold text-white"
+                    >✕</button>
+                  </div>
+                  {f.online && f.cave && (() => {
+                    const cave = CAVES.find((c) => c.id === f.cave);
+                    if (!cave) return null;
+                    return (
+                      <div className="flex items-center gap-2 pl-4">
+                        <span className="text-[10px] text-amber-300">🕳 {cave.name}</span>
+                        <button
+                          onClick={() => {
+                            setWaypoint({ x: cave.x, z: cave.z, label: cave.name, icon: "🕳" });
+                            setOpen(false);
+                          }}
+                          className="bg-cyan-700 hover:bg-cyan-600 rounded px-1.5 py-0.5 text-[9px] font-bold text-white"
+                        >📍 ไป</button>
+                      </div>
+                    );
+                  })()}
                 </div>
               ))}
             </div>

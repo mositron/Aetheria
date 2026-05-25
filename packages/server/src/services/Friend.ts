@@ -11,7 +11,7 @@ import type { PrismaClient } from "@prisma/client";
 const MAX_FRIENDS = 100;
 const MAX_NAME = 24;
 
-export type FriendListEntry = { name: string; online: boolean };
+export type FriendListEntry = { name: string; online: boolean; cave?: string | null; x?: number; z?: number };
 
 export type FriendAddResult =
   | { ok: true; friends: string[] }
@@ -83,8 +83,16 @@ export class Friend {
     isOnline: (name: string) => boolean,
     sendToClient: (sid: string, type: string, data: any) => void,
     getCharId: (sid: string) => string | undefined,
-    getPlayer: (sid: string) => any
+    getPlayer: (sid: string) => any,
+    getLocation?: (name: string) => { cave: string | null; x: number; z: number } | null,
   ) {
+    const enrich = (names: string[]): FriendListEntry[] => names.map((n) => {
+      const online = isOnline(n);
+      const loc = online && getLocation ? getLocation(n) : null;
+      return loc
+        ? { name: n, online, cave: loc.cave, x: loc.x, z: loc.z }
+        : { name: n, online };
+    });
     return {
       "friend:add": async (client: any, msg: any) => {
         const me = getPlayer(client.sessionId);
@@ -99,21 +107,21 @@ export class Friend {
           if (reasonMsg) sendToClient(client.sessionId, "system", { text: reasonMsg });
           return;
         }
-        sendToClient(client.sessionId, "friend:list", { friends: r.friends.map((n) => ({ name: n, online: isOnline(n) })) });
+        sendToClient(client.sessionId, "friend:list", { friends: enrich(r.friends) });
       },
 
       "friend:remove": async (client: any, msg: any) => {
         const charId = getCharId(client.sessionId);
         if (!charId) return;
         const r = await this.remove(charId, String(msg?.name ?? "").trim());
-        if (r.ok) sendToClient(client.sessionId, "friend:list", { friends: r.friends.map((n) => ({ name: n, online: isOnline(n) })) });
+        if (r.ok) sendToClient(client.sessionId, "friend:list", { friends: enrich(r.friends) });
       },
 
       "friend:list": async (client: any) => {
         const charId = getCharId(client.sessionId);
         if (!charId) return;
         const friends = await this.list(charId);
-        sendToClient(client.sessionId, "friend:list", { friends: friends.map((n) => ({ name: n, online: isOnline(n) })) });
+        sendToClient(client.sessionId, "friend:list", { friends: enrich(friends) });
       },
     };
   }

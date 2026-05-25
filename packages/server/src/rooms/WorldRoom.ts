@@ -20,7 +20,7 @@ import {
   RECIPES_BY_ID,
   ACHIEVEMENTS, emptyAchievementProgress, type AchievementProgress,
   JOBS, JOB_ADVANCEMENT, type JobId, maxMpFor,
-  MAPS, biomeAt, type MapId,
+  MAPS, biomeAt, caveAt, CAVES, type MapId,
   DUNGEONS,
   derived, STAT_POINTS_PER_LEVEL, type StatKey,
   NPCS, SELL_RATIO,
@@ -755,6 +755,12 @@ export class WorldRoom extends Room<WorldState> {
       (sid, type, data) => this.clients.find(c => c.sessionId === sid)?.send(type as any, data),
       (sid) => this.sessionToCharId.get(sid),
       (sid) => this.state.players.get(sid),
+      (name) => {
+        for (const [, p] of this.state.players) {
+          if (p.name === name) return { cave: caveAt(p.pos.x, p.pos.z), x: p.pos.x, z: p.pos.z };
+        }
+        return null;
+      },
     );
     for (const [type, handler] of Object.entries(friendHandlers)) {
       this.onMessage(type, handler as any);
