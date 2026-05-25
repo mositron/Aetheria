@@ -22,6 +22,21 @@ const CAVE_COUNTER: Record<string, string> = {
   wilderness_cave: "cave_wilderness",
 };
 
+// Monster kinds that count as "boss-tier" — longer respawn + spawn toast.
+export const BOSS_KINDS: Set<MonsterKind> = new Set<MonsterKind>([
+  "darklord", "snowman_giant", "scorpion_lord", "bog_witch",
+  "ice_giant", "shadow_lord",
+]);
+
+const BOSS_DISPLAY_NAME: Partial<Record<MonsterKind, string>> = {
+  darklord: "Dark Lord",
+  snowman_giant: "Snowman Giant",
+  scorpion_lord: "Scorpion Lord",
+  bog_witch: "Bog Witch",
+  ice_giant: "Ice Giant",
+  shadow_lord: "Shadow Lord",
+};
+
 export class Combat {
   constructor(
     private state: { players: Map<string, Player>; monsters: Map<string, Monster> },
@@ -230,13 +245,23 @@ export class Combat {
       }
       this.callbacks.dropLoot(target);
       const spawn = this.callbacks.monsterSpawn.get(target.id);
-      const delay = spawn?.kind === "darklord" ? GAME_CONFIG.BOSS_RESPAWN_MS : GAME_CONFIG.RESPAWN_MS;
+      const isBoss = spawn ? BOSS_KINDS.has(spawn.kind) : false;
+      const delay = isBoss ? GAME_CONFIG.BOSS_RESPAWN_MS : GAME_CONFIG.RESPAWN_MS;
       this.clock.setTimeout(() => {
         const mon = this.state.monsters.get(target.id);
         if (!mon || !spawn) return;
         const md = MONSTERS[spawn.kind];
         mon.hp = md.hp; mon.maxHp = md.hp; mon.dead = false;
         mon.pos.x = spawn.x; mon.pos.z = spawn.z; mon.targetId = "";
+        // Server-wide spawn toast for any boss-tier monster respawn.
+        // (Dark Lord world-event spawn has its own broadcast in WorldRoom.)
+        if (isBoss && spawn.kind !== "darklord") {
+          this.callbacks.broadcast("bossSpawn", {
+            name: BOSS_DISPLAY_NAME[spawn.kind] ?? spawn.kind,
+            x: spawn.x,
+            z: spawn.z,
+          });
+        }
       }, delay);
     }
   }
