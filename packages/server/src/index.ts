@@ -196,6 +196,75 @@ app.get("/health", (_req, res) => {
   });
 });
 
+// GET /metrics — admin-gated HTML dashboard polling /health every 2s
+app.get("/metrics", (req, res) => {
+  const adminToken = process.env.ADMIN_TOKEN;
+  if (!adminToken) {
+    res.status(503).type("text/plain").send("ADMIN_TOKEN env var not set");
+    return;
+  }
+  if (String(req.query.token ?? "") !== adminToken) {
+    res.status(401).type("text/plain").send("unauthorized");
+    return;
+  }
+  res.type("text/html").send(`<!doctype html>
+<html><head><meta charset="utf-8"><title>Aetheria · Metrics</title>
+<style>
+  body{font-family:system-ui,sans-serif;background:#0f172a;color:#e2e8f0;margin:0;padding:24px}
+  h1{margin:0 0 16px;font-size:20px;color:#22d3ee}
+  .card{background:#1e293b;border:1px solid #334155;border-radius:8px;padding:16px;margin-bottom:12px}
+  .row{display:flex;align-items:center;gap:8px;margin:6px 0;font-size:13px}
+  .label{width:120px;color:#94a3b8}
+  .val{font-weight:bold;width:80px;text-align:right;font-variant-numeric:tabular-nums}
+  .bar{flex:1;height:10px;background:#0f172a;border:1px solid #334155;border-radius:4px;overflow:hidden}
+  .fill{height:100%;background:linear-gradient(90deg,#22d3ee,#a855f7);transition:width .3s}
+  .fill.warn{background:linear-gradient(90deg,#f59e0b,#ef4444)}
+  .room{border-left:3px solid #22d3ee;padding-left:10px;margin:8px 0}
+  code{color:#fbbf24}
+</style></head><body>
+<h1>⚡ Aetheria · Live Metrics</h1>
+<div class="card">
+  <div class="row"><div class="label">Uptime</div><div class="val" id="uptime">—</div></div>
+  <div class="row"><div class="label">Players</div><div class="val" id="players">—</div></div>
+  <div class="row"><div class="label">Rooms</div><div class="val" id="rooms">—</div></div>
+  <div class="row"><div class="label">Memory (RSS)</div><div class="val" id="rss">—</div><div class="bar"><div class="fill" id="rssBar" style="width:0%"></div></div></div>
+  <div class="row"><div class="label">Heap</div><div class="val" id="heap">—</div><div class="bar"><div class="fill" id="heapBar" style="width:0%"></div></div></div>
+</div>
+<div id="rooms-container"></div>
+<script>
+const TOKEN = ${JSON.stringify(adminToken)};
+function bar(ms, max=200){return Math.min(100, ms/max*100)}
+async function poll(){
+  try{
+    const r = await fetch('/health');
+    const j = await r.json();
+    document.getElementById('uptime').textContent = j.uptime + 's';
+    document.getElementById('players').textContent = j.players;
+    document.getElementById('rooms').textContent = j.rooms;
+    document.getElementById('rss').textContent = j.mem.rssMb + ' MB';
+    document.getElementById('heap').textContent = j.mem.heapMb + ' MB';
+    document.getElementById('rssBar').style.width = Math.min(100, j.mem.rssMb/1024*100) + '%';
+    document.getElementById('heapBar').style.width = Math.min(100, j.mem.heapMb/512*100) + '%';
+    const c = document.getElementById('rooms-container');
+    c.innerHTML = '';
+    for (const [id, t] of Object.entries(j.tick || {})) {
+      const div = document.createElement('div');
+      div.className = 'card';
+      const cls = (v) => v > 40 ? 'fill warn' : 'fill';
+      div.innerHTML = '<div class="room">Room <code>' + id + '</code></div>' +
+        '<div class="row"><div class="label">tick avg</div><div class="val">' + (t.avg?.toFixed(1) ?? '—') + 'ms</div><div class="bar"><div class="' + cls(t.avg) + '" style="width:' + bar(t.avg) + '%"></div></div></div>' +
+        '<div class="row"><div class="label">tick p50</div><div class="val">' + (t.p50?.toFixed(1) ?? '—') + 'ms</div><div class="bar"><div class="' + cls(t.p50) + '" style="width:' + bar(t.p50) + '%"></div></div></div>' +
+        '<div class="row"><div class="label">tick p95</div><div class="val">' + (t.p95?.toFixed(1) ?? '—') + 'ms</div><div class="bar"><div class="' + cls(t.p95) + '" style="width:' + bar(t.p95) + '%"></div></div></div>' +
+        '<div class="row"><div class="label">tick max</div><div class="val">' + (t.max?.toFixed(1) ?? '—') + 'ms</div><div class="bar"><div class="' + cls(t.max) + '" style="width:' + bar(t.max) + '%"></div></div></div>';
+      c.appendChild(div);
+    }
+  } catch(e){ console.error(e); }
+}
+poll(); setInterval(poll, 2000);
+</script>
+</body></html>`);
+});
+
 // ── Graceful shutdown ──────────────────────────────────────────────────────
 let shuttingDown = false;
 async function shutdown(signal: string) {
