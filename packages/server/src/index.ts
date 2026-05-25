@@ -30,18 +30,43 @@ if (process.env.SENTRY_DSN) {
 // ── App + HTTP ─────────────────────────────────────────────────────────────
 const app = express();
 app.use(express.json({ limit: "256kb" }));
-// CORS: explicit whitelist + LAN regex (192.168.*, 10.*, 172.16-31.*) so
-// phones/tablets on the same Wi-Fi can connect to the dev server.
+// CORS: LAN regex (so phones on same Wi-Fi can hit dev server) + explicit
+// production origins from ALLOWED_ORIGINS env (comma-separated full URLs).
+//   Example: ALLOWED_ORIGINS=https://aetheria.example.com,https://api.aetheria.example.com
 const LAN_RE = /^https?:\/\/(localhost|127\.0\.0\.1|192\.168\.\d{1,3}\.\d{1,3}|10\.\d{1,3}\.\d{1,3}\.\d{1,3}|172\.(1[6-9]|2[0-9]|3[0-1])\.\d{1,3}\.\d{1,3})(:\d+)?$/;
+const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS ?? "")
+  .split(",").map((s) => s.trim()).filter(Boolean);
 app.use(cors({
   origin: (origin, cb) => {
     if (!origin) return cb(null, true);        // server-to-server / native clients
     if (LAN_RE.test(origin)) return cb(null, true);
+    if (ALLOWED_ORIGINS.includes(origin)) return cb(null, true);
     return cb(new Error("Not allowed by CORS"));
   },
   credentials: true,
 }));
-app.use(helmet());
+// Helmet — explicit CSP that allows the PWA to:
+//   - load assets from itself
+//   - open WebSocket to same origin (wss/ws)
+//   - inline scripts (Vite emits some — could tighten later w/ nonces)
+//   - data: URIs (favicons + canvas images + procedural textures)
+app.use(helmet({
+  contentSecurityPolicy: {
+    useDefaults: true,
+    directives: {
+      "default-src":  ["'self'"],
+      "connect-src":  ["'self'", "ws:", "wss:"],
+      "img-src":      ["'self'", "data:", "blob:"],
+      "media-src":    ["'self'", "blob:"],
+      "script-src":   ["'self'", "'unsafe-inline'", "'unsafe-eval'"], // Vite bundle + WebGL shaders
+      "style-src":    ["'self'", "'unsafe-inline'"],
+      "worker-src":   ["'self'", "blob:"],
+      "font-src":     ["'self'", "data:"],
+    },
+  },
+  // PWA Service Worker registration needs same-origin policy permissive
+  crossOriginEmbedderPolicy: false,
+}));
 const httpServer = http.createServer(app);
 
 // ── World Manager ───────────────────────────────────────────────────────────
