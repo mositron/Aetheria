@@ -755,6 +755,7 @@ export const th = {
   "inventory.consumable": "ใช้",
   "inventory.material": "วัสดุ",
   "inventory.structure": "สร้าง",
+  "inventory.searchPlaceholder": "🔍 ค้นหาของในกระเป๋า...",
   "inventory.tapUse": "แตะใช้/สวม · กดค้างเพื่อทิ้ง",
   "inventory.unequipTitle": "ถอดออก?",
   "inventory.unequipMsg": "ถอด {item} ออกจากช่องสวมใส่?",

@@ -753,6 +753,7 @@ export const en = {
   "inventory.consumable": "Use",
   "inventory.material": "Material",
   "inventory.structure": "Build",
+  "inventory.searchPlaceholder": "🔍 Search items...",
   "inventory.tapUse": "Tap to use/wear · Hold to drop",
   "inventory.unequipTitle": "Unequip?",
   "inventory.unequipMsg": "Remove {item} from equipment slot?",
