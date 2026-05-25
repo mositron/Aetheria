@@ -1,6 +1,7 @@
 import {
   Player, ItemStack, ITEMS, GroundItem
 } from "@game/shared";
+import { randomHomeCoord } from "./ChatCommands.js";
 
 const INVENTORY_SIZE = 200;
 
@@ -119,6 +120,23 @@ export class Inventory {
     const def = ITEMS[stack.itemId];
     if (!def) return;
     if (def.slot !== "consumable") return;
+    // Recall stone — warp to village (60s cooldown via lastAttack map).
+    if (def.recall) {
+      const key = "recall:" + sid;
+      const now = Date.now();
+      const last = this.lastAttack.get(key) ?? 0;
+      const cdMs = 60_000;
+      if (now - last < cdMs) {
+        const remain = Math.ceil((cdMs - (now - last)) / 1000);
+        this.callbacks.sendToClient(sid, "system", { text: `🪨 หินอัญเชิญต้องรอ ${remain}s` });
+        return;
+      }
+      this.lastAttack.set(key, now);
+      const home = randomHomeCoord();
+      p.pos.x = home.x;
+      p.pos.z = home.z;
+      this.callbacks.sendToClient(sid, "system", { text: "🪨 อัญเชิญกลับหมู่บ้าน" });
+    }
     if (def.hpRestore) p.hp = Math.min(p.maxHp, p.hp + def.hpRestore);
     if (def.mpRestore) p.mp = Math.min(p.maxMp, p.mp + def.mpRestore);
     if (def.hungerRestore) p.hunger = Math.min(100, p.hunger + def.hungerRestore);

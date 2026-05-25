@@ -53,6 +53,8 @@ export type ItemDef = {
   hungerRestore?: number;
   thirstRestore?: number;
   staminaRestore?: number;
+  /** When true, useItem teleports player to a random village coord. */
+  recall?: boolean;
   stack?: number; // max stack (consumables/materials)
   icon?: string;  // emoji for now
   color?: string;
@@ -141,6 +143,9 @@ glider:           { id: "glider",           name: "Glider Cape", slot: "consumab
   pumpkin_lantern: { id: "pumpkin_lantern",  name: "โคมฟักทอง",      slot: "material",   stack: 99, icon: "🎃", color: "#f97316" },
   halloween_candy: { id: "halloween_candy", name: "ลูกอมฮาโลวีน",   slot: "consumable", staminaRestore: 50, stack: 99, icon: "🍭", color: "#a855f7" },
   krathong:        { id: "krathong",         name: "กระทง",           slot: "material",   stack: 99, icon: "🪘", color: "#fde68a" },
+  // Recall stone — consumable warp to village. 60s cooldown enforced server-side.
+  recall_stone:    { id: "recall_stone",     name: "หินอัญเชิญหมู่บ้าน", slot: "consumable", stack: 5,  icon: "🪨", color: "#a78bfa", recall: true },
+  warp_stone:      { id: "warp_stone",       name: "หินวาร์ปอนันต์",    slot: "material",   stack: 1,  icon: "🌀", color: "#fbbf24" },
 };
 
 // Base-building structures — consumed when placed, appear as state.structures in the world

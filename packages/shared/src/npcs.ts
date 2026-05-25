@@ -83,6 +83,7 @@ export const NPCS: NpcDef[] = [
       { itemId: "leather_armor", price: 300 },
       { itemId: "iron_sword",    price: 1500 },
       { itemId: "iron_armor",    price: 2200 },
+      { itemId: "recall_stone",  price: 500 },
     ],
   },
   {
