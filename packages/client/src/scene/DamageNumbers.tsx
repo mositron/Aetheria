@@ -36,7 +36,11 @@ export function DamageNumbers({ room }: { room: Room<WorldState> }) {
         kind === "crit" ? "#fbbf24" :
         kind === "self" ? "#ef4444" :
         "#ffffff";
-      const text = isHeal ? `+${m.amount}` : isMiss ? "miss" : (isCrit ? `${m.amount}!` : String(m.amount));
+      const text =
+        isHeal ? `+${m.amount}` :
+        isMiss ? "MISS" :
+        isCrit ? `CRIT! ${m.amount}` :
+        String(m.amount);
       const id = ++UID;
       const next: Popup = {
         id,
@@ -86,8 +90,12 @@ function Pop({ p }: { p: Popup }) {
     mat.opacity = age < 0.7 ? 1 : Math.max(0, 1 - (age - 0.7) / 0.3);
     // squish-pop scale: big pop then settle, extra wobble for crit
     const popScale = age < 0.15 ? 0.4 + age / 0.15 * 0.9 : 1.2 + Math.sin(age * 10) * 0.06;
-    const s = p.kind === "crit" ? popScale * 1.4 : popScale;
-    ref.current.scale.set(1.2 * s, 0.4 * s, 1);
+    const s =
+      p.kind === "crit" ? popScale * 2.0 :       // crit = 2x — feel the impact
+      p.kind === "heal" ? popScale * 1.1 :       // gentle bigger for healing
+      p.kind === "miss" ? popScale * 0.85 :      // smaller to de-emphasize
+      popScale;
+    ref.current.scale.set(1.6 * s, 0.5 * s, 1);
   });
   return (
     <sprite ref={ref}>
