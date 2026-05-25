@@ -1,0 +1,40 @@
+# Build outputs — re-built inside the image
+**/node_modules
+**/dist
+**/.next
+**/build
+
+# Local databases + secrets — must NEVER leak into images
+**/.env
+**/.env.*
+!**/.env.example
+!**/.env.production.example
+**/prisma/dev.db
+**/prisma/dev.db-journal
+**/.load-bots.json
+
+# VCS + editor
+.git
+.gitignore
+.github
+.vscode
+.idea
+**/.DS_Store
+
+# Tests + docs — not needed at runtime
+**/__tests__
+**/*.test.ts
+**/*.test.tsx
+**/coverage
+*.md
+docs/
+
+# Tooling
+.husky
+.eslintcache
+tools/
+smoketest.mjs
+
+# Logs
+*.log
+logs/
