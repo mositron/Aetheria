@@ -186,14 +186,16 @@ export function WorldMap({ room }: { room: Room<WorldState> }) {
         const me0 = room.state.players.get(room.sessionId);
         const meWx = me0 ? me0.pos.x : 0;
         const meWz = me0 ? me0.pos.z : 0;
+        const MAX_DOTS_PER_QUEST = 5;
         const targetCoords: Array<{ wx: number; wz: number }> = [];
         for (const qid of Object.keys(quests.active)) {
           const def = QUESTS[qid];
           if (!def) continue;
           const obj = def.objective;
+          const perQuest: Array<{ wx: number; wz: number; d: number }> = [];
           if (obj.kind === "kill") {
             for (const s of mapDef.spawns) {
-              if (s.kind === obj.monster) targetCoords.push({ wx: s.x, wz: s.z });
+              if (s.kind === obj.monster) perQuest.push({ wx: s.x, wz: s.z, d: Math.hypot(s.x - meWx, s.z - meWz) });
             }
           } else if (obj.kind === "collect") {
             const sources = new Set<string>();
@@ -201,8 +203,13 @@ export function WorldMap({ room }: { room: Room<WorldState> }) {
               if (drops.some((d) => d.itemId === obj.itemId)) sources.add(mk);
             }
             for (const s of mapDef.spawns) {
-              if (sources.has(s.kind)) targetCoords.push({ wx: s.x, wz: s.z });
+              if (sources.has(s.kind)) perQuest.push({ wx: s.x, wz: s.z, d: Math.hypot(s.x - meWx, s.z - meWz) });
             }
+          }
+          // Keep only the N nearest spawns per quest — keeps map readable.
+          perQuest.sort((a, b) => a.d - b.d);
+          for (const p of perQuest.slice(0, MAX_DOTS_PER_QUEST)) {
+            targetCoords.push({ wx: p.wx, wz: p.wz });
           }
         }
         // Draw red dots
