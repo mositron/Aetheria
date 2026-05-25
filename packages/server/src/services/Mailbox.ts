@@ -80,6 +80,16 @@ export class Mailbox {
     }
   }
 
+  /** Count of unread mails for the given recipient. Used for menu-bar badge. */
+  async unreadCount(toName: string): Promise<number> {
+    try {
+      return await this.prisma.mail.count({ where: { toName, read: 0 } });
+    } catch (e) {
+      console.error("[mailbox.unreadCount]", e);
+      return 0;
+    }
+  }
+
   /** Mark as read without claiming. */
   async markRead(id: string, ownerName: string): Promise<void> {
     try {
@@ -95,7 +105,8 @@ export class Mailbox {
   registerHandlers(
     getPlayer: (sid: string) => any,
     sendToClient: (sid: string, type: string, data: any) => void,
-    removeItem: (p: any, itemId: string, qty: number) => void
+    removeItem: (p: any, itemId: string, qty: number) => void,
+    getSidByName?: (name: string) => string | null,
   ) {
     return {
       sendMail: async (client: any, msg: any) => {
@@ -127,6 +138,13 @@ export class Mailbox {
         if (zeny > 0) p.zeny -= zeny;
         if (itemId && itemQty > 0) removeItem(p, itemId, itemQty);
         sendToClient(client.sessionId, "system", { text: `📬 ส่งจดหมายถึง ${msg?.to} แล้ว` });
+        // Push live unread badge to recipient if they're online
+        const targetSid = getSidByName?.(String(msg?.to ?? "").trim());
+        if (targetSid) {
+          const targetName = String(msg?.to ?? "").trim();
+          sendToClient(targetSid, "mail:unreadCount", { count: await this.unreadCount(targetName) });
+          sendToClient(targetSid, "system", { text: `📬 มีจดหมายใหม่จาก ${p.name}` });
+        }
       },
 
       claimMail: async (client: any, msg: any) => {
@@ -141,12 +159,20 @@ export class Mailbox {
         }
         sendToClient(client.sessionId, "system", { text: "📦 รับของเรียบร้อย" });
         sendToClient(client.sessionId, "mailUpdated", {});
+        sendToClient(client.sessionId, "mail:unreadCount", { count: await this.unreadCount(p.name) });
       },
 
       readMail: async (client: any, msg: any) => {
         const p = getPlayer(client.sessionId);
         if (!p) return;
         await this.markRead(String(msg?.id ?? ""), p.name);
+        sendToClient(client.sessionId, "mail:unreadCount", { count: await this.unreadCount(p.name) });
+      },
+
+      "mail:requestUnread": async (client: any) => {
+        const p = getPlayer(client.sessionId);
+        if (!p) return;
+        sendToClient(client.sessionId, "mail:unreadCount", { count: await this.unreadCount(p.name) });
       },
     };
   }

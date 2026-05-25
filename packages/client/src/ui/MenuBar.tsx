@@ -12,6 +12,7 @@ export function MenuBar() {
   const exitToSelect = useStore((s) => s.exitToSelect);
   const logout = useStore((s) => s.logout);
   const botMode = useStore((s) => s.botMode);
+  const mailUnread = useStore((s) => s.mailUnread);
 
   // Mobile-style layout always (per user request — desktop uses same UI).
   const collapsed = true;
@@ -76,7 +77,7 @@ if (collapsed) {
         <IconBtn label="📜" name={t("menu.quests")} title="Quest (Q)" onClick={() => window.dispatchEvent(new Event("toggle-quest"))} />
         <IconBtn label="🏅" name={t("menu.achievements")} title="Achievements" onClick={() => window.dispatchEvent(new Event("toggle-achievements"))} />
         <IconBtn label="🏆" name={t("menu.leaderboard")} title="Leaderboard" onClick={() => window.dispatchEvent(new Event("toggle-leaderboard"))} />
-        <IconBtn label="📬" name={t("menu.mail")} title="Mailbox" onClick={() => window.dispatchEvent(new Event("toggle-mail"))} />
+        <IconBtn label="📬" name={t("menu.mail")} title="Mailbox" badge={mailUnread} onClick={() => window.dispatchEvent(new Event("toggle-mail"))} />
         <IconBtn label="🐾" name={t("menu.pets")} title="Pets" onClick={() => window.dispatchEvent(new Event("toggle-pets"))} />
         <IconBtn label="👥" name={t("menu.party")} title="Party" onClick={() => window.dispatchEvent(new Event("toggle-party"))} />
         <IconBtn label="🤝" name={t("menu.friends")} title="Friends" onClick={() => window.dispatchEvent(new Event("toggle-friends"))} />
@@ -109,7 +110,7 @@ if (collapsed) {
       <IconBtn label="📜" name={t("menu.quests")} title="Quest (Q)" onClick={() => window.dispatchEvent(new Event("toggle-quest"))} />
       <IconBtn label="🏅" name={t("menu.achievements")} title="Achievements" onClick={() => window.dispatchEvent(new Event("toggle-achievements"))} />
       <IconBtn label="🏆" name={t("menu.leaderboard")} title="Leaderboard" onClick={() => window.dispatchEvent(new Event("toggle-leaderboard"))} />
-      <IconBtn label="📬" name={t("menu.mail")} title="Mailbox" onClick={() => window.dispatchEvent(new Event("toggle-mail"))} />
+      <IconBtn label="📬" name={t("menu.mail")} title="Mailbox" badge={mailUnread} onClick={() => window.dispatchEvent(new Event("toggle-mail"))} />
       <IconBtn label="🐾" name={t("menu.pets")} title="Pets" onClick={() => window.dispatchEvent(new Event("toggle-pets"))} />
       <IconBtn label="👥" name={t("menu.party")} title="Party" onClick={() => window.dispatchEvent(new Event("toggle-party"))} />
       <IconBtn label="💬" name={t("menu.chat")} title="Chat (Enter)" onClick={() => window.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" }))} />
@@ -123,7 +124,7 @@ if (collapsed) {
   );
 }
 
-function IconBtn({ label, name, title, onClick, variant, active, ariaLabel }: { label: string; name?: string; title: string; onClick: () => void; variant?: "violet" | "rose" | "emerald"; active?: boolean; ariaLabel?: string }) {
+function IconBtn({ label, name, title, onClick, variant, active, ariaLabel, badge }: { label: string; name?: string; title: string; onClick: () => void; variant?: "violet" | "rose" | "emerald"; active?: boolean; ariaLabel?: string; badge?: number }) {
   const { tooltip, handlers } = useTooltip(title);
   // More-transparent background (text stays opaque because we lower the bg alpha
   // rather than setting opacity on the whole button).
@@ -153,6 +154,11 @@ function IconBtn({ label, name, title, onClick, variant, active, ariaLabel }: { 
         <span className={`text-base leading-none ${active ? "animate-pulse" : ""}`}>{label}</span>
         {name && <span className="text-[8px] text-white/85 font-bold leading-tight mt-0.5 tracking-tighter">{name}</span>}
         {active && <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 text-[8px] text-emerald-300 font-bold tracking-widest">ON</span>}
+        {!!badge && badge > 0 && (
+          <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-full bg-rose-500 text-white text-[9px] font-bold flex items-center justify-center border border-rose-200 shadow-md">
+            {badge > 9 ? "9+" : badge}
+          </span>
+        )}
       </button>
       {tooltip.visible && (
         <div

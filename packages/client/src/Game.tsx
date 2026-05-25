@@ -172,6 +172,16 @@ export function Game() {
     return () => window.removeEventListener("toggle-worlds", onToggle);
   }, []);
 
+  // Global mailbox unread-count subscription → updates the menu-bar badge
+  useEffect(() => {
+    if (!room) return;
+    const setMailUnread = useStore.getState().setMailUnread;
+    const off = room.onMessage("mail:unreadCount" as any, (m: any) => {
+      if (typeof m?.count === "number") setMailUnread(m.count);
+    });
+    return () => off?.();
+  }, [room]);
+
   if (error) {
     return <LoadingScreen title="การเชื่อมต่อขัดข้อง" subtitle={error} onLogout={logout} retrying />;
   }

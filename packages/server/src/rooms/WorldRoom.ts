@@ -544,6 +544,14 @@ export class WorldRoom extends Room<WorldState> {
       if (zeny > 0) p.zeny -= zeny;
       if (itemId && itemQty > 0) removeItem(p, itemId, itemQty);
       client.send("system", { text: `📬 ส่งจดหมายถึง ${msg?.to} แล้ว` });
+      // Push live badge to recipient if online
+      const toName = String(msg?.to ?? "").trim();
+      const targetClient = this.clients.find((cl) => this.state.players.get(cl.sessionId)?.name === toName);
+      if (targetClient) {
+        const count = await this.mailboxSvc.unreadCount(toName);
+        targetClient.send("mail:unreadCount" as any, { count });
+        targetClient.send("system", { text: `📬 มีจดหมายใหม่จาก ${p.name}` });
+      }
     });
 
     this.onMessage("claimMail", async (client, msg: any) => {
@@ -555,12 +563,20 @@ export class WorldRoom extends Room<WorldState> {
       if (reward.itemId && reward.itemQty > 0) this.addToInventory(p, reward.itemId, reward.itemQty);
       client.send("system", { text: "📦 รับของเรียบร้อย" });
       client.send("mailUpdated", {});
+      client.send("mail:unreadCount" as any, { count: await this.mailboxSvc.unreadCount(p.name) });
     });
 
     this.onMessage("readMail", async (client, msg: any) => {
       const p = this.state.players.get(client.sessionId);
       if (!p) return;
       await this.mailboxSvc.markRead(String(msg?.id ?? ""), p.name);
+      client.send("mail:unreadCount" as any, { count: await this.mailboxSvc.unreadCount(p.name) });
+    });
+
+    this.onMessage("mail:requestUnread", async (client) => {
+      const p = this.state.players.get(client.sessionId);
+      if (!p) return;
+      client.send("mail:unreadCount" as any, { count: await this.mailboxSvc.unreadCount(p.name) });
     });
 
     this.onMessage("toggleFly", (client) => {
@@ -1195,6 +1211,10 @@ export class WorldRoom extends Room<WorldState> {
     // send quest state to this client
     const qs = this.playerQuests.get(client.sessionId)!;
     client.send("questUpdate", qs);
+    // send initial mailbox unread count for menu-bar badge
+    void this.mailboxSvc.unreadCount(c.name).then((count) =>
+      client.send("mail:unreadCount" as any, { count })
+    );
   }
 
   async onLeave(client: Client) {

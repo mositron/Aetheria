@@ -46,6 +46,8 @@ type S = {
   musicEnabled: boolean;
   musicVolume: number;
   viewMode: "3d" | "2d";
+  mailUnread: number;
+  setMailUnread: (n: number) => void;
   // Single-active-modal: only one full-screen panel can be open at a time.
   // null = no modal. Any side panel listens to this and closes when activeModal
   // changes to a different value.
@@ -98,6 +100,8 @@ export const useStore = create<S>((set, get) => ({
   musicEnabled: localStorage.getItem("musicEnabled") !== "false",
   musicVolume: parseFloat(localStorage.getItem("musicVolume") ?? "0.4"),
   viewMode: "3d",
+  mailUnread: 0,
+  setMailUnread: (n: number) => set({ mailUnread: Math.max(0, n | 0) }),
   activeModal: null,
   openModal: (id) => set({ activeModal: id }),
   closeModal: () => set({ activeModal: null }),
