@@ -67,6 +67,8 @@ import { getCurrentSeason } from "../services/Season.js";
 import { tryWaypoint } from "../services/Waypoint.js";
 import { parseCommand, routeCommand, randomHomeCoord } from "../services/ChatCommands.js";
 import { BossEventScheduler } from "../services/BossEvent.js";
+import { generateChestSpawns, tryOpenChest, tickChests, CHEST_OPEN_RADIUS } from "../services/ChestService.js";
+import { ChestSchema } from "@game/shared";
 
 
 type Intent = { mx: number; mz: number; rotY: number };
@@ -325,6 +327,15 @@ export class WorldRoom extends Room<WorldState> {
       }
     } else {
       for (const sp of MAPS[mapId].spawns) this.spawnMonster(sp.kind, sp.x, sp.z);
+      // Treasure chests — 2 per cave on the field map.
+      for (const info of generateChestSpawns()) {
+        const chest = new ChestSchema();
+        chest.id = info.id;
+        chest.x = info.x;
+        chest.z = info.z;
+        chest.theme = info.theme;
+        this.state.chests.set(info.id, chest);
+      }
     }
 
     // Dev bots: spawn fake players for solo multiplayer testing
@@ -374,6 +385,7 @@ export class WorldRoom extends Room<WorldState> {
     });
     this.onMessage("dropItem", (client, msg: DropItemMsg) => this.handleDrop(client.sessionId, msg.invIndex, msg.qty));
     this.onMessage("pickup", (client, msg: PickupMsg) => this.handlePickup(client.sessionId, msg.dropId));
+    this.onMessage("openChest", (client, msg: any) => this.handleOpenChest(client.sessionId, String(msg?.chestId ?? "")));
     this.onMessage("changeJob", (client, msg: ChangeJobMsg) => this.handleChangeJob(client.sessionId, msg.job));
     this.onMessage("allocStat", (client, msg: AllocStatMsg) => this.handleAllocStat(client.sessionId, msg.stat));
     this.onMessage("shopBuy", (client, msg: ShopBuyMsg) => this.npcSvc.handleShopBuy(this.state, client, msg, this.addToInventory.bind(this)));
@@ -1584,6 +1596,21 @@ export class WorldRoom extends Room<WorldState> {
     this.inventorySvc.handlePickup(sid, dropId);
   }
 
+  handleOpenChest(sid: string, chestId: string) {
+    const p = this.state.players.get(sid);
+    if (!p || p.dead) return;
+    const chest = this.state.chests.get(chestId);
+    if (!chest) return;
+    if (Math.hypot(p.pos.x - chest.x, p.pos.z - chest.z) > CHEST_OPEN_RADIUS) return;
+    const loot = tryOpenChest(chest, sid, Date.now());
+    if (!loot) return; // already opened
+    void this.inventorySvc.addToInventoryOrMail(p, loot.itemId, loot.qty, "CHEST");
+    const def = ITEMS[loot.itemId];
+    const c = this.clients.find((cl) => cl.sessionId === sid);
+    c?.send("system", { text: `💎 หีบสมบัติ: ${def?.icon ?? ""} ${def?.name ?? loot.itemId} ×${loot.qty}` });
+    this.broadcast("chestOpened", { chestId });
+  }
+
   /**
    * Token-bucket rate limit. Delegates to RateLimiter service.
    * Kept here as a thin wrapper so existing call sites compile unchanged.
@@ -1875,6 +1902,11 @@ export class WorldRoom extends Room<WorldState> {
         };
         this.broadcast("system", { text: msgs[next] });
       }
+    }
+
+    // Chest respawn — re-arm any chests whose timer elapsed
+    if (this.state.mapId === "field") {
+      tickChests(this.state.chests.values(), Date.now());
     }
 
     // Boss world event — pure scheduler decides when/where

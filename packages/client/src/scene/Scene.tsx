@@ -36,6 +36,7 @@ import { DarklordModel } from "./models/DarklordModel";
 import { OrcModel } from "./models/OrcModel";
 import { PlayerJobProps } from "./models/PlayerJobProps";
 import { CompanionModel } from "./models/CompanionModel";
+import { ChestModel } from "./models/ChestModel";
 import { CaveZones } from "./CaveZones";
 
 const ATTACK_RANGE_BUFFER = 0.3;
@@ -53,6 +54,8 @@ export function Scene({ room }: { room: Room<WorldState> }) {
   const [drops, setDrops] = useState<GroundItem[]>([]);
   const [plants, setPlants] = useState<PlantNode[]>([]);
   const [companions, setCompanions] = useState<any[]>([]);
+  const [chests, setChests] = useState<any[]>([]);
+  const [chestVersion, setChestVersion] = useState(0);
   const sessionId = room.sessionId;
   const setTarget = useStore((s) => s.setTarget);
   const targetId = useStore((s) => s.targetMonsterId);
@@ -158,7 +161,8 @@ export function Scene({ room }: { room: Room<WorldState> }) {
     const refreshDrops = () => setDrops(Array.from(room.state.drops.values()));
     const refreshPlants = () => setPlants(Array.from(room.state.plants.values()));
     const refreshCompanions = () => setCompanions(Array.from((room.state as any).companions?.values?.() ?? []));
-    refreshPlayers(); refreshMonsters(); refreshDrops(); refreshPlants(); refreshCompanions();
+    const refreshChests = () => { setChests(Array.from((room.state as any).chests?.values?.() ?? [])); setChestVersion((v) => v + 1); };
+    refreshPlayers(); refreshMonsters(); refreshDrops(); refreshPlants(); refreshCompanions(); refreshChests();
     const $ = getStateCallbacks(room);
     const offs = [
       $(room.state).players.onAdd(refreshPlayers),
@@ -171,6 +175,9 @@ export function Scene({ room }: { room: Room<WorldState> }) {
       $(room.state).plants.onRemove(refreshPlants),
       $((room.state as any)).companions?.onAdd?.(refreshCompanions),
       $((room.state as any)).companions?.onRemove?.(refreshCompanions),
+      $((room.state as any)).chests?.onAdd?.(refreshChests),
+      $((room.state as any)).chests?.onRemove?.(refreshChests),
+      room.onMessage("chestOpened" as any, refreshChests),
     ];
     return () => offs.forEach((o) => o && o());
   }, [room]);
@@ -673,6 +680,19 @@ export function Scene({ room }: { room: Room<WorldState> }) {
 
       {/* Waypoint trail — cute floating stars guiding to destination */}
       <WaypointTrail room={room} sessionId={sessionId} />
+
+      {/* Treasure chests in caves */}
+      {chests.map((c: any) => (
+        <group key={c.id + ":" + chestVersion} position={[c.x, 0, c.z]}>
+          <ChestModel
+            theme={c.theme}
+            opened={!!c.openedBy}
+            onClick={() => room.send("openChest", { chestId: c.id })}
+            onHoverIn={() => setCursor("pointer")}
+            onHoverOut={() => setCursor("auto")}
+          />
+        </group>
+      ))}
 
       {/* Companions — summoned pal floats next to its owner */}
       {companions.map((c) => (

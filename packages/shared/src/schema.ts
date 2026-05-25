@@ -111,6 +111,15 @@ export class CompanionSchema extends Schema {
   @type("string") state = "idle"; // "idle" | "follow" | "combat"
 }
 
+export class ChestSchema extends Schema {
+  @type("string") id = "";
+  @type("number") x = 0;
+  @type("number") z = 0;
+  @type("string") theme = ""; // CaveTheme
+  @type("string") openedBy = ""; // "" = available
+  @type("number") respawnAt = 0; // ms — when to re-arm (0 = available)
+}
+
 export class StructureSchema extends Schema {
   @type("string") id = "";
   @type("string") itemId = "";
@@ -141,6 +150,7 @@ export class WorldState extends Schema {
   @type({ map: PlantNode }) plants = new MapSchema<PlantNode>();
   @type({ map: CompanionSchema }) companions = new MapSchema<CompanionSchema>();
   @type([StructureSchema]) structures = new ArraySchema<StructureSchema>();
+  @type({ map: ChestSchema }) chests = new MapSchema<ChestSchema>();
   @type("number") dayPhase = 0.25; // 0=midnight, 0.25=dawn, 0.5=noon, 0.75=dusk
   @type("boolean") isNight = false;
   @type("string") weather = "sunny"; // "sunny" | "cloudy" | "rainy"
