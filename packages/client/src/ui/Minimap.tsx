@@ -112,8 +112,18 @@ export function Minimap({ room, mapId }: { room: Room<WorldState>; mapId: MapId 
         const y = (p.pos.z + mapDef.size / 2) * scale;
         const isSelf = sid === room.sessionId;
         const isFriend = !isSelf && friends.has(p.name);
-        ctx.fillStyle = isSelf ? "#22c55e" : isFriend ? "#22d3ee" : "#60a5fa";
-        ctx.beginPath(); ctx.arc(x, y, isSelf ? 3.5 : isFriend ? 3 : 2.5, 0, Math.PI * 2); ctx.fill();
+        const mountEmoji = p.mounted && p.petKind
+          ? (p.petKind === "chicken" ? "🐔" : p.petKind === "pig" ? "🐷" : p.petKind === "cow" ? "🐮" : "")
+          : "";
+        if (mountEmoji) {
+          ctx.font = "10px sans-serif";
+          ctx.textAlign = "center";
+          ctx.textBaseline = "middle";
+          ctx.fillText(mountEmoji, x, y);
+        } else {
+          ctx.fillStyle = isSelf ? "#22c55e" : isFriend ? "#22d3ee" : "#60a5fa";
+          ctx.beginPath(); ctx.arc(x, y, isSelf ? 3.5 : isFriend ? 3 : 2.5, 0, Math.PI * 2); ctx.fill();
+        }
         if (isFriend) {
           // Friendly halo
           ctx.strokeStyle = "rgba(34,211,238,0.6)";

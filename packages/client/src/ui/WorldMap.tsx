@@ -4,10 +4,11 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { Room } from "colyseus.js";
-import { MAPS, NPCS, CAVES, BIOMES, biomeAt, type WorldState } from "@game/shared";
+import { MAPS, NPCS, CAVES, BIOMES, biomeAt, QUESTS, MONSTER_DROPS, type WorldState } from "@game/shared";
 import { useStore } from "../store";
 import { useT } from "../locales/useT";
 import { useExclusiveModal } from "../hooks/useExclusiveModal";
+import { useQuests } from "../hooks/useQuests";
 import { keyEq } from "../utils/keyMatch";
 
 const CANVAS_SIZE = 560; // logical px; CSS scales it
@@ -18,6 +19,8 @@ export function WorldMap({ room }: { room: Room<WorldState> }) {
   useExclusiveModal("worldMap", open, setOpen);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const setWaypoint = useStore((s) => s.setWaypoint);
+  const quests = useQuests(room);
+  const [showQuestMarkers, setShowQuestMarkers] = useState(true);
 
   useEffect(() => {
     const onToggle = () => setOpen((o) => !o);
@@ -177,14 +180,65 @@ export function WorldMap({ room }: { room: Room<WorldState> }) {
         ctx.fillText(`${n.icon} ${n.name}`, x + 8, y + 4);
       }
 
+      // ── 5.5) Quest markers (active objectives) ──
+      let nearestObj: { x: number; y: number; dist: number } | null = null;
+      if (showQuestMarkers) {
+        const me0 = room.state.players.get(room.sessionId);
+        const meWx = me0 ? me0.pos.x : 0;
+        const meWz = me0 ? me0.pos.z : 0;
+        const targetCoords: Array<{ wx: number; wz: number }> = [];
+        for (const qid of Object.keys(quests.active)) {
+          const def = QUESTS[qid];
+          if (!def) continue;
+          const obj = def.objective;
+          if (obj.kind === "kill") {
+            for (const s of mapDef.spawns) {
+              if (s.kind === obj.monster) targetCoords.push({ wx: s.x, wz: s.z });
+            }
+          } else if (obj.kind === "collect") {
+            const sources = new Set<string>();
+            for (const [mk, drops] of Object.entries(MONSTER_DROPS)) {
+              if (drops.some((d) => d.itemId === obj.itemId)) sources.add(mk);
+            }
+            for (const s of mapDef.spawns) {
+              if (sources.has(s.kind)) targetCoords.push({ wx: s.x, wz: s.z });
+            }
+          }
+        }
+        // Draw red dots
+        for (const t of targetCoords) {
+          const x = (t.wx + half) * scale;
+          const y = (t.wz + half) * scale;
+          // pulsing red
+          const pulse = (Date.now() % 1000) / 1000;
+          ctx.fillStyle = "rgba(239,68,68,0.85)";
+          ctx.beginPath(); ctx.arc(x, y, 4 + pulse * 1.5, 0, Math.PI * 2); ctx.fill();
+          ctx.strokeStyle = "#7f1d1d";
+          ctx.lineWidth = 1;
+          ctx.stroke();
+          const d = Math.hypot(t.wx - meWx, t.wz - meWz);
+          if (!nearestObj || d < nearestObj.dist) nearestObj = { x, y, dist: d };
+        }
+      }
+
       // ── 6) Other players ──
       for (const [sid, p] of room.state.players) {
         if (p.dead) continue;
         if (sid === room.sessionId) continue;
         const x = (p.pos.x + half) * scale;
         const y = (p.pos.z + half) * scale;
-        ctx.fillStyle = "#60a5fa";
-        ctx.beginPath(); ctx.arc(x, y, 3.5, 0, Math.PI * 2); ctx.fill();
+        const mountEmoji = p.mounted && p.petKind
+          ? (p.petKind === "chicken" ? "🐔" : p.petKind === "pig" ? "🐷" : p.petKind === "cow" ? "🐮" : "")
+          : "";
+        if (mountEmoji) {
+          ctx.font = "14px sans-serif";
+          ctx.textAlign = "center";
+          ctx.textBaseline = "middle";
+          ctx.fillText(mountEmoji, x, y);
+        } else {
+          ctx.fillStyle = "#60a5fa";
+          ctx.beginPath(); ctx.arc(x, y, 3.5, 0, Math.PI * 2); ctx.fill();
+        }
       }
 
       // ── 7) Self (green arrow showing facing) ──
@@ -192,11 +246,21 @@ export function WorldMap({ room }: { room: Room<WorldState> }) {
       if (me) {
         const sx = (me.pos.x + half) * scale;
         const sy = (me.pos.z + half) * scale;
-        ctx.fillStyle = "#22c55e";
-        ctx.beginPath(); ctx.arc(sx, sy, 6, 0, Math.PI * 2); ctx.fill();
-        ctx.strokeStyle = "#052e1a";
-        ctx.lineWidth = 2;
-        ctx.stroke();
+        const meMount = me.mounted && me.petKind
+          ? (me.petKind === "chicken" ? "🐔" : me.petKind === "pig" ? "🐷" : me.petKind === "cow" ? "🐮" : "")
+          : "";
+        if (meMount) {
+          ctx.font = "16px sans-serif";
+          ctx.textAlign = "center";
+          ctx.textBaseline = "middle";
+          ctx.fillText(meMount, sx, sy);
+        } else {
+          ctx.fillStyle = "#22c55e";
+          ctx.beginPath(); ctx.arc(sx, sy, 6, 0, Math.PI * 2); ctx.fill();
+          ctx.strokeStyle = "#052e1a";
+          ctx.lineWidth = 2;
+          ctx.stroke();
+        }
         // direction arrow
         ctx.strokeStyle = "#16a34a";
         ctx.lineWidth = 3;
@@ -209,6 +273,17 @@ export function WorldMap({ room }: { room: Room<WorldState> }) {
         ctx.fillStyle = "#052e1a";
         ctx.textAlign = "center";
         ctx.fillText("← คุณอยู่ตรงนี้", sx + 22, sy - 4);
+        // Dashed line to nearest quest objective
+        if (nearestObj) {
+          ctx.strokeStyle = "#f472b6";
+          ctx.lineWidth = 1.5;
+          ctx.setLineDash([4, 3]);
+          ctx.beginPath();
+          ctx.moveTo(sx, sy);
+          ctx.lineTo(nearestObj.x, nearestObj.y);
+          ctx.stroke();
+          ctx.setLineDash([]);
+        }
       }
 
       // ── 8) Compass ──
@@ -224,7 +299,7 @@ export function WorldMap({ room }: { room: Room<WorldState> }) {
     };
     draw();
     return () => clearTimeout(raf);
-  }, [open, room]);
+  }, [open, room, quests, showQuestMarkers]);
 
   if (!open) return null;
 
@@ -244,13 +319,20 @@ export function WorldMap({ room }: { room: Room<WorldState> }) {
         className="bg-slate-900 border-2 border-cyan-400/60 rounded-2xl p-3 flex flex-col items-center gap-2"
         style={{ maxWidth: "min(92vw, 620px)", maxHeight: "100%" }}
       >
-        <div className="w-full flex items-center justify-between">
+        <div className="w-full flex items-center justify-between gap-2">
           <span className="text-cyan-100 font-bold text-sm tracking-widest">🗺 {t("worldMap.title") || "แผนที่โลก"} — Aetheria</span>
-          <button
-            onClick={() => setOpen(false)}
-            aria-label="Close"
-            className="w-7 h-7 rounded-full bg-rose-700 hover:bg-rose-600 text-white font-bold flex items-center justify-center"
-          >✕</button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowQuestMarkers((v) => !v)}
+              className={`text-[10px] px-2 py-1 rounded-full border ${showQuestMarkers ? "bg-rose-600/30 border-rose-400 text-rose-100" : "bg-slate-800 border-slate-600 text-slate-400"}`}
+              title="Toggle quest markers"
+            >🔴 เควสต์</button>
+            <button
+              onClick={() => setOpen(false)}
+              aria-label="Close"
+              className="w-7 h-7 rounded-full bg-rose-700 hover:bg-rose-600 text-white font-bold flex items-center justify-center"
+            >✕</button>
+          </div>
         </div>
         <div className="relative" style={{ width: "min(88vw, 560px)", aspectRatio: "1" }}>
           <canvas
