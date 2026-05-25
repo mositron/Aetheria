@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { Room } from "colyseus.js";
 import { MAPS, NPCS, CAVES, type MapId, type WorldState } from "@game/shared";
+import { MOB_MINIMAP_RADIUS } from "../scene/Scene";
 import { useStore } from "../store";
 import { useT } from "../locales/useT";
 
@@ -97,9 +98,14 @@ export function Minimap({ room, mapId }: { room: Room<WorldState>; mapId: MapId 
         ctx.fillStyle = "#fbbf24";
         ctx.beginPath(); ctx.arc(x, y, 3, 0, Math.PI * 2); ctx.fill();
       }
-      // monsters
+      // monsters — only those within MOB_MINIMAP_RADIUS of the player
+      // (keeps the minimap useful as local intel instead of dot soup)
+      const r2 = MOB_MINIMAP_RADIUS * MOB_MINIMAP_RADIUS;
       for (const [, m] of room.state.monsters) {
         if (m.dead) continue;
+        const dx = m.pos.x - me.pos.x;
+        const dz = m.pos.z - me.pos.z;
+        if (dx * dx + dz * dz > r2) continue;
         const x = (m.pos.x + mapDef.size / 2) * scale;
         const y = (m.pos.z + mapDef.size / 2) * scale;
         ctx.fillStyle = m.kind === "wolf" ? "#9ca3af" : "#a3e635";

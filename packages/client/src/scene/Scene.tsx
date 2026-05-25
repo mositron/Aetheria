@@ -40,6 +40,17 @@ import { ChestModel } from "./models/ChestModel";
 import { CaveZones } from "./CaveZones";
 
 const ATTACK_RANGE_BUFFER = 0.3;
+// Distance beyond which a monster's name/HP billboard is hidden (alive only —
+// selected target always shows). Mirrors the minimap's mob-visibility radius.
+const MOB_BILLBOARD_RADIUS = 18;
+// Distance beyond which the monster mesh itself is hidden (LOD-style culling).
+// Selected target still renders so the player doesn't lose sight of their kill.
+const MOB_MODEL_RADIUS = 60;
+// Shared "where is the local player" — updated by the main Scene useFrame each
+// frame, read by MonsterView (and minimap-via-export) to decide visibility.
+// Module-scope so we don't trigger React re-renders.
+export const sharedSelfPos = { x: 0, z: 0 };
+export const MOB_MINIMAP_RADIUS = 25;
 
 const COLORS = {
   self: "#4ade80",
@@ -593,6 +604,10 @@ export function Scene({ room }: { room: Room<WorldState> }) {
       while (delta < -Math.PI) delta += Math.PI * 2;
       selfRef.current.rotation.y = cur + delta * alpha;
     }
+    // Publish player world pos for off-tree consumers (MonsterView billboards,
+    // minimap mob-radius filter).
+    sharedSelfPos.x = me.pos.x;
+    sharedSelfPos.z = me.pos.z;
     // Camera follows visual (smoothed) position + terrain Y + altitude.
     const visualX = selfRef.current?.position.x ?? me.pos.x;
     const visualZ = selfRef.current?.position.z ?? me.pos.z;
@@ -1877,6 +1892,9 @@ const MonsterView = React.memo(function MonsterView({ m, selected, onClick, onHo
   const tmp = useRef(new THREE.Vector3());
   const deathStart = useRef(0);
   const DEATH_DURATION = 1500;
+  // LOD throttle — distance + visibility toggle only ~5Hz so we don't
+  // dirty the scene graph 60×/sec for every monster.
+  const lodAcc = useRef(0);
   useFrame((_, dt) => {
     if (ref.current) {
       const alpha = 1 - Math.exp(-dt * 18);
@@ -1919,8 +1937,21 @@ const MonsterView = React.memo(function MonsterView({ m, selected, onClick, onHo
           modelGroup.current.rotation.y = 0;
         }
       }
-      if (modelGroup.current) modelGroup.current.visible = true;
-      if (billboardRef.current) billboardRef.current.visible = true;
+      // Distance-based LOD: model hides at MOB_MODEL_RADIUS, billboard at
+      // MOB_BILLBOARD_RADIUS. Selected target overrides both so the player
+      // can keep tracking it from far away. Throttled to ~5Hz to avoid
+      // dirtying the scene graph every frame.
+      lodAcc.current += dt;
+      if (lodAcc.current >= 0.2) {
+        lodAcc.current = 0;
+        const dx = m.pos.x - sharedSelfPos.x;
+        const dz = m.pos.z - sharedSelfPos.z;
+        const distSq = dx * dx + dz * dz;
+        const modelVisible = selected || distSq <= MOB_MODEL_RADIUS * MOB_MODEL_RADIUS;
+        const billboardVisible = selected || distSq <= MOB_BILLBOARD_RADIUS * MOB_BILLBOARD_RADIUS;
+        if (modelGroup.current && modelGroup.current.visible !== modelVisible) modelGroup.current.visible = modelVisible;
+        if (billboardRef.current && billboardRef.current.visible !== billboardVisible) billboardRef.current.visible = billboardVisible;
+      }
       if (selectionRing.current) {
         selectionRing.current.visible = selected;
         selectionRing.current.rotation.z = performance.now() * 0.002;
