@@ -133,6 +133,7 @@ export class WorldRoom extends Room<WorldState> {
   mpRegenAcc = 0;
   autoSaveAcc = 0;
   bossEventSched = new BossEventScheduler();
+  bossTimerAcc = 0;
   weatherAcc = 0;
   botIds = new Set<string>();
   botState = new Map<string, { wander: { x: number; z: number; until: number }; nextActionAt: number }>();
@@ -1924,6 +1925,18 @@ export class WorldRoom extends Room<WorldState> {
       if (decision.kind === "spawn") {
         this.spawnMonster("darklord", decision.x, decision.z);
         this.broadcast("system", { text: decision.message });
+        this.broadcast("bossSpawn", {
+          name: "Dark Lord",
+          x: decision.x,
+          z: decision.z,
+        });
+        this.bossTimerAcc = 0;
+      }
+      // Broadcast countdown every 5s while waiting (no active boss)
+      this.bossTimerAcc += dt;
+      if (this.bossTimerAcc >= 5 && !this.bossEventSched.isActive()) {
+        this.bossTimerAcc = 0;
+        this.broadcast("bossTimer", { secondsLeft: Math.floor(this.bossEventSched.nextSpawnIn()) });
       }
     }
 

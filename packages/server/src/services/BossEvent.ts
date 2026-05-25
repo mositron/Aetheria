@@ -38,4 +38,9 @@ export class BossEventScheduler {
   /** For tests / save migration. */
   isActive(): boolean { return this.active; }
   forceClear(): void { this.active = false; this.acc = 0; }
+  /** Seconds remaining until next spawn (0 if active or due). */
+  nextSpawnIn(): number {
+    if (this.active) return 0;
+    return Math.max(0, BOSS_INTERVAL_S - this.acc);
+  }
 }
