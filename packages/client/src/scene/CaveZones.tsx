@@ -272,12 +272,24 @@ function CaveLabel({ name, mouthAngle, r }: { name: string; mouthAngle: number; 
     return tex;
   }, [name]);
 
+  const spriteRef = useRef<THREE.Sprite>(null);
+  const matRef = useRef<THREE.SpriteMaterial>(null);
+  const baseX = 6;
+  const baseY = 1.1;
+  useFrame((state) => {
+    if (!spriteRef.current) return;
+    const t = state.clock.getElapsedTime() * 2;
+    const s = 1 + Math.sin(t) * 0.08;
+    spriteRef.current.scale.set(baseX * s, baseY * s, 1);
+    if (matRef.current) matRef.current.opacity = 0.85 + Math.sin(t) * 0.15;
+  });
+
   // Place label outside the mouth (opposite side of arch, facing village)
   const lx = Math.cos(mouthAngle) * (r + 4);
   const lz = Math.sin(mouthAngle) * (r + 4);
   return (
-    <sprite position={[lx, 4.5, lz]} scale={[6, 1.1, 1]}>
-      <spriteMaterial map={sprite} depthTest={false} />
+    <sprite ref={spriteRef} position={[lx, 4.5, lz]} scale={[baseX, baseY, 1]}>
+      <spriteMaterial ref={matRef} map={sprite} depthTest={false} transparent />
     </sprite>
   );
 }
