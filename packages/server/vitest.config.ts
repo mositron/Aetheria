@@ -6,9 +6,15 @@ import { fileURLToPath } from "url";
 
 // Load .env so DATABASE_URL + JWT_SECRET are available to Prisma during tests.
 // Vitest does NOT load .env automatically (unlike Vite app builds).
+// Prefer the local packages/server/.env, fall back to the monorepo-root .env.
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const envPath = resolve(__dirname, ".env");
-if (existsSync(envPath)) loadEnv({ path: envPath });
+const ENV_CANDIDATES = [
+  resolve(__dirname, ".env"),
+  resolve(__dirname, "../../.env"),
+];
+for (const p of ENV_CANDIDATES) {
+  if (existsSync(p)) { loadEnv({ path: p }); break; }
+}
 
 // Prisma's SQLite `file:./prisma/dev.db` is resolved relative to CWD, which
 // can differ across vitest forks. Pin it to an absolute path so every fork
