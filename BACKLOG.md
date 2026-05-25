@@ -468,45 +468,239 @@ e36b993 fix(P0): CORS strict whitelist + helmet + dual-rate-limit + HTTPS redire
 ### 🎯 Next-session ideas (proposed 2026-05-25, not started)
 
 Compiled at end of session 2026-05-25 after world map + 6 caves shipped.
-Ranked by impact/effort.
+Each item has: why · files to touch · approach · acceptance test.
+Pick **A+B** first — that's the recommended next push.
 
-**High ROI — pick one of these first:**
-- **A. Quest markers on World Map** — overlay objective dots on the
-  map (e.g. red dots where "kill 5 slime" mobs spawn). Uses
-  QuestDef.objective + MAPS[field].spawns coords. ~1-2h.
-- **B. Treasure chests in caves** — new `Chest` schema (server) + mesh
-  (client). 1-2 chests per cave, themed loot, 5min respawn. Gives a
-  reason to push deep into caves beyond mob farming. ~2h.
-- **A+B combined** is the recommended next push — players know
-  *where to go* AND *what to find*.
+---
 
-**QoL polish (15-30m each):**
-- **C. Recall stone item** — usable item that warps to village,
-  60s cooldown. /home command exists but item is more discoverable.
-- **D. Mount visible on map** — render 🐎 on minimap/world map when
-  mounted instead of plain dot.
-- **H. Pulsing cave label** — CaveLabel sprite scale-pulse + glow so
-  it grabs attention from across the field.
-- **I. Boss alert toast** — when Dark Lord spawns in wilderness_cave,
-  broadcast a server-wide "⚜ Dark Lord ปรากฏ!" toast.
-- **J. Friend → cave nav** — in FriendList, if friend is inside a
-  cave, show cave name + a "join" button that sets waypoint to it.
+#### A. Quest markers on World Map  · ~1-2h · 🔥 high
 
-**Bigger systems (half-day+):**
-- **E. Boss respawn UI** — "⚜ Dark Lord respawns in 4:23" mini-widget.
-  Server already runs BossEventScheduler; expose nextSpawnIn() and a
-  client poll.
-- **F. Cave-cleared achievements** — kill the boss in each cave →
-  unlock "🏆 ถ้ำเงา conquered" etc. Clear all 6 → unlock a key item /
-  title.
-- **G. Server `/metrics` dashboard** — simple HTML page (no framework)
-  served at `/metrics` showing live tick stats / player count / mem.
-  Tick stats already exposed on `/health`.
+**Why:** Players have to wander to find quest mobs. Map already shows
+caves; objective dots make navigation obvious.
 
-Genuinely huge (days):
-- Multi-map seamless streaming (replace discrete dungeon maps).
-- Replay highlights system (kill streaks / boss kills recorded).
-- Guild war / GvG.
+**Files:**
+- `packages/client/src/ui/WorldMap.tsx` (extend the draw loop)
+- `packages/client/src/hooks/useQuests.ts` (already returns active quests)
+- read `MAPS.field.spawns` (`packages/shared/src/maps.ts`) for kill-quest
+  monster coords
+
+**Approach:**
+1. After drawing caves, loop over `quests.active`. For each active
+   `q.objective`:
+   - `kind === "kill"`: find all `MAPS.field.spawns.filter(s => s.kind === q.objective.monster)`. Draw a 🔴 dot at each. If the monster is in a cave, the cave is already visible — dot just inside.
+   - `kind === "collect"`: drop a single dot at the cave / area the item is known to come from (use MONSTER_DROPS reverse lookup or just skip).
+2. Show a thin connecting line from player → nearest objective dot, dashed pink (reuse waypoint dashed-line style).
+3. Add legend chip top-right: "🔴 เควสต์" toggle.
+
+**Acceptance:** Open M with "kill 5 slime" active → see ≥3 red dots on
+the map matching slime spawn coords; close M → minimap unaffected.
+
+---
+
+#### B. Treasure chests in caves  · ~2h · 🔥 high
+
+**Why:** Caves currently reward mob farming only. Chests give a tangible
+loot loop + a reason to push to the back of each cave.
+
+**Files:**
+- `packages/shared/src/schema.ts` — add `ChestSchema` (id, x, z, theme, opened, respawnAt)
+- `packages/shared/src/items.ts` — define cave loot tables per theme
+  (shadow → dark_crystal + zeny; frost → ice_shard + hp_potion; etc.)
+- `packages/server/src/services/` — new `ChestService.ts` (open + race-safe
+  via lastAttack-style timestamp, schedule respawn)
+- `packages/server/src/rooms/WorldRoom.ts` — onCreate spawns 2 chests per
+  cave (use `CAVES` coords from shared/biomes), `onMessage("openChest")`,
+  tick scheduler for respawn
+- `packages/client/src/scene/ChestModel.tsx` — new procedural mesh (wood
+  box + iron banding + lock; opened = lid rotated, glow)
+- wire into `Scene.tsx` like CompanionModel (subscribe to `state.chests`)
+
+**Approach:**
+1. ChestSchema: `id`, `x`, `z`, `theme: CaveTheme`, `openedBy: string`,
+   `respawnAt: number` (0 = available).
+2. Server: place 2 chests per cave at random offsets inside `r * 0.5`.
+   On `openChest({chestId})`: if not opened, mark openedBy = player.id,
+   set respawnAt = now + 5min, grant theme loot to player (use existing
+   `addToInventoryOrMail`), broadcast `chestOpened` for visual.
+3. Tick (every 1s): reset chests where now >= respawnAt.
+4. Client: chest mesh — closed (gold/wood) or opened (lid up, sparkle).
+   Click to send `openChest`.
+
+**Acceptance:** Walk into shadow_cave → see 2 closed chest meshes →
+click → loot popup appears, chest mesh opens → after 5min refresh, chest
+re-renders closed.
+
+---
+
+#### C. Recall stone item  · ~30m · medium
+
+**Why:** `/home` chat command works but is buried. A clickable consumable
+matches MMO convention and surfaces the feature.
+
+**Files:**
+- `packages/shared/src/items.ts` — add `recall_stone` consumable
+- `packages/server/src/services/Inventory.ts` — handle useItem for recall:
+  set p.pos.x/z near village (reuse `randomHomeCoord` from ChatCommands)
+  + apply 60s cooldown via `lastAttack` map
+- `packages/server/src/rooms/WorldRoom.ts` — already routes useItem
+
+**Approach:**
+1. ITEMS.recall_stone: { icon: "🪨", name: "หินอัญเชิญหมู่บ้าน",
+   stack: 5, consumable: true, recall: true }.
+2. Inventory.handleUseItem: when `def.recall === true`, check cooldown,
+   warp, remove 1 stack.
+3. Buy from Merchant Mira (500z) — add to her shop array.
+4. Quest reward for "first cave cleared" → 3 free recall stones.
+
+**Acceptance:** Buy from Mira → walk to wilderness cave → use stone →
+warp back to village within 1s.
+
+---
+
+#### D. Mount visible on map  · ~15m · low
+
+**Why:** Friends see your dot but can't tell you're mounted. Tiny polish.
+
+**Files:**
+- `packages/client/src/ui/Minimap.tsx` (the player loop)
+- `packages/client/src/ui/WorldMap.tsx` (same)
+
+**Approach:** In the player draw loop, check `p.mounted && p.petKind`.
+If true, render the kind's emoji (🐔 / 🐷 / 🐮) at the dot position
+instead of the circle.
+
+**Acceptance:** Mount a chicken → minimap shows 🐔 instead of green dot.
+
+---
+
+#### E. Boss respawn UI  · half-day · medium
+
+**Why:** `BossEventScheduler` runs every 600s but players don't know
+when. Cooldown UI lets parties coordinate.
+
+**Files:**
+- `packages/server/src/services/BossEvent.ts` — add `nextSpawnIn()` getter
+- `packages/server/src/rooms/WorldRoom.ts` — broadcast `bossTimer` every
+  5s while waiting
+- `packages/client/src/ui/BossBar.tsx` — already shows active boss HP;
+  extend to show countdown when no boss alive
+
+**Approach:**
+1. BossEventScheduler.nextSpawnIn(): returns max(0, BOSS_INTERVAL_S - acc)
+2. WorldRoom tick (every 5s): `broadcast("bossTimer", { secondsLeft })`
+   when scheduler.isActive() is false
+3. BossBar listens, shows "⚜ Dark Lord respawns in 4:23"
+
+**Acceptance:** Kill Dark Lord → wait 10s → bar shows "respawn in 9:50"
+counting down. When 0 → spawn → bar switches to HP display.
+
+---
+
+#### F. Cave-cleared achievements + key item  · half-day · medium
+
+**Why:** Caves have bosses but no long-term goal. Chain into a meta
+achievement that unlocks a unique reward (e.g. teleport-anywhere stone).
+
+**Files:**
+- `packages/shared/src/achievements.ts` — add 6 per-cave achievements +
+  1 "all caves cleared" meta
+- `packages/server/src/services/Achievements.ts` — detection on monster
+  death: if monster is a cave boss + inside that cave radius → unlock
+- `packages/server/src/rooms/WorldRoom.ts` — on monster kill, check
+  `caveAt(m.pos.x, m.pos.z)` and pass to Achievements
+
+**Approach:**
+1. ACHIEVEMENTS push: "cave_shadow_clear" through "cave_wilderness_clear"
+   (1pt each, 200z + cave-themed item), "cave_master" (all 6, gives
+   `warp_stone` key item that pins waypoint anywhere on map).
+2. Boss kinds per cave (from CAVES theme):
+   shadow: darklord (wilderness cave's mini), frost: snowman_giant,
+   desert: scorpion_lord, swamp: bog_witch, forest: orc (need a forest
+   boss or count by orc-count threshold), wilderness: darklord.
+3. On kill: if monster.kind matches the cave's boss + caveAt() matches,
+   bump cave's achievement counter.
+
+**Acceptance:** Kill scorpion_lord in desert cave → achievement toast
+"🏆 ถ้ำทะเลทราย conquered" + reward delivered. Clear all 6 → meta
+unlocks + special item in inventory.
+
+---
+
+#### G. Server `/metrics` dashboard  · half-day · low
+
+**Why:** `/health` returns JSON; humans want a page. No external deploy
+yet but useful for solo dev.
+
+**Files:**
+- `packages/server/src/index.ts` — new GET `/metrics`
+
+**Approach:** Inline HTML string with a `<script>` polling `/health`
+every 2s and rendering tick p50/p95/p99 + player count + memory as
+simple bars. No framework. Auth-gate behind `?token=` env-configured
+admin token to avoid public exposure.
+
+**Acceptance:** Visit `/metrics?token=ADMIN_TOKEN` → live page with bars.
+
+---
+
+#### H. Pulsing cave label  · ~15m · polish
+
+**Files:** `packages/client/src/scene/CaveZones.tsx` (CaveLabel function)
+
+**Approach:** Wrap sprite in `useFrame` → set `sprite.scale.x/y` via
+`base + Math.sin(clock.getElapsedTime() * 2) * 0.1`. Add per-frame
+opacity pulse 0.8-1.0.
+
+**Acceptance:** Label visibly pulses at ~2Hz from across the village.
+
+---
+
+#### I. Boss spawn toast (server-wide)  · ~30m · polish
+
+**Files:**
+- `packages/server/src/rooms/WorldRoom.ts` (boss spawn path already has
+  broadcast — already done partially)
+
+**Approach:** The current broadcast goes to "system" channel which lands
+in EventFeed. Promote Dark Lord spawn to a centered slide-down toast
+(reuse `LevelUpCelebration` styling). Add a new message type `bossSpawn`
+with `{ name, x, z }` and a client component showing it for 6s with
+"📍 View on Map" button.
+
+**Acceptance:** Boss spawn → all online players see a top-of-screen
+toast for 6s, click "View on Map" opens M centered on the cave.
+
+---
+
+#### J. Friend → cave nav  · ~30m · polish
+
+**Files:**
+- `packages/server/src/services/Friend.ts` (already returns
+  `{name, online}`; extend to include `currentCave` if any)
+- `packages/client/src/ui/FriendList.tsx` (show cave name + "Join" button)
+
+**Approach:**
+1. Friend service: on each list build, lookup the friend's player record
+   and call `caveAt(p.pos.x, p.pos.z)` → include caveId (or null).
+2. Client renders "🕳 ถ้ำเงา" badge next to online friend's name.
+   Button "📍 ไป" sets waypoint to that cave's coords.
+
+**Acceptance:** Friend walks into shadow cave → your FriendList shows
+"Bob · 🕳 ถ้ำเงา · [📍 ไป]" → click → minimap pulses pin at (-80,-60).
+
+---
+
+#### Genuinely huge (days, not next session)
+
+- **Multi-map seamless streaming** — chunk-based mesh streaming instead
+  of discrete `field` / `dungeon_*` maps. Probably means replacing
+  `state.mapId` with a single field-only design (all dungeons → caves
+  on field, which is half-done already).
+- **Replay highlights** — record key snapshots (kill streak ≥ 5, boss
+  kill) into prisma `ReplayHighlight` rows with serialized state diffs.
+  Playback panel renders from snapshot back-to-back.
+- **Guild war / GvG** — opt-in match between 2 guilds, dedicated room,
+  scoreboard. Probably needs a separate `arena` room type.
 
 ### Visual + close-out pass — 2026-05-24 (commits 871c644 → b613148)
 - **NPCs all looked identical** — built `npcAppearance(id)` (hash → distinct skin/hair/body) + `NpcRoleProps` (carpenter hammer+apron, blacksmith anvil, scholar scroll+glasses, merchant scale, tutor glowing wand, waypoint orb staff, guard shield+spear).
