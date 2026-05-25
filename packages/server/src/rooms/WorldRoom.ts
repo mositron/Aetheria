@@ -340,8 +340,14 @@ export class WorldRoom extends Room<WorldState> {
       }
     }
 
-    // Dev bots: spawn fake players for solo multiplayer testing
-    const botCount = Math.max(0, Math.min(8, parseInt(process.env.DEV_BOTS ?? "0", 10) || 0));
+    // Dev bots: spawn fake players for solo multiplayer testing.
+    // Hard-gated to non-production — DEV_BOTS in prod = log + ignore.
+    const isProd = process.env.NODE_ENV === "production";
+    const requestedBots = Math.max(0, Math.min(8, parseInt(process.env.DEV_BOTS ?? "0", 10) || 0));
+    if (isProd && requestedBots > 0) {
+      console.warn(`[room ${mapId}] DEV_BOTS=${requestedBots} ignored in production`);
+    }
+    const botCount = isProd ? 0 : requestedBots;
     if (botCount > 0 && mapId === "field") {
       for (let i = 0; i < botCount; i++) this.spawnBot(i);
       console.log(`[room ${mapId}] spawned ${botCount} dev bot(s)`);
