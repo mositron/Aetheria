@@ -77,6 +77,29 @@ cd packages/client && node smoketest.mjs
 
 Expect `[done] all smoke checks passed`. If schema changes, also run `pnpm db:push`.
 
+## Production deployment
+
+**Aetheria is Docker-prod-ready** as of 2026-05-25. The full stack runs locally
+via `docker compose up -d` (postgres + redis + server, all healthchecked) and a
+production VPS deploy is documented end-to-end.
+
+Key infra files (read before changing any of them):
+- `Dockerfile` — multi-stage, non-root, prisma migrate-deploy entrypoint. Alpine + `linux-musl-openssl-3.0.x` Prisma binaryTarget.
+- `docker-compose.yml` — **local** prod-like stack (1 server, internal postgres + redis, http on :2567).
+- `docker-compose.prod.yml` — **VPS** stack (Caddy 80/443 reverse proxy + auto-TLS + HTTP/3 → server :2567, image pulled from GHCR).
+- `Caddyfile` — TLS termination, WebSocket upgrade, HSTS.
+- `.github/workflows/docker-publish.yml` — tag `v*` push → multi-arch GHCR image.
+- `scripts/deploy.sh` — SSH + zero-downtime restart of server container only.
+- `scripts/backup-pg.sh` — daily pg_dump rotate-7 + optional rclone push.
+- `docs/DEPLOY.md` — 90-minute first-time VPS walkthrough (Hetzner CX22 recommended).
+- `docs/RUNBOOK.md` — daily ops, rollback, restore drill.
+
+**Schema is postgres** (not sqlite). Migration baseline lives in `packages/server/prisma/migrations/`. For local dev without docker, you'd need to either run a postgres locally or temporarily switch `schema.prisma` provider back to sqlite — but the canonical path is `docker compose up -d postgres`.
+
+**Vitest needs explicit dotenv loading** (it doesn't auto-load .env unlike Vite). `vitest.config.ts` walks both `packages/server/.env` and root `.env` — keep at least one of them in sync with the schema provider or Prisma will fail with "URL must start with postgresql://".
+
+**Required prod env vars:** `JWT_SECRET` (≥32 chars random, blocked dev defaults), `DATABASE_URL`, `POSTGRES_PASSWORD`, `ADMIN_TOKEN`, `ALLOWED_ORIGINS`, `ENFORCE_HTTPS=true`. Optional: `SENTRY_DSN`, `CAPTCHA_SECRET` + `VITE_CAPTCHA_SITE_KEY`, `REDIS_URL`.
+
 ## What the user is like
 
 - Excited about progress, wants forward momentum
@@ -108,11 +131,24 @@ What's actually built and in-game (don't re-implement):
 - Achievements (13) with titles + leaderboard contribution
 - Per-NPC visual variety (hash-derived appearance + role props) + dedicated boss models
 - Single-active-modal UI + responsive safe-zones for all viewport sizes
+- World map (`M`) with quest objective markers + dashed line to nearest, mount emoji, 6 themed caves
+- Treasure chests in caves (2/cave, themed loot, 5min respawn, race-safe)
+- Recall stone consumable (60s server cooldown + client greyscale countdown)
+- Cave-clear achievement chain (6 + meta `cave_master` → `warp_stone`)
+- Boss respawn countdown UI + server-wide boss spawn toast (Dark Lord + cave bosses)
+- Pulsing cave labels + twin entrance torches (warm flicker)
+- Friend list shows current cave + "📍 ไป" waypoint button
+- Mailbox unread badge on menu-bar 📬 icon (real-time push)
+- Item hotbar bound to keys 1-5 (shift+click consumable in Inventory to bind, right-click slot to clear, persists in localStorage)
+- Inventory search bar (filters by item name or itemId substring)
+- Damage number juice (CRIT! 2× scale, MISS uppercase shrunk, heal +leading)
+- Pet auto-pickup loot within 3m (skips gathered resources)
+- `/metrics` admin HTML dashboard (token-gated, polls /health every 2s)
 
 Genuinely still open:
-- Quest chains UI — `QuestDef.next` field exists, "→ next quest: X" not surfaced after turn-in
 - Companion system — UI panel + locale exists but Player schema has no `companionKind`
   field and no server summon handler. Either wire end-to-end or remove the dead UI.
+- Hotbar bind via mobile UI (right now needs keyboard shift+click — mobile users can press 1-5 if bound, but binding requires desktop).
 
 If asked to build any of these, refer to `docs/DEVELOPMENT.md` for the add-content patterns.
 

@@ -3,8 +3,8 @@
 > **Single source of truth สำหรับงานที่เหลือ.** อ่านไฟล์นี้ก่อนเริ่ม session ใหม่
 > เพื่อให้รู้ว่าสถานะอะไร, อยู่ที่ไหน, ทำอะไรต่อ.
 
-Last updated: 2026-05-25 (next-session ideas A–J all landed)
-Total commits to date: 70+
+Last updated: 2026-05-25 — Docker production stack complete + verified locally
+Total commits to date: 90+
 
 ---
 
@@ -13,17 +13,22 @@ Total commits to date: 70+
 | Area | Status |
 |---|---|
 | **Build** | ✅ Client + server build clean. PWA SW generated. |
-| **Tests** | ✅ 139 passing (server 120 + shared 19), 8 skipped (Redis/load-test gated). |
-| **TypeScript** | ✅ Zero errors across shared/server/client (TS7016 wave fixed via shared `.d.ts` emit). |
-| **CI** | ✅ GitHub Actions runs typecheck (all 3 packages) + tests + vite build. |
-| **Bundle** | ✅ Vendor-split: index.js 271kB + Three.js 687kB (cacheable) + lazy modal chunks |
-| **Services extracted** | ✅ 25+ — all domain services in `packages/server/src/services/`. |
-| **Active room** | `WorldRoom.ts` (~1896 lines). Old `GameRoom.ts` (2240 lines) **deleted** as dead code. |
-| **i18n** | ✅ Full string extraction across UI components — 60+ namespaces in `locales/en.ts` + `th.ts`. |
+| **Tests** | ✅ 180 passing (server) + 19 (shared) = 199 total, 4 skipped. |
+| **TypeScript** | ✅ Zero errors across shared/server/client. |
+| **CI** | ✅ GitHub Actions: typecheck + tests + vite build + multi-arch Docker → GHCR on `v*` tag. |
+| **Bundle** | ✅ Vendor-split: index.js 494kB + Three.js 687kB (cacheable) + lazy modal chunks |
+| **Services extracted** | ✅ 27 — all domain services in `packages/server/src/services/`. |
+| **Active room** | `WorldRoom.ts`. Old `GameRoom.ts` deleted as dead code. |
+| **i18n** | ✅ Full string extraction — 60+ namespaces in `locales/en.ts` + `th.ts`. |
 | **Mobile** | ✅ Responsive Login/CharacterSelect/CharacterCreator/HUD/TouchControls (portrait+landscape). |
-| **Movement** | ✅ Server+client collision (slide along obstacles), auto-jump on step-up, dynamic target switching. |
-| **Deployment** | Single-instance ready. Multi-instance via `REDIS_URL` opt-in. |
-| **PWA** | ✅ Installable (manifest + Workbox cache + auto-update). Production icons (72-512 + maskable) generated. |
+| **Movement** | ✅ Server+client collision (slide along obstacles), auto-jump, dynamic target switching. |
+| **Database** | ✅ **Postgres** (was sqlite). Re-baselined migration. Alpine `linux-musl-openssl-3.0.x` binaryTarget. |
+| **Deployment** | ✅ **Docker prod-ready.** Local stack verified. `docs/DEPLOY.md` for VPS, `docs/RUNBOOK.md` for ops. |
+| **TLS / proxy** | ✅ Caddy container (auto Let's Encrypt + HTTP/3 + WS upgrade) in `docker-compose.prod.yml`. |
+| **CI deploy** | ✅ `docker-publish.yml` → GHCR. `scripts/deploy.sh` for zero-downtime SSH rollout. |
+| **PWA** | ✅ Installable. Server serves client static when NODE_ENV=production (one-port deploy). |
+| **Auth hardening** | ✅ JWT_SECRET ≥32 chars + known-bad reject. No plaintext password storage. hCaptcha hooks (env-gated). |
+| **Backups** | ✅ `scripts/backup-pg.sh` — daily pg_dump rotate-7 + optional rclone to B2. |
 
 ---
 
@@ -464,6 +469,52 @@ e36b993 fix(P0): CORS strict whitelist + helmet + dual-rate-limit + HTTPS redire
 - Extracted `Waypoint` + `Season` services from WorldRoom (+8 tests).
 - Inventory.handlePickup now credits zeny currency drops directly to `p.zeny` (was failing to add a non-existent item).
 - Added Dockerfile (multi-stage) + docker-compose (postgres + redis + 2 server) + POSTGRES_MIGRATION.md.
+
+### Production-readiness pass — 2026-05-25 (16 tasks, 10 commits)
+
+**Cleanup (3):**
+- ChestService unit tests (+12, race-safe open + respawn + loot table coverage).
+- BossEvent.nextSpawnIn tests (+5).
+- vitest .env loading fixed (was the reason recovery.test.ts had 7 silent failures). Server suite went 156 → 180 passing.
+
+**Polish (3):**
+- Boss spawn toast extended to all cave bosses (snowman_giant, scorpion_lord, bog_witch, ice_giant, shadow_lord) via `BOSS_KINDS` set in Combat.ts.
+- Recall stone now sends `recallCooldown { until }` to client; new `useRecallCooldown` hook drives a per-slot greyscale + countdown overlay in Inventory + ItemHotbar.
+- Quest markers capped to nearest 5 spawns/quest in WorldMap (was dot soup for `kill 5 slime`).
+- Chest click-while-opened or out-of-range now gets a system toast instead of silent reject.
+
+**Polish — new UI:**
+- **Item hotbar bound to keys 1-5** (`ItemHotbar.tsx`, persisted in localStorage). Shift+click a consumable in Inventory to bind. Right-click slot to clear. Recall cooldown overlay shared.
+- **Inventory search bar** — substring match on name/itemId; bypasses the 200-slot grid view when actively searching.
+- **Damage number juice** — CRIT! prefix at 2.0× scale, MISS uppercase shrunk 0.85×, heal slightly larger with leading +.
+
+**Safety (7):**
+- Plaintext password storage removed from localStorage. Legacy `savedCreds` blob auto-wiped on mount. Username-only "remember me".
+- JWT_SECRET validator: prod refuses to start if missing / <32 chars / matches known dev defaults. `process.exit(1)` with helpful message.
+- hCaptcha (env-gated) on `/register`. Client lazy-loads widget when `VITE_CAPTCHA_SITE_KEY` set; server verifies if `CAPTCHA_SECRET` set. No-op locally.
+- CORS now `LAN regex + ALLOWED_ORIGINS env` (comma-separated). LAN dev unchanged.
+- Helmet CSP tuned for PWA: allow self/data:/blob:/ws:/wss:/inline scripts (Vite + WebGL shaders).
+- DEV_BOTS hard-gated to non-prod (logs + ignores in NODE_ENV=production).
+- Dead `debug-schema.ts` removed.
+
+**Infra (6):**
+- `docker-compose.prod.yml` + `Caddyfile` — Caddy 80/443 (+HTTP/3) → server :2567, postgres + redis healthchecked, all restart unless-stopped. Required secrets enforced via `${...:?msg}`.
+- `.github/workflows/docker-publish.yml` — multi-arch (amd64+arm64) GHCR push on tag `v*`. semver + latest tags + gha cache.
+- `scripts/deploy.sh` — SSH + compose pull + `--no-deps server` zero-downtime restart + health wait.
+- `scripts/backup-pg.sh` — pg_dump rotate-7 + optional rclone push.
+- `docs/DEPLOY.md` — 90min VPS walkthrough (Hetzner CX22 in Singapore recommended). SSH harden + Docker install + DNS + first deploy + cron.
+- `docs/RUNBOOK.md` — daily ops, rollback, restore drill, common-issue catalog.
+
+**Local Docker stack verified end-to-end:**
+- `docker compose up -d` → 3 containers healthy
+- POST /api/auth/register → JWT + row persisted in postgres
+- GET / → SPA index.html (Express serves client static)
+- GET /health + /metrics?token=... → JSON dashboards work
+- JWT_SECRET validator caught a too-short secret on first run (working as designed)
+
+**Awaits user action to go live:** domain ($10/yr), VPS ($4.50/mo Hetzner), DNS A record, tag `v0.1.0`, run DEPLOY.md.
+
+---
 
 ### Session pass — 2026-05-25 (shipped all 10 next-session items)
 - **A. Quest markers on World Map** — `WorldMap.tsx` draws pulsing 🔴 dots at every kill-quest spawn coord, dashed pink line player→nearest objective, legend toggle chip.
