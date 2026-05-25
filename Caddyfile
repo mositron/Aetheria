@@ -1,0 +1,41 @@
+# Caddy reverse proxy for Aetheria production.
+# Auto-provisions Let's Encrypt TLS for the domain in ${DOMAIN}.
+#
+# All traffic — HTTP API + WebSocket /matchmake (Colyseus) — goes to the
+# server container on internal port 2567. Caddy handles TLS termination,
+# WebSocket upgrade, gzip, and sets X-Forwarded-* headers so the server's
+# ENFORCE_HTTPS check sees proto=https correctly.
+
+{$DOMAIN} {
+	# Compress responses where it helps
+	encode gzip zstd
+
+	# Single upstream — HTTP + WS share the same port (Colyseus uses Express's HTTP server)
+	reverse_proxy server:2567 {
+		# Forward client info to Express
+		header_up Host {host}
+		header_up X-Real-IP {remote_host}
+		header_up X-Forwarded-For {remote_host}
+		header_up X-Forwarded-Proto {scheme}
+
+		# WebSocket upgrade headers — Caddy handles this automatically,
+		# but being explicit is safer if upstream gets fussy.
+		header_up Connection {http.request.header.Connection}
+		header_up Upgrade {http.request.header.Upgrade}
+	}
+
+	# Security headers (helmet on the app already sets most of these,
+	# but defense in depth doesn't hurt)
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		-Server
+	}
+
+	# Caddy logs to stdout — pick them up via `docker logs caddy`
+	log {
+		output stdout
+		format console
+	}
+}

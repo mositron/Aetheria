@@ -1,0 +1,88 @@
+# Production stack — what runs on the VPS.
+#   Differences from docker-compose.yml (local):
+#     - server is NOT published to host (Caddy fronts it)
+#     - Caddy container handles TLS + reverse proxy + WS upgrade
+#     - server image pulled from GHCR (set TAG=vX.Y.Z to pin)
+#     - ENFORCE_HTTPS=true (Caddy sets x-forwarded-proto)
+#
+# Usage on VPS:
+#   export DOMAIN=aetheria.example.com TAG=latest
+#   docker compose -f docker-compose.prod.yml up -d
+#
+# .env file (read by compose automatically) should define:
+#   DOMAIN, POSTGRES_PASSWORD, JWT_SECRET, ADMIN_TOKEN,
+#   ALLOWED_ORIGINS, optionally SENTRY_DSN, CAPTCHA_SECRET
+
+services:
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"   # HTTP/3
+    environment:
+      DOMAIN: ${DOMAIN}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      server:
+        condition: service_healthy
+
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: aetheria
+      POSTGRES_USER: aetheria
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD required}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U aetheria -d aetheria"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  server:
+    # Pull from GHCR — built by .github/workflows/docker-publish.yml on tag push.
+    image: ghcr.io/${GHCR_OWNER:-mositron}/aetheria-server:${TAG:-latest}
+    restart: unless-stopped
+    expose:
+      - "2567"
+    environment:
+      NODE_ENV: production
+      PORT: 2567
+      ENFORCE_HTTPS: "true"
+      DATABASE_URL: postgresql://aetheria:${POSTGRES_PASSWORD}@postgres:5432/aetheria?schema=public
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET required (>=32 chars random)}
+      ADMIN_TOKEN: ${ADMIN_TOKEN:?ADMIN_TOKEN required}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS}
+      SENTRY_DSN: ${SENTRY_DSN:-}
+      CAPTCHA_SECRET: ${CAPTCHA_SECRET:-}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
+  redis_data:
+  caddy_data:
+  caddy_config:
