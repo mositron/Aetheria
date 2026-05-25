@@ -3,7 +3,7 @@
  * Handles PvP attack and monster AI tick logic.
  */
 import {
-  Player, Monster, MonsterKind, MONSTERS, GAME_CONFIG,
+  Player, Monster, MonsterKind, MONSTERS, GAME_CONFIG, HOUSE_SLOTS,
 } from "@game/shared";
 import { estimateHeight, clamp } from "./MovementService.js";
 
@@ -14,8 +14,27 @@ export class CombatService {
     private callbacks: {
       broadcast: (type: string, data: any) => void;
       sendToSid?: (sid: string, type: string, data: any) => void;
+      /** Room clock so respawn timeouts pause correctly with simulationInterval. */
+      clock?: { setTimeout: (cb: () => void, ms: number) => any };
     }
   ) {}
+
+  /** Schedule a respawn after GAME_CONFIG.RESPAWN_MS. Mirrors the status-
+   *  effect death path in Combat.ts so any kill path produces a respawn. */
+  private scheduleRespawn(sid: string) {
+    const fire = () => {
+      const pp = this.state.players.get(sid);
+      if (!pp) return;
+      pp.hp = pp.maxHp; pp.dead = false;
+      if (pp.houseSlot >= 0 && pp.houseSlot < HOUSE_SLOTS.length) {
+        const h = HOUSE_SLOTS[pp.houseSlot];
+        pp.pos.x = h.x; pp.pos.z = h.z;
+      } else { pp.pos.x = 0; pp.pos.z = 0; }
+      pp.statuses.clear();
+    };
+    if (this.callbacks.clock) this.callbacks.clock.setTimeout(fire, GAME_CONFIG.RESPAWN_MS);
+    else setTimeout(fire, GAME_CONFIG.RESPAWN_MS);
+  }
 
   // ---------- PvP attack ----------
 
@@ -137,7 +156,7 @@ export class CombatService {
             const dmg = Math.max(1, Math.floor((def.atk - nearest.def) * nightMult));
             nearest.hp = Math.max(0, nearest.hp - dmg);
             this.callbacks.broadcast("damage", { targetId: nearest.id, amount: dmg, from: m.id });
-            if (nearest.hp === 0) {
+            if (nearest.hp === 0 && !nearest.dead) {
               nearest.dead = true;
               // Death recap: notify the dying player so client can show killer name.
               // hit.entity.sid is the player's Colyseus session id (lookup target).
@@ -146,6 +165,7 @@ export class CombatService {
                   killer: def.name ?? m.kind,
                   killerKind: "monster",
                 });
+                this.scheduleRespawn(hit.entity.sid);
               }
             }
           }

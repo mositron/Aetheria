@@ -189,6 +189,7 @@ export class WorldRoom extends Room<WorldState> {
           const c = this.clients.find((cc) => cc.sessionId === sid);
           c?.send(type as any, data);
         },
+        clock: this.clock,
       }
     );
 
