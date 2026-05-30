@@ -235,6 +235,14 @@ describe("Guild service", () => {
         delete: vi.fn(),
         update: vi.fn(),
       },
+      // Support both array-of-promises and callback forms of $transaction.
+      // Guild.leave() now uses the callback form to serialize read+write under
+      // a real DB lock; the mock just runs the callback inline with the same
+      // client object.
+      $transaction: vi.fn(async (arg: any) => {
+        if (typeof arg === "function") return arg(mockPrisma);
+        return Promise.all(arg);
+      }),
     };
   });
 
@@ -342,9 +350,9 @@ describe("Guild service", () => {
       mockPrisma.character.findUnique.mockResolvedValue(char);
       (mockPrisma.guild.findUnique as any).mockResolvedValue(guild);
       mockPrisma.character.update.mockResolvedValue({});
-      mockPrisma.$transaction = vi.fn().mockImplementation(async (ops) => {
-        const results = await Promise.all(ops);
-        return results;
+      mockPrisma.$transaction = vi.fn().mockImplementation(async (arg: any) => {
+        if (typeof arg === "function") return arg(mockPrisma);
+        return Promise.all(arg);
       });
 
       const guildSvc = new Guild(mockPrisma);
@@ -373,10 +381,9 @@ describe("Guild service", () => {
         return null;
       });
       mockPrisma.character.update.mockResolvedValue({});
-      mockPrisma.$transaction = vi.fn().mockImplementation(async (ops) => {
-        // Prisma $transaction with array runs all ops and returns array of results
-        const results = await Promise.all(ops);
-        return results;
+      mockPrisma.$transaction = vi.fn().mockImplementation(async (arg: any) => {
+        if (typeof arg === "function") return arg(mockPrisma);
+        return Promise.all(arg);
       });
 
       const guildSvc = new Guild(mockPrisma);

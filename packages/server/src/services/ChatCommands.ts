@@ -19,6 +19,9 @@ export type ChatEffect =
   | { kind: "warpHome" }
   | { kind: "listOnline" }
   | { kind: "whisper"; to: string; body: string }
+  | { kind: "block"; name: string }
+  | { kind: "unblock"; name: string }
+  | { kind: "blocklist" }
   | { kind: "help"; text: string };
 
 export function parseCommand(text: string): ChatCommand | null {
@@ -32,8 +35,16 @@ export function routeCommand(c: ChatCommand): ChatEffect | null {
     case "help":
       return {
         kind: "help",
-        text: "📜 คำสั่ง: /help · /w ชื่อ ข้อความ · /pvp · /home · /who",
+        text: "📜 คำสั่ง: /help · /w ชื่อ ข้อความ · /pvp · /home · /who · /block ชื่อ · /unblock ชื่อ · /blocklist",
       };
+    case "block":
+      if (c.args.length < 1) return null;
+      return { kind: "block", name: c.args[0] };
+    case "unblock":
+      if (c.args.length < 1) return null;
+      return { kind: "unblock", name: c.args[0] };
+    case "blocklist":
+      return { kind: "blocklist" };
     case "pvp":
       return { kind: "togglePvp" };
     case "home":

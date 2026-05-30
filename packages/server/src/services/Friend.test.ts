@@ -20,6 +20,7 @@ function mockPrisma(initial: Record<string, { id: string; name: string; friendsJ
         return row;
       },
     },
+    async $transaction(ops: any[]) { return Promise.all(ops); },
   } as any;
 }
 

@@ -148,9 +148,27 @@ export class DailyChallenge {
       this.state.set(sid, s);
     }
     if (playerLevel >= 30) {
-      // Return cached challenges for today if already generated
+      // Return cached challenges for today if already generated. Re-validate
+      // each cached entry against the current ENDLESS_CHALLENGES definitions:
+      // if a definition was rebalanced or removed in a server redeploy mid-day,
+      // refresh target/reward in-place (and prune missing ones) so progress is
+      // measured against the live numbers — not numbers frozen at the moment
+      // the player first opened the panel today.
       if (s.endlessChallenges && s.endlessChallenges.length > 0) {
-        return s.endlessChallenges;
+        const refreshed = s.endlessChallenges.flatMap((ch) => {
+          const def = ENDLESS_CHALLENGES.find((d) => d.id === ch.id);
+          if (!def) return [];
+          return [{
+            ...ch,
+            type: def.type,
+            desc: def.desc,
+            target: def.target,
+            reward: def.reward,
+            completed: ch.progress >= def.target,
+          }];
+        });
+        s.endlessChallenges = refreshed;
+        return refreshed;
       }
       // Pick 3 random unique challenges from the pool
       const shuffled = [...ENDLESS_CHALLENGES].sort(() => Math.random() - 0.5);

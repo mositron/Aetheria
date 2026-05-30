@@ -36,10 +36,16 @@ export class Party {
    * Accept an invite. Returns the change so caller can broadcast.
    * Validates the inviter is still the one who issued the most recent invite.
    */
-  accept(toSid: PartySid, fromSid: PartySid): PartyChange {
+  accept(toSid: PartySid, fromSid: PartySid, isInviterAlive?: (sid: PartySid) => boolean): PartyChange {
     const pending = this.invites.get(toSid);
     if (!pending || pending !== fromSid) return { kind: "noop" };
     this.invites.delete(toSid);
+
+    // Refuse the accept if the inviter is no longer connected. Without this,
+    // a race between inviter-disconnect (which clears bySid via leave()) and
+    // an in-flight accept would create a brand-new party containing only the
+    // ghost inviter + the accepter — confusing both clients.
+    if (isInviterAlive && !isInviterAlive(fromSid)) return { kind: "noop" };
 
     let pid = this.bySid.get(fromSid);
     if (!pid) {
@@ -152,7 +158,7 @@ export function registerPartyHandlers(deps: {
         if (p?.id === msg?.fromId) { inviterSid = c.sessionId; break; }
       }
       if (!inviterSid) return;
-      const change = partySvc.accept(sid, inviterSid);
+      const change = partySvc.accept(sid, inviterSid, (s) => state.players.has(s));
       if (change.kind === "joined") broadcastPartyUpdate(change.pid);
     },
 

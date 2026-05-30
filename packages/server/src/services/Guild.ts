@@ -93,36 +93,36 @@ export class Guild {
 
   async leave(charId: string, ownName: string): Promise<LeaveResult> {
     try {
-      const c = await this.prisma.character.findUnique({ where: { id: charId } });
-      if (!c) return { ok: false, reason: "error" };
-      const gid = (c as any).guildId;
-      if (!gid) return { ok: false, reason: "no-guild" };
-      const g = await (this.prisma as any).guild.findUnique({ where: { id: gid } });
-      if (!g) {
-        // Stale reference — guild was deleted. Just clear our pointer.
-        await this.prisma.character.update({ where: { id: charId }, data: { guildId: "" } as any });
-        return { ok: true };
-      }
-      const members = this.parseMembers(g.membersJson);
-      const next = members.filter((n) => n !== ownName);
-      if (next.length === 0) {
-        // Last member — disband entirely
-        await this.prisma.$transaction([
-          (this.prisma as any).guild.delete({ where: { id: gid } }),
-          this.prisma.character.update({ where: { id: charId }, data: { guildId: "" } as any }),
-        ]);
-      } else {
-        // Transfer leader if needed; clear my guildId
-        const newLeader = g.leaderName === ownName ? next[0] : g.leaderName;
-        await this.prisma.$transaction([
-          (this.prisma as any).guild.update({
+      // Run the entire read-compute-write as one interactive $transaction so
+      // two simultaneous leave()s on the same guild serialize. Without this,
+      // both invocations could read the same stale member list and the second
+      // write would overwrite the first — double-promoting a new leader or
+      // leaving the member-list out of sync with leaderName.
+      return await this.prisma.$transaction(async (tx): Promise<LeaveResult> => {
+        const c = await tx.character.findUnique({ where: { id: charId } });
+        if (!c) return { ok: false, reason: "error" };
+        const gid = (c as any).guildId;
+        if (!gid) return { ok: false, reason: "no-guild" };
+        const g = await (tx as any).guild.findUnique({ where: { id: gid } });
+        if (!g) {
+          await tx.character.update({ where: { id: charId }, data: { guildId: "" } as any });
+          return { ok: true };
+        }
+        const members = this.parseMembers(g.membersJson);
+        const next = members.filter((n) => n !== ownName);
+        if (next.length === 0) {
+          await (tx as any).guild.delete({ where: { id: gid } });
+          await tx.character.update({ where: { id: charId }, data: { guildId: "" } as any });
+        } else {
+          const newLeader = g.leaderName === ownName ? next[0] : g.leaderName;
+          await (tx as any).guild.update({
             where: { id: gid },
             data: { membersJson: JSON.stringify(next), leaderName: newLeader },
-          }),
-          this.prisma.character.update({ where: { id: charId }, data: { guildId: "" } as any }),
-        ]);
-      }
-      return { ok: true };
+          });
+          await tx.character.update({ where: { id: charId }, data: { guildId: "" } as any });
+        }
+        return { ok: true };
+      });
     } catch (e) {
       console.error("[guild.leave]", e);
       return { ok: false, reason: "error" };

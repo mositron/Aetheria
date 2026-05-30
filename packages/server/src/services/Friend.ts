@@ -49,13 +49,19 @@ export class Friend {
       if (!c) return { ok: false, reason: "error" };
       const friends = this.parseFriends((c as any).friendsJson);
       if (friends.length >= MAX_FRIENDS) return { ok: false, reason: "full" };
-      if (!friends.includes(name)) {
-        friends.push(name);
-        await this.prisma.character.update({
-          where: { id: charId },
-          data: { friendsJson: JSON.stringify(friends) } as any,
-        });
+      const targetFriends = this.parseFriends((target as any).friendsJson);
+      // Bidirectional friendship: mirror the entry on the target's list too.
+      // Wrap both writes in a transaction so a half-updated pair cannot remain
+      // if one update fails.
+      const myUpdate = friends.includes(name) ? null : { friendsJson: JSON.stringify([...friends, name]) };
+      const theirUpdate = targetFriends.includes(ownName) ? null : { friendsJson: JSON.stringify([...targetFriends, ownName]) };
+      if (myUpdate || theirUpdate) {
+        await this.prisma.$transaction([
+          ...(myUpdate ? [this.prisma.character.update({ where: { id: charId }, data: myUpdate as any })] : []),
+          ...(theirUpdate ? [this.prisma.character.update({ where: { id: (target as any).id }, data: theirUpdate as any })] : []),
+        ]);
       }
+      if (!friends.includes(name)) friends.push(name);
       return { ok: true, friends };
     } catch (e) {
       console.error("[friend.add]", e);
@@ -68,10 +74,15 @@ export class Friend {
       const c = await this.prisma.character.findUnique({ where: { id: charId } });
       if (!c) return { ok: false, reason: "error" };
       const friends = this.parseFriends((c as any).friendsJson).filter((n) => n !== targetName);
-      await this.prisma.character.update({
-        where: { id: charId },
-        data: { friendsJson: JSON.stringify(friends) } as any,
-      });
+      // Mirror the removal on the target's friend list. Best-effort: if the
+      // target row doesn't exist (deleted character) we still clear our side.
+      const ownName = (c as any).name as string;
+      const target = await this.prisma.character.findUnique({ where: { name: targetName } });
+      const targetFriends = target ? this.parseFriends((target as any).friendsJson).filter((n) => n !== ownName) : null;
+      await this.prisma.$transaction([
+        this.prisma.character.update({ where: { id: charId }, data: { friendsJson: JSON.stringify(friends) } as any }),
+        ...(target && targetFriends ? [this.prisma.character.update({ where: { id: (target as any).id }, data: { friendsJson: JSON.stringify(targetFriends) } as any })] : []),
+      ]);
       return { ok: true, friends };
     } catch (e) {
       console.error("[friend.remove]", e);
