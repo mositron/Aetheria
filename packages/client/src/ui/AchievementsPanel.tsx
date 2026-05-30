@@ -46,8 +46,10 @@ export function AchievementsPanel({ room }: { room: Room<WorldState> }) {
         }
       }
     };
-    room.onMessage("system", handler);
-    return () => { room.onMessage("system", handler); };
+    // Capture the unsubscribe callback Colyseus returns — calling onMessage
+    // again would REGISTER a second handler instead of removing the first.
+    const off = room.onMessage("system", handler);
+    return () => { off?.(); };
   }, [room]);
 
   if (!open) return null;

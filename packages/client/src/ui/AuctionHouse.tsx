@@ -1,7 +1,7 @@
 // Auction House — list/browse/buy items between players.
 // Opens via toggle-auction event from MenuBar.
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { Room } from "colyseus.js";
 import FocusTrap from "focus-trap-react";
 import { ITEMS, type Player, type WorldState } from "@game/shared";
@@ -19,13 +19,17 @@ export function AuctionHouse({ room }: { room: Room<WorldState> }) {
   const [listings, setListings] = useState<Listing[]>([]);
   const [search, setSearch] = useState("");
   const [busyBuy, setBusyBuy] = useState(false);
+  // Synchronous re-entry guard. setBusyBuy(true) doesn't take effect until the
+  // next render, so a quick second click before re-render slips past the
+  // `disabled` attribute and the `busyBuy` JSX check.
+  const busyBuyRef = useRef(false);
 
   useEffect(() => {
     const onToggle = () => setOpen((o) => !o);
     window.addEventListener("toggle-auction", onToggle);
     const offBrowse = room.onMessage("auction:browse" as any, (m: any) => setListings(m.listings ?? []));
-    const offBuyOk = room.onMessage("auction:buy:ok" as any, () => setBusyBuy(false));
-    const offBuyErr = room.onMessage("auction:buy:err" as any, () => setBusyBuy(false));
+    const offBuyOk = room.onMessage("auction:buy:ok" as any, () => { busyBuyRef.current = false; setBusyBuy(false); });
+    const offBuyErr = room.onMessage("auction:buy:err" as any, () => { busyBuyRef.current = false; setBusyBuy(false); });
     return () => {
       window.removeEventListener("toggle-auction", onToggle);
       offBrowse?.();
@@ -44,7 +48,7 @@ export function AuctionHouse({ room }: { room: Room<WorldState> }) {
     <FocusTrap focusTrapOptions={{ allowOutsideClick: true }}>
 <div data-no-screen-joy role="dialog" aria-modal="true" className="absolute inset-0 z-40 flex items-center justify-center bg-black/65 backdrop-blur-sm py-12 px-4" onClick={() => setOpen(false)}>
       <div className="w-[28rem] max-w-[94vw]" onClick={(e) => e.stopPropagation()}>
-        <GameFrame title="🏛 {t('auction.title')}">
+        <GameFrame title={`🏛 ${t('auction.title')}`}>
           <button onClick={() => setOpen(false)} aria-label={t('common.close')} className="absolute -top-3 -right-3 w-8 h-8 rounded-full bg-rose-700 hover:bg-rose-600 border-2 border-rose-300 text-white font-bold z-10">✕</button>
 
           <div className="flex gap-1 mb-2">
@@ -84,7 +88,13 @@ export function AuctionHouse({ room }: { room: Room<WorldState> }) {
                           >{t('auction.cancel')}</button>
                         ) : (
                           <button
-                            onClick={() => { if (confirm(t('auction.buyConfirm', { item: def?.name, qty: l.qty, price: total }))) { setBusyBuy(true); room.send("auction:buy" as any, { id: l.id }); } }}
+                            onClick={() => {
+                              if (busyBuyRef.current) return;
+                              if (!confirm(t('auction.buyConfirm', { item: def?.name, qty: l.qty, price: total }))) return;
+                              busyBuyRef.current = true;
+                              setBusyBuy(true);
+                              room.send("auction:buy" as any, { id: l.id });
+                            }}
                             disabled={busyBuy || (me?.zeny ?? 0) < total}
                             className="bg-emerald-700 hover:bg-emerald-600 disabled:bg-slate-700 disabled:text-slate-500 rounded px-2 py-0.5 text-[10px] font-bold text-white mt-0.5"
                           >{busyBuy ? "..." : `💰 ${t('auction.buy')}`}</button>

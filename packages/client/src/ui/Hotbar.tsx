@@ -26,6 +26,15 @@ export function Hotbar({ room }: { room: Room<WorldState> }) {
 
   const me: Player | undefined = room.state.players.get(room.sessionId);
   const job = me ? JOBS[me.job as JobId] : null;
+  const jobId = me?.job;
+
+  // Reset cooldown tracker when the player advances/changes class. Without
+  // this, a same-id skill across two jobs (e.g. Swordsman bash @1500ms vs
+  // Knight bash @700ms) would inherit the previous job's last-cast timestamp
+  // and show a phantom cooldown.
+  useEffect(() => {
+    lastCastRef.current.clear();
+  }, [jobId]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {

@@ -29,8 +29,8 @@ export function JobAdvancement({ room }: { room: Room<WorldState> }) {
         }
       }
     };
-    room.onMessage("levelup" as any, onLevel);
-    return () => {};
+    const off = room.onMessage("levelup" as any, onLevel);
+    return () => { off?.(); };
   }, [room]);
 
   if (!open) return null;

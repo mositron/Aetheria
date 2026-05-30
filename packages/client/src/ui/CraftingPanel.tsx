@@ -40,12 +40,29 @@ export function CraftingPanel({ room }: { room: Room<WorldState> }) {
   const [benchIdx, setBenchIdx] = useState(0);
   const [tab, setTab] = useState<Tab>("craft");
   const [, setTick] = useState(0);
+  // Track recipes the server told us were discovered this session. Layered
+  // over RECIPES[i].discovered so we don't need to round-trip the shared
+  // module's mutation back to the client.
+  const [discoveredOverlay, setDiscoveredOverlay] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     const onToggle = () => setOpen((o) => !o);
     window.addEventListener("toggle-craft", onToggle);
-    return () => window.removeEventListener("toggle-craft", onToggle);
-  }, []);
+    const offDiscover = room.onMessage("recipe:discovered" as any, (m: any) => {
+      const id = String(m?.recipeId ?? "");
+      if (!id) return;
+      setDiscoveredOverlay((prev) => {
+        if (prev.has(id)) return prev;
+        const next = new Set(prev);
+        next.add(id);
+        return next;
+      });
+    });
+    return () => {
+      window.removeEventListener("toggle-craft", onToggle);
+      offDiscover?.();
+    };
+  }, [room]);
 
   useEffect(() => {
     if (!open) return;
@@ -74,8 +91,9 @@ export function CraftingPanel({ room }: { room: Room<WorldState> }) {
 
   const bench = CRAFTING_BENCHES[benchIdx];
   const benchBonus = bench?.qualityBonus ?? 0;
-  const filtered = RECIPES.filter((r) => r.category === cat && r.discovered);
-  const researchRecipes = RECIPES.filter((r) => !r.discovered && r.discoveryMethod === "research");
+  const isDiscovered = (r: Recipe) => r.discovered || discoveredOverlay.has(r.id);
+  const filtered = RECIPES.filter((r) => r.category === cat && isDiscovered(r));
+  const researchRecipes = RECIPES.filter((r) => !isDiscovered(r) && r.discoveryMethod === "research");
   const playerUnlocked: string[] = [];
   let skillPoints = 0;
   try { skillPoints = (me as any).skillPoints ?? 0; } catch {}

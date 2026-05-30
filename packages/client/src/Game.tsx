@@ -288,16 +288,27 @@ return (
         <WorldLobby
           onJoin={async (worldId: string, inviteCode: string) => {
             setShowWorldLobby(false);
+            // Wrap joinOrCreate calls so a rejected promise (network, auth,
+            // character-already-playing) reopens the lobby with feedback
+            // instead of leaving the user staring at an empty screen.
+            const join = (id: string) =>
+              clientRef.current?.joinOrCreate("world", { worldId: id, token, characterId })
+                .catch((e: unknown) => {
+                  console.error("[joinOrCreate] failed", e);
+                  setShowWorldLobby(true);
+                });
             if (inviteCode && !worldId) {
-              // Resolve invite code first
               try {
                 const res = await fetch(`/api/worlds/by-code/${inviteCode}`);
-                if (!res.ok) { console.error("invalid invite code"); return; }
+                if (!res.ok) { console.error("invalid invite code"); setShowWorldLobby(true); return; }
                 const data = await res.json();
-                clientRef.current?.joinOrCreate("world", { worldId: data.worldId, token, characterId });
-              } catch (e) { console.error("resolve code failed", e); }
+                await join(data.worldId);
+              } catch (e) {
+                console.error("resolve code failed", e);
+                setShowWorldLobby(true);
+              }
             } else if (worldId) {
-              clientRef.current?.joinOrCreate("world", { worldId, token, characterId });
+              await join(worldId);
             }
           }}
           onClose={() => setShowWorldLobby(false)}

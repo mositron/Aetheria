@@ -30,7 +30,13 @@ export function Chat({ room }: { room: Room<WorldState> }) {
   }, [open]);
 
   useEffect(() => {
-    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight });
+    const el = scrollRef.current;
+    if (!el) return;
+    // Only auto-scroll if the user is already near the bottom. If they've
+    // scrolled up to read history, leave their position alone — otherwise
+    // every incoming message yanks them away from what they're reading.
+    const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+    if (nearBottom) el.scrollTo({ top: el.scrollHeight });
   }, [chat.length]);
 
   function send(e: React.FormEvent) {
@@ -66,6 +72,7 @@ export function Chat({ room }: { room: Room<WorldState> }) {
       <div className="pointer-events-auto">
         {/* Always-visible translucent chat panel — shows recent msgs or a hint. */}
         <div
+          ref={scrollRef}
           className="rounded-xl px-2 py-1.5 mb-1 text-[11px] space-y-0.5 max-h-32 overflow-y-auto game-scroll backdrop-blur-sm"
           style={{
             background: "rgba(0, 0, 0, 0.22)",
@@ -76,7 +83,10 @@ export function Chat({ room }: { room: Room<WorldState> }) {
         >
           {recent.length > 0 ? (
             recent.map((m, i) => (
-              <div key={i} className="truncate"><span className="text-amber-300 font-semibold">{m.from}:</span> <span className="text-white/90">{m.text}</span></div>
+              // Keying by (ts, from) survives the chat[]-truncated-to-50 rotation
+              // in the store. Pure index would alias old/new rows after rollover
+              // and trick React into reusing the wrong DOM node.
+              <div key={`${m.ts}-${m.from}-${i}`} className="truncate"><span className="text-amber-300 font-semibold">{m.from}:</span> <span className="text-white/90">{m.text}</span></div>
             ))
           ) : (
             <div className="text-white/45 italic text-[10px]">{t("chat.noMessages")}</div>
