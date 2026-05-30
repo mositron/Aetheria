@@ -1,6 +1,7 @@
 import { Router } from "express";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
+import { randomBytes } from "crypto";
 import { prisma } from "./db.js";
 import { GAME_CONFIG, JOBS, type JobId } from "@game/shared";
 import { logger } from "./logger.js";
@@ -46,6 +47,9 @@ const MAX_CHARACTERS_PER_USER = 3;
 const DUMMY_HASH = "$2a$10$abcdefghijklmnopqrstuv1234567890abcdefghijklmnopqrstuv";
 
 // ── Redis presence ─────────────────────────────────────────────────────────
+// In prod (NODE_ENV=production) Redis is REQUIRED for refresh-token storage
+// and revocation. Without it, /refresh would accept any token forever and
+// logout/password-reset could not invalidate sessions.
 async function getRedis() {
   if (!process.env.REDIS_URL) return null;
   try {
@@ -54,28 +58,75 @@ async function getRedis() {
   } catch { return null; }
 }
 
-// ── Refresh token helpers ───────────────────────────────────────────────────
-async function storeRefreshToken(uid: string, token: string): Promise<void> {
-  const redis = await getRedis();
-  if (!redis) return;
-  await redis.setex(`refresh:${uid}:${token}`, REFRESH_TTL_SECS, "1");
+const IS_PROD = process.env.NODE_ENV === "production";
+if (IS_PROD && !process.env.REDIS_URL) {
+  console.error("[FATAL] REDIS_URL is required in production for refresh-token storage and revocation");
+  process.exit(1);
+}
+if (IS_PROD && !process.env.CAPTCHA_SECRET) {
+  // Don't crash — let operators run a closed-registration prod if they want.
+  // But log loudly so they don't deploy by accident with captcha bypassed.
+  console.error("[WARN] CAPTCHA_SECRET unset in production — /register will fail-closed");
+}
+if (IS_PROD && !process.env.ADMIN_USER_IDS) {
+  console.error("[WARN] ADMIN_USER_IDS unset — /api/admin/audit will be disabled");
 }
 
-async function revokeRefreshToken(uid: string, token: string): Promise<void> {
+// ── Refresh token helpers ───────────────────────────────────────────────────
+// Key by token alone: `refresh:<token>` → uid. This lets /refresh look up the
+// owning uid from the token (instead of trusting client-supplied uid), and
+// makes revocation single-call. Per-user enumeration uses `refresh-user:<uid>`
+// SET of tokens.
+async function storeRefreshToken(uid: string, token: string): Promise<void> {
   const redis = await getRedis();
-  if (!redis) return;
-  await redis.del(`refresh:${uid}:${token}`);
+  if (!redis) {
+    if (IS_PROD) throw new Error("Redis unavailable; refresh-token storage failed");
+    return;
+  }
+  await redis.setex(`refresh:${token}`, REFRESH_TTL_SECS, uid);
+  await redis.sadd(`refresh-user:${uid}`, token);
+  await redis.expire(`refresh-user:${uid}`, REFRESH_TTL_SECS);
+}
+
+async function lookupRefreshToken(token: string): Promise<string | null> {
+  const redis = await getRedis();
+  if (!redis) {
+    if (IS_PROD) throw new Error("Redis unavailable; refresh-token lookup failed");
+    return null;
+  }
+  const uid = await redis.get(`refresh:${token}`);
+  return uid ?? null;
+}
+
+async function revokeRefreshToken(token: string): Promise<void> {
+  const redis = await getRedis();
+  if (!redis) {
+    if (IS_PROD) throw new Error("Redis unavailable; refresh-token revoke failed");
+    return;
+  }
+  const uid = await redis.get(`refresh:${token}`);
+  await redis.del(`refresh:${token}`);
+  if (uid) await redis.srem(`refresh-user:${uid}`, token);
 }
 
 async function revokeAllRefreshTokens(uid: string): Promise<void> {
   const redis = await getRedis();
-  if (!redis) return;
-  const keys = await redis.keys(`refresh:${uid}:*`);
-  if (keys.length) await redis.del(...keys);
+  if (!redis) {
+    if (IS_PROD) throw new Error("Redis unavailable; refresh-token revoke-all failed");
+    return;
+  }
+  const tokens: string[] = await redis.smembers(`refresh-user:${uid}`);
+  if (tokens.length) {
+    const keys = tokens.map((t) => `refresh:${t}`);
+    await redis.del(...keys);
+  }
+  await redis.del(`refresh-user:${uid}`);
 }
 
 function generateRefreshToken(): string {
-  return Array.from({ length: 32 }, () => Math.floor(Math.random() * 16).toString(16)).join("");
+  // 32 bytes = 256 bits of CSPRNG entropy. Math.random() is NOT acceptable
+  // for any security-sensitive token.
+  return randomBytes(32).toString("hex");
 }
 
 export const authRouter = Router();
@@ -103,7 +154,11 @@ function summarizeCharacter(c: any) {
 
 async function verifyCaptcha(token: string | undefined, ip: string): Promise<boolean> {
   const secret = process.env.CAPTCHA_SECRET;
-  if (!secret) return true; // captcha disabled in this environment
+  if (!secret) {
+    // In prod, missing CAPTCHA_SECRET means abuse vector — fail closed.
+    if (IS_PROD) return false;
+    return true; // dev/test convenience only
+  }
   if (!token || typeof token !== "string") return false;
   try {
     const body = new URLSearchParams({ secret, response: token, remoteip: ip });
@@ -195,25 +250,34 @@ function authMiddleware(req: any, res: any, next: any) {
 }
 
 authRouter.post("/refresh", async (req, res) => {
-  const { uid, refreshToken } = req.body ?? {};
-  if (typeof uid !== "string" || typeof refreshToken !== "string") {
+  // Trust the refresh token, NOT the client-supplied uid. Redis maps token → uid
+  // so we can look up the real owner. This prevents an attacker who steals one
+  // refresh token from minting access tokens for arbitrary user IDs.
+  const { refreshToken } = req.body ?? {};
+  if (typeof refreshToken !== "string" || refreshToken.length < 32) {
     return res.status(400).json({ error: "invalid body" });
   }
-  const redis = await getRedis();
-  if (redis) {
-    const exists = await redis.get(`refresh:${uid}:${refreshToken}`);
-    if (!exists) return res.status(401).json({ error: "token revoked or expired" });
-  }
-  const newAccess = jwt.sign({ uid, username: "" }, SECRET, { expiresIn: TOKEN_TTL });
+  const uid = await lookupRefreshToken(refreshToken);
+  if (!uid) return res.status(401).json({ error: "token revoked or expired" });
+
+  // Single-use rotation: revoke the old token BEFORE issuing the new one so
+  // a replayed/intercepted token cannot mint additional access tokens.
+  await revokeRefreshToken(refreshToken);
+
+  // Look up username so we can embed it in the new access token.
+  const user = await prisma.user.findUnique({ where: { id: uid } });
+  if (!user) return res.status(401).json({ error: "user not found" });
+
+  const newAccess = jwt.sign({ uid, username: user.username }, SECRET, { expiresIn: TOKEN_TTL });
   const newRefresh = generateRefreshToken();
   await storeRefreshToken(uid, newRefresh);
   res.json({ token: newAccess, refreshToken: newRefresh });
 });
 
 authRouter.post("/logout", async (req, res) => {
-  const { uid, refreshToken } = req.body ?? {};
-  if (typeof uid === "string" && typeof refreshToken === "string") {
-    await revokeRefreshToken(uid, refreshToken);
+  const { refreshToken } = req.body ?? {};
+  if (typeof refreshToken === "string") {
+    await revokeRefreshToken(refreshToken).catch(() => { /* tolerate redis hiccup on logout */ });
   }
   res.json({ ok: true });
 });
@@ -270,7 +334,7 @@ authRouter.post("/recovery/reset-password", async (req, res) => {
 
   let payload: { uid: string; username: string; type: string };
   try {
-    payload = jwt.verify(recoveryToken, SECRET) as { uid: string; username: string; type: string };
+    payload = jwt.verify(recoveryToken, SECRET, { algorithms: ["HS256"] }) as { uid: string; username: string; type: string };
   } catch {
     return res.status(401).json({ error: "invalid or expired token" });
   }
@@ -381,9 +445,19 @@ authRouter.delete("/characters/:id", authMiddleware, async (req: any, res) => {
 
 export function verifyToken(token: string): { uid: string; username: string; type?: string } | null {
   try {
-    const payload = jwt.verify(token, SECRET) as { uid: string; username: string; type?: string };
+    // Pin algorithm to HS256 (defense-in-depth against alg confusion).
+    const payload = jwt.verify(token, SECRET, { algorithms: ["HS256"] }) as { uid: string; username: string; type?: string };
     return { uid: payload.uid, username: payload.username, type: payload.type };
   } catch {
     return null;
   }
+}
+
+// ── Admin gate (env-driven, no schema migration required) ──────────────────
+// Set ADMIN_USER_IDS to a comma-separated list of User.id values (cuids).
+export function isAdmin(uid: string): boolean {
+  const raw = process.env.ADMIN_USER_IDS ?? "";
+  if (!raw.trim()) return false;
+  const ids = raw.split(",").map((s) => s.trim()).filter(Boolean);
+  return ids.includes(uid);
 }

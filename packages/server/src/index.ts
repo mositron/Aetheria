@@ -9,7 +9,7 @@ import fs from "fs";
 import { Server } from "@colyseus/core";
 import { WebSocketTransport } from "@colyseus/ws-transport";
 import rateLimit from "express-rate-limit";
-import { authRouter, verifyToken } from "./auth.js";
+import { authRouter, verifyToken, isAdmin } from "./auth.js";
 import { logger } from "./logger.js";
 import { getTop } from "./leaderboard.js";
 import { WorldManager } from "./services/WorldManager.js";
@@ -29,6 +29,11 @@ if (process.env.SENTRY_DSN) {
 
 // ── App + HTTP ─────────────────────────────────────────────────────────────
 const app = express();
+// Trust the immediate upstream proxy (Caddy in prod) so req.ip / rate-limit
+// see the real client IP, not the proxy's. Configurable via TRUST_PROXY env
+// (number of hops); default 1 in prod, 0 in dev/test.
+const trustProxyHops = Number(process.env.TRUST_PROXY ?? (process.env.NODE_ENV === "production" ? 1 : 0));
+if (trustProxyHops > 0) app.set("trust proxy", trustProxyHops);
 app.use(express.json({ limit: "256kb" }));
 // CORS: LAN regex (so phones on same Wi-Fi can hit dev server) + explicit
 // production origins from ALLOWED_ORIGINS env (comma-separated full URLs).
@@ -159,13 +164,20 @@ app.get("/api/leaderboard/:scope?", async (req, res) => {
   }
 });
 
-// GET /api/admin/audit?action=&limit=50 — admin only (checks userId in Bearer token)
+// GET /api/admin/audit?action=&limit=50 — admin only.
+// Requires (1) valid JWT and (2) uid present in ADMIN_USER_IDS env list.
+// If ADMIN_USER_IDS is unset the endpoint is disabled (503) so a fresh deploy
+// without admins configured never silently exposes audit logs.
 app.get("/api/admin/audit", async (req, res) => {
+  if (!process.env.ADMIN_USER_IDS?.trim()) {
+    return res.status(503).json({ error: "admin endpoints disabled (ADMIN_USER_IDS unset)" });
+  }
   const auth = req.headers.authorization;
   const token = auth?.startsWith("Bearer ") ? auth.slice(7) : null;
   if (!token) return res.status(401).json({ error: "missing token" });
   const payload = verifyToken(token);
   if (!payload) return res.status(401).json({ error: "invalid token" });
+  if (!isAdmin(payload.uid)) return res.status(403).json({ error: "forbidden" });
 
   const action = typeof req.query.action === "string" ? req.query.action : undefined;
   const limit = Math.min(200, Math.max(1, Number(req.query.limit) || 50));
@@ -227,17 +239,41 @@ app.get("/health", (_req, res) => {
   });
 });
 
-// GET /metrics — admin-gated HTML dashboard polling /health every 2s
+// GET /metrics — admin-gated HTML dashboard polling /health every 2s.
+// Token sources (in order of preference):
+//   1. Authorization: Bearer <token> header
+//   2. Cookie: admin_token=<token>  (set via legacy query-string redirect)
+//   3. ?token=<token>  (legacy; the response IMMEDIATELY redirects to the
+//      cookie form to scrub the token from URL history / logs / referer)
+//
+// Hardening headers ensure the page is never cached or indexed.
 app.get("/metrics", (req, res) => {
   const adminToken = process.env.ADMIN_TOKEN;
   if (!adminToken) {
     res.status(503).type("text/plain").send("ADMIN_TOKEN env var not set");
     return;
   }
-  if (String(req.query.token ?? "") !== adminToken) {
+  const auth = req.headers.authorization;
+  const bearer = auth?.startsWith("Bearer ") ? auth.slice(7) : null;
+  const cookieHeader = String(req.headers.cookie ?? "");
+  const cookieToken = /(?:^|;\s*)admin_token=([^;]+)/.exec(cookieHeader)?.[1];
+  const queryToken = typeof req.query.token === "string" ? req.query.token : null;
+
+  // Legacy query → cookie + redirect to a URL without the secret.
+  if (!bearer && !cookieToken && queryToken && queryToken === adminToken) {
+    res.setHeader("Set-Cookie", `admin_token=${encodeURIComponent(queryToken)}; Path=/metrics; HttpOnly; SameSite=Strict; Max-Age=900`);
+    res.redirect(302, "/metrics");
+    return;
+  }
+  const presented = bearer ?? (cookieToken ? decodeURIComponent(cookieToken) : null);
+  if (!presented || presented !== adminToken) {
     res.status(401).type("text/plain").send("unauthorized");
     return;
   }
+  res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, private");
+  res.setHeader("Pragma", "no-cache");
+  res.setHeader("X-Robots-Tag", "noindex, nofollow");
+  res.setHeader("Referrer-Policy", "no-referrer");
   res.type("text/html").send(`<!doctype html>
 <html><head><meta charset="utf-8"><title>Aetheria · Metrics</title>
 <style>
