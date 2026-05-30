@@ -1,7 +1,8 @@
 /**
  * CraftingService — recipe crafting. Extracted from WorldRoom.ts.
  */
-import { type Player, ITEMS, RECIPES_BY_ID, QUALITY_COLORS, QUALITY_NAMES, type ItemQuality, type Recipe } from "@game/shared";
+import { type Player, ITEMS, ItemStack, RECIPES_BY_ID, QUALITY_COLORS, QUALITY_NAMES, type ItemQuality, type Recipe } from "@game/shared";
+import { ArraySchema } from "@colyseus/schema";
 import { countItem, removeItem } from "./Inventory.js";
 import type { Client } from "@colyseus/core";
 
@@ -46,6 +47,11 @@ export class CraftingService {
         client.send("system", { text: `ขาด ${ITEMS[inp.itemId]?.name ?? inp.itemId} ${inp.qty}` }); return;
       }
     }
+    // Snapshot the full inventory BEFORE any mutation so a partial failure
+    // (inputs deducted but output won't fit) can roll back exactly. The naive
+    // approach — refund via addToInventory on failure — silently fails when
+    // there is no space, permanently destroying the inputs.
+    const snapshot = p.inventory.map((s) => ({ itemId: s.itemId, qty: s.qty }));
     // Deduct inputs
     for (const inp of recipe.inputs) removeItem(p, inp.itemId, inp.qty);
     // Roll quality
@@ -54,8 +60,15 @@ export class CraftingService {
     const qualityName = QUALITY_NAMES[quality];
     // Add output
     if (!this.addToInventory(p, recipe.output.itemId, recipe.output.qty, quality)) {
-      // refund on failure
-      for (const inp of recipe.inputs) this.addToInventory(p, inp.itemId, inp.qty);
+      // Restore from snapshot — guaranteed-correct rollback.
+      const restored = new ArraySchema<ItemStack>();
+      for (const s of snapshot) {
+        const it = new ItemStack();
+        it.itemId = s.itemId;
+        it.qty = s.qty;
+        restored.push(it);
+      }
+      p.inventory = restored;
       client.send("system", { text: "กระเป๋าเต็ม" }); return;
     }
     const out = ITEMS[recipe.output.itemId];

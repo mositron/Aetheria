@@ -6,7 +6,10 @@ const INVENTORY_SIZE = 200;
 
 export type TradeSession = {
   partnerSid: string;
-  items: Array<{ invIndex: number; qty: number }>;
+  // Snapshot the itemId at offer time so we can detect if the player rearranged
+  // their inventory between offer and confirm (and would otherwise transfer the
+  // wrong item — see Trade.ts:79 stale-invIndex bug).
+  items: Array<{ invIndex: number; qty: number; itemId: string }>;
   zeny: number;
   confirmed: boolean;
   /** Snapshot of player names at time of session creation for audit logging */
@@ -74,12 +77,13 @@ export class Trade {
     if (!me || !sess) return;
 
     const zeny = Math.max(0, Math.min(me.zeny, offeredZeny | 0));
-    const cleaned: typeof offeredItems = [];
+    const cleaned: Array<{ invIndex: number; qty: number; itemId: string }> = [];
     for (const it of offeredItems) {
+      if (!Number.isInteger(it.invIndex) || it.invIndex < 0 || it.invIndex >= me.inventory.length) continue;
       const stack = me.inventory[it.invIndex];
       if (!stack) continue;
-      const qty = Math.max(1, Math.min(stack.qty, it.qty));
-      cleaned.push({ invIndex: it.invIndex, qty });
+      const qty = Math.max(1, Math.min(stack.qty, it.qty | 0));
+      cleaned.push({ invIndex: it.invIndex, qty, itemId: stack.itemId });
     }
 
     sess.items = cleaned;
@@ -111,12 +115,15 @@ export class Trade {
       if (a.zeny < sess.zeny || b.zeny < partner.zeny) { this.cancelTrade(sid); return; }
 
       const self = this;
-      const takeFrom = (p: Player, list: Array<{ invIndex: number; qty: number }>) => {
+      const takeFrom = (p: Player, list: Array<{ invIndex: number; qty: number; itemId: string }>) => {
         const taken: Array<{ itemId: string; qty: number }> = [];
         const sorted = list.slice().sort((x, y) => y.invIndex - x.invIndex);
         for (const it of sorted) {
           const stack = p.inventory[it.invIndex];
-          if (!stack || stack.qty < it.qty) throw new Error("invalid");
+          // Verify itemId matches the snapshot. If the player rearranged their
+          // inventory between offer and confirm, the slot may now hold a
+          // different item — abort rather than transfer the wrong thing.
+          if (!stack || stack.itemId !== it.itemId || stack.qty < it.qty) throw new Error("invalid");
           taken.push({ itemId: stack.itemId, qty: it.qty });
           stack.qty -= it.qty;
           if (stack.qty <= 0) p.inventory.splice(it.invIndex, 1);

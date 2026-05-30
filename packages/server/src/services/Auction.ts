@@ -7,6 +7,7 @@
 //   - cancel() returns item via mail (avoids inventory-full edge case)
 
 import type { PrismaClient } from "@prisma/client";
+import { ITEMS } from "@game/shared";
 
 const MAX_QTY = 99;
 const MAX_PRICE = 10_000_000;
@@ -139,6 +140,9 @@ export class Auction {
           return sendToClient(client.sessionId, "system", { text: reasonMsg });
         }
         if (!stack || stack.qty < qty) return sendToClient(client.sessionId, "system", { text: "ของไม่พอ" });
+        // Reject items not present in the ITEMS registry — otherwise the
+        // listing becomes stranded (buyer cannot accept addToInventory).
+        if (!ITEMS[stack.itemId]) return sendToClient(client.sessionId, "system", { text: "ไม่สามารถลงประกาศของชิ้นนี้ได้" });
         if (p.zeny < v.fee) return sendToClient(client.sessionId, "system", { text: `ต้องมีเงิน ${v.fee}z สำหรับค่าธรรมเนียมประกาศ` });
         const created = await this.create({ sellerName: p.name, itemId: stack.itemId, qty, pricePer });
         if (!created) return sendToClient(client.sessionId, "system", { text: "⚠ ลงประกาศไม่สำเร็จ" });
@@ -190,14 +194,19 @@ export class Auction {
         if (!p) return;
         const listing = await this.cancel(String(msg?.id ?? ""), p.name);
         if (!listing) return;
+        // Refund the listing fee — was charged at create time. Without this,
+        // canceling silently destroys the fee, which feels like a bug to
+        // players and a gold sink that bypasses the auction's intent.
+        const v = this.validateList(listing.qty, listing.pricePer);
+        const feeRefund = v.ok ? v.fee : 0;
         await sendMail({
           fromName: "AUCTION", toName: p.name,
           subject: `ยกเลิก: ${listing.itemId} ×${listing.qty}`,
-          body: "คุณยกเลิกการประกาศ",
-          zeny: 0, itemId: listing.itemId, itemQty: listing.qty,
+          body: feeRefund > 0 ? `คุณยกเลิกการประกาศ (คืนค่าธรรมเนียม ${feeRefund}z)` : "คุณยกเลิกการประกาศ",
+          zeny: feeRefund, itemId: listing.itemId, itemQty: listing.qty,
         });
         sendToClient(client.sessionId, "system", { text: "ยกเลิกประกาศแล้ว" });
-        auditLog("auction.cancel", { metadata: { sellerName: p.name, listing } });
+        auditLog("auction.cancel", { metadata: { sellerName: p.name, listing, feeRefund } });
       },
     };
   }

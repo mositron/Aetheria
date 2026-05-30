@@ -140,6 +140,11 @@ export class WorldRoom extends Room<WorldState> {
   botState = new Map<string, { wander: { x: number; z: number; until: number }; nextActionAt: number }>();
   tameProgress = new Map<string, number>(); // key = sid + ":" + monsterId
   statusTickAcc = new Map<string, number>(); // entityId+statusKind -> last tick time
+  // Per-character block list. Keyed by character name; value is the set of
+  // character names that have been muted from whispering them. Session-only
+  // (resets on server restart) — sufficient stop-gap until we add a
+  // Character.blocklistJson DB field.
+  blocklist = new Map<string, Set<string>>();
 
   static async onAuth(_token: string, request: any) {
     const tokenStr = request?.headers?.token || request?.query?.token || "";
@@ -244,7 +249,8 @@ export class WorldRoom extends Room<WorldState> {
       this.statusTickAcc,
       this.tameProgress,
       {
-        spawnGroundItem: (itemId, qty, x, z) => this.spawnGroundItem(itemId, qty, x, z)
+        spawnGroundItem: (itemId, qty, x, z) => this.spawnGroundItem(itemId, qty, x, z),
+        cancelRespawn: (monsterId) => this.combatSvc.cancelRespawn(monsterId),
       }
     );
 
@@ -525,6 +531,15 @@ export class WorldRoom extends Room<WorldState> {
     this.onMessage("sendMail", async (client, msg: any) => {
       const p = this.state.players.get(client.sessionId);
       if (!p) return;
+      const toName = String(msg?.to ?? "").trim();
+      // Reject self-mail. The trade and inventory systems exist for self-managed
+      // transfers; allowing self-mail enables a deduction-then-claim window where
+      // a crash between in-memory deduction and autosave could effectively dupe
+      // the item once the mail is later claimed.
+      if (toName === p.name) {
+        client.send("system", { text: "ส่งจดหมายให้ตัวเองไม่ได้" });
+        return;
+      }
       const zeny = Math.max(0, Math.min(9_999_999, msg?.zeny | 0));
       if (zeny > 0 && p.zeny < zeny) {
         client.send("system", { text: "เงินไม่พอ" });
@@ -553,7 +568,6 @@ export class WorldRoom extends Room<WorldState> {
       if (itemId && itemQty > 0) removeItem(p, itemId, itemQty);
       client.send("system", { text: `📬 ส่งจดหมายถึง ${msg?.to} แล้ว` });
       // Push live badge to recipient if online
-      const toName = String(msg?.to ?? "").trim();
       const targetClient = this.clients.find((cl) => this.state.players.get(cl.sessionId)?.name === toName);
       if (targetClient) {
         const count = await this.mailboxSvc.unreadCount(toName);
@@ -707,6 +721,11 @@ export class WorldRoom extends Room<WorldState> {
       const found = research.attemptDiscovery(p);
       if (found) {
         client.send("system", { text: `📜 ค้นพบสูตรใหม่: ${found.name}!` });
+        // Push the discovered id so the client can flip its local view
+        // without waiting for the player to close/reopen the crafting panel
+        // (and without holding the discovered flag on the shared module —
+        // which is global and per-process, not per-player).
+        client.send("recipe:discovered" as any, { recipeId: found.id });
       } else {
         client.send("system", { text: "ไม่มีสูตรให้ค้นพบ หรือแต้มวิจัยไม่พอ (ต้องการ 100 แต้ม)" });
       }
@@ -980,13 +999,43 @@ export class WorldRoom extends Room<WorldState> {
             case "whisper": {
               const to = effect.to, body = effect.body;
               let target: Client | null = null;
+              let targetPlayer: any = null;
               for (const c of this.clients) {
                 const pp = this.state.players.get(c.sessionId);
-                if (pp?.name === to) { target = c; break; }
+                if (pp?.name === to) { target = c; targetPlayer = pp; break; }
               }
-              if (!target) return client.send("system", { text: `ไม่พบ "${to}" ในแมพ` });
+              if (!target || !targetPlayer) return client.send("system", { text: `ไม่พบ "${to}" ในแมพ` });
+              // Honor the recipient's block list. Show the sender a generic
+              // "delivered" reply so they cannot probe block status by error
+              // message — this matches the principle of least information leak.
+              const blocks = this.blocklist.get(to);
+              if (blocks?.has(p.name)) {
+                client.send("whisper", { from: `${p.name} → ${to}`, text: body, ts: Date.now() });
+                return;
+              }
               target.send("whisper", { from: p.name, text: body, ts: Date.now() });
               client.send("whisper", { from: `${p.name} → ${to}`, text: body, ts: Date.now() });
+              return;
+            }
+            case "block": {
+              const target = String((effect as { name: string }).name ?? "").trim();
+              if (!target || target === p.name) return;
+              const set = this.blocklist.get(p.name) ?? new Set<string>();
+              set.add(target);
+              this.blocklist.set(p.name, set);
+              client.send("system", { text: `🚫 บล็อก ${target} จากการกระซิบแล้ว` });
+              return;
+            }
+            case "unblock": {
+              const target = String((effect as { name: string }).name ?? "").trim();
+              this.blocklist.get(p.name)?.delete(target);
+              client.send("system", { text: `✅ ปลดบล็อก ${target}` });
+              return;
+            }
+            case "blocklist": {
+              const set = this.blocklist.get(p.name);
+              const list = set && set.size > 0 ? [...set].join(", ") : "(ว่าง)";
+              client.send("system", { text: `🚫 บล็อก: ${list}` });
               return;
             }
           }
