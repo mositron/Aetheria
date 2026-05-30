@@ -38,8 +38,11 @@ export class SurvivalService {
 
     // Survival speed penalties: hungry → 80%, very hungry → 65%, exhausted → 50%
     let speedMult = 1;
-    if (p.hunger < 25) speedMult *= 0.8;
-    if (p.hunger <= 0) speedMult *= 0.8;       // stacks: 64% when hunger 0
+    // Two hunger tiers are mutually exclusive — pick the more severe one
+    // instead of letting them stack. Stacking (the previous behavior) yielded
+    // 64% at hunger 0 instead of the documented 65%.
+    if (p.hunger <= 0) speedMult *= 0.65;
+    else if (p.hunger < 25) speedMult *= 0.8;
     if (p.stamina <= 0) speedMult *= 0.65;
     if (p.mounted && p.petKind) speedMult *= 1.55;
     if (p.flying) speedMult *= 2.4;

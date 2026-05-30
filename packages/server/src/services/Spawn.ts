@@ -16,6 +16,8 @@ export class Spawn {
     private tameProgress: Map<string, number>,
     private callbacks: {
       spawnGroundItem: (itemId: string, qty: number, x: number, z: number) => void;
+      /** Optional — cancel any pending respawn timer for this monster id. */
+      cancelRespawn?: (monsterId: string) => void;
     }
   ) {}
 
@@ -25,7 +27,10 @@ export class Spawn {
       const realPlayers = this.state.players.size - this.botIds.size;
       mult *= Math.max(1, 1 + (realPlayers - 1) * 0.4);
     }
-    if (kind === "darklord" && new Date().getDay() === 6) mult *= 2;
+    // Saturday boss buff — pin to UTC so all players globally see the
+    // multiplier flip on the same wall-clock moment, regardless of where the
+    // server is hosted.
+    if (kind === "darklord" && new Date().getUTCDay() === 6) mult *= 2;
     return mult;
   }
 
@@ -72,6 +77,7 @@ export class Spawn {
         nearest = Math.min(nearest, Math.hypot(m.pos.x - a.x, m.pos.z - a.z));
       }
       if (nearest > DESPAWN_RADIUS) {
+        this.callbacks.cancelRespawn?.(id);
         this.state.monsters.delete(id);
         this.lastAttack.delete(id);
         this.monsterSpawn.delete(id);

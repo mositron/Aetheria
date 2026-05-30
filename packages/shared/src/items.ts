@@ -146,6 +146,10 @@ glider:           { id: "glider",           name: "Glider Cape", slot: "consumab
   // Recall stone — consumable warp to village. 60s cooldown enforced server-side.
   recall_stone:    { id: "recall_stone",     name: "หินอัญเชิญหมู่บ้าน", slot: "consumable", stack: 5,  icon: "🪨", color: "#a78bfa", recall: true },
   warp_stone:      { id: "warp_stone",       name: "หินวาร์ปอนันต์",    slot: "material",   stack: 1,  icon: "🌀", color: "#fbbf24" },
+  // Referenced by swamp-biome boss drop tables — without these the drops
+  // become unpickable ghost items in the world.
+  magic_scroll:    { id: "magic_scroll",     name: "ม้วนคาถา",          slot: "material",   stack: 99, icon: "📜", color: "#a78bfa" },
+  rare_ring:       { id: "rare_ring",        name: "แหวนหายาก",         slot: "armor",      def: 2,    icon: "💍", color: "#f472b6" },
 };
 
 // Base-building structures — consumed when placed, appear as state.structures in the world

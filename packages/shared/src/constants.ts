@@ -60,6 +60,11 @@ export const MONSTERS: Record<string, {
   ice_giant:    { name: "Ice Giant",    hp: 1000, atk: 20, exp: 1800, speed: 1.2, aggroRange: 6 },
   shadow_wolf:  { name: "Shadow Wolf",  hp: 90,   atk: 13, exp: 60,   speed: 4.0, aggroRange: 8 },
   frost_spider: { name: "Frost Spider", hp: 70,   atk: 12, exp: 45,   speed: 3.5, aggroRange: 7 },
+  // Referenced by endless-dungeon floor generators (floors 4/7/9). Without
+  // these definitions Spawn.spawnMonster() bails on the missing kind and the
+  // floors come out emptier than intended.
+  banshee:          { name: "Banshee",          hp: 120, atk: 16, exp: 75,  speed: 3.0, aggroRange: 9 },
+  skeleton_captain: { name: "Skeleton Captain", hp: 180, atk: 20, exp: 130, speed: 2.5, aggroRange: 7 },
 } as const;
 
 export const PASSIVE_ANIMAL_KINDS: ReadonlyArray<MonsterKind> = ["chicken", "pig", "cow"];

@@ -38,6 +38,12 @@ const BOSS_DISPLAY_NAME: Partial<Record<MonsterKind, string>> = {
 };
 
 export class Combat {
+  /**
+   * Pending respawn timers, keyed by monster id. Despawn paths can cancel
+   * these to release the closure references over the monster + spawn objects.
+   */
+  respawnTimers = new Map<string, { clear?: () => void } | null>();
+
   constructor(
     private state: { players: Map<string, Player>; monsters: Map<string, Monster> },
     private lastAttack: Map<string, number>,
@@ -224,6 +230,11 @@ export class Combat {
     this.callbacks.broadcast("damage", { targetId: target.id, amount: dmg, from: attacker.id, crit });
     if (target.hp === 0 && !target.dead) {
       target.dead = true;
+      // Clear any stale status-tick accumulators for this monster — without
+      // this, entries keep accruing memory until the monster is despawned.
+      for (const key of this.statusTickAcc.keys()) {
+        if (key.endsWith(":" + target.id)) this.statusTickAcc.delete(key);
+      }
       const def = MONSTERS[target.kind as MonsterKind];
       this.callbacks.grantExp(attacker, def.exp);
       this.callbacks.onMonsterKilled(attacker.id, target.kind);
@@ -247,8 +258,10 @@ export class Combat {
       const spawn = this.callbacks.monsterSpawn.get(target.id);
       const isBoss = spawn ? BOSS_KINDS.has(spawn.kind) : false;
       const delay = isBoss ? GAME_CONFIG.BOSS_RESPAWN_MS : GAME_CONFIG.RESPAWN_MS;
-      this.clock.setTimeout(() => {
-        const mon = this.state.monsters.get(target.id);
+      const monsterId = target.id;
+      const timer = this.clock.setTimeout(() => {
+        this.respawnTimers.delete(monsterId);
+        const mon = this.state.monsters.get(monsterId);
         if (!mon || !spawn) return;
         const md = MONSTERS[spawn.kind];
         mon.hp = md.hp; mon.maxHp = md.hp; mon.dead = false;
@@ -263,7 +276,17 @@ export class Combat {
           });
         }
       }, delay);
+      this.respawnTimers.set(monsterId, timer);
     }
+  }
+
+  /** Cancel any pending respawn timer for a monster (use on despawn). */
+  cancelRespawn(monsterId: string): void {
+    const t = this.respawnTimers.get(monsterId);
+    if (t && typeof (t as any).clear === "function") {
+      try { (t as any).clear(); } catch { /* best effort */ }
+    }
+    this.respawnTimers.delete(monsterId);
   }
 
   tickStatuses() {
@@ -316,6 +339,10 @@ export class Combat {
           if (m.hp === 0 && !m.dead) {
             m.dead = true;
             m.statuses.clear();
+            // Clear stale status-tick keys for this monster (same as primary kill path).
+            for (const k of this.statusTickAcc.keys()) {
+              if (k.endsWith(":" + m.id)) this.statusTickAcc.delete(k);
+            }
             const killer = this.state.players.get(s.fromId);
             if (killer) {
               const mdef = MONSTERS[m.kind as MonsterKind];
@@ -324,14 +351,17 @@ export class Combat {
             }
             this.callbacks.dropLoot(m);
             const spawn = this.callbacks.monsterSpawn.get(m.id);
-            this.clock.setTimeout(() => {
-              const mon = this.state.monsters.get(m.id);
+            const monsterId2 = m.id;
+            const t2 = this.clock.setTimeout(() => {
+              this.respawnTimers.delete(monsterId2);
+              const mon = this.state.monsters.get(monsterId2);
               if (!mon || !spawn) return;
               const md = MONSTERS[spawn.kind];
               mon.hp = md.hp; mon.maxHp = md.hp; mon.dead = false;
               mon.pos.x = spawn.x; mon.pos.z = spawn.z; mon.targetId = "";
               mon.statuses.clear();
             }, GAME_CONFIG.RESPAWN_MS);
+            this.respawnTimers.set(monsterId2, t2);
           }
         }
       }

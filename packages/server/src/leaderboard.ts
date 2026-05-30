@@ -44,11 +44,18 @@ async function loadCache() {
 async function flush() {
   if (dirtyNames.size === 0) return;
   const names = [...dirtyNames];
-  dirtyNames.clear();
+  // Snapshot weekStart + cache values BEFORE the first await. ensureWeek()
+  // can run between awaits and reset cache + advance weekStart; without this
+  // snapshot, entries past the first would be lost mid-rollover and the
+  // remaining upserts would target the wrong week.
   const ws = BigInt(weekStart);
+  const snap: Array<[string, Entry]> = [];
   for (const name of names) {
     const e = cache.get(name);
-    if (!e) continue;
+    if (e) snap.push([name, { ...e }]);
+  }
+  dirtyNames.clear();
+  for (const [name, e] of snap) {
     try {
       await (prisma as any).leaderboardEntry.upsert({
         where:  { weekStart_name: { weekStart: ws, name } },
@@ -100,7 +107,15 @@ export function recordContribution(name: string, points: number, killsDelta: num
 export async function getTop(n = 10): Promise<Entry[]> {
   ensureWeek();
   if (!cacheLoaded) await loadCache();
-  return Array.from(cache.values()).sort((a, b) => b.score - a.score).slice(0, n);
+  // Deterministic tie-break: score desc, then kills desc, then level desc,
+  // finally name asc. Without explicit ordering, tied players' positions
+  // depend on Map insertion order which can shuffle across restarts.
+  return Array.from(cache.values()).sort((a, b) =>
+    b.score - a.score
+    || b.kills - a.kills
+    || b.level - a.level
+    || a.name.localeCompare(b.name)
+  ).slice(0, n);
 }
 
 /** Test helper — clear cache + DB rows for the current week. */
