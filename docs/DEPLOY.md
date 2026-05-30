@@ -107,14 +107,27 @@ DOMAIN=aetheria.example.com
 JWT_SECRET=<paste $JWT — must be >=32 chars>
 POSTGRES_PASSWORD=<paste $PG>
 ADMIN_TOKEN=<paste $ADMIN>
+REDIS_URL=redis://redis:6379
 ALLOWED_ORIGINS=https://aetheria.example.com
 ENFORCE_HTTPS=true
 GHCR_OWNER=<your-github-username-lowercased>
 TAG=latest
+# Strongly recommended — without ADMIN_USER_IDS the /api/admin/audit endpoint
+# returns 503; without CAPTCHA_SECRET /register fail-closes.
+# ADMIN_USER_IDS=cuid_for_you
+# CAPTCHA_SECRET=0x...
+# VITE_CAPTCHA_SITE_KEY=<sitekey>
 # Optional:
 # SENTRY_DSN=https://...
-# CAPTCHA_SECRET=0x...
+# TRUST_PROXY=1
+# AUDIT_FALLBACK_LOG=/var/log/aetheria/audit-fallback.log
 ```
+
+> **Hard-fail env vars in production:** `JWT_SECRET` (≥32 chars, no known dev
+> defaults), `REDIS_URL` (refresh-token storage), and `POSTGRES_PASSWORD` are
+> checked at startup — the server `process.exit(1)` if any is missing or
+> invalid. `CAPTCHA_SECRET` unset logs a startup warning and fail-closes
+> `/register`. `ADMIN_USER_IDS` unset disables `/api/admin/audit` (503).
 
 ---
 
@@ -157,7 +170,10 @@ Open `https://aetheria.example.com` in a browser — you should see the login sc
 curl -s https://aetheria.example.com/health | jq
 
 # Metrics (token-gated — use your ADMIN_TOKEN)
-curl -s "https://aetheria.example.com/metrics?token=$ADMIN_TOKEN" | head -20
+# Preferred: Authorization header (token never appears in URL/logs).
+curl -s -H "Authorization: Bearer $ADMIN_TOKEN" https://aetheria.example.com/metrics | head -20
+# Legacy query form still works but immediately redirects to scrub the URL:
+# curl -s "https://aetheria.example.com/metrics?token=$ADMIN_TOKEN" | head -20
 
 # Try registering a test account through the web UI
 ```

@@ -3,8 +3,8 @@
 > **Single source of truth สำหรับงานที่เหลือ.** อ่านไฟล์นี้ก่อนเริ่ม session ใหม่
 > เพื่อให้รู้ว่าสถานะอะไร, อยู่ที่ไหน, ทำอะไรต่อ.
 
-Last updated: 2026-05-26 — Perf audit landed (P0+P1) + UX bugs from live test fixed
-Total commits to date: 100+
+Last updated: 2026-05-30 — Multi-agent whole-repo bug audit → 44 confirmed bugs fixed across 6 themed commits
+Total commits to date: 110+
 
 ---
 
@@ -13,7 +13,7 @@ Total commits to date: 100+
 | Area | Status |
 |---|---|
 | **Build** | ✅ Client + server build clean. PWA SW generated. |
-| **Tests** | ✅ 180 passing (server) + 19 (shared) = 199 total, 4 skipped. |
+| **Tests** | ✅ 180 passing (server) + 19 (shared) = 199 total, 4 skipped. (Re-verified 2026-05-30 post-audit.) |
 | **TypeScript** | ✅ Zero errors across shared/server/client. |
 | **CI** | ✅ GitHub Actions: typecheck + tests + vite build + multi-arch Docker → GHCR on `v*` tag. |
 | **Bundle** | ✅ Vendor-split: index.js 494kB + Three.js 687kB (cacheable) + lazy modal chunks |
@@ -433,6 +433,29 @@ All handlers wrapped: drops bad payloads instead of crashing.
 ---
 
 ## 📜 Recent commit log (for context-resume)
+
+### Session 2026-05-30 — Multi-agent whole-repo audit (44 bugs fixed)
+
+9 domain finders + adversarial verify pass → 80 candidates → 44 confirmed → 6 themed commits, all pushed to `origin/main`. Server tests 180/180 ✅, shared 19/19 ✅, smoketest ✅.
+
+```
+06792e9 perf(client/scene): Arrow Vec3 alloc, CaveLabel texture leak, selectionRing change-detect, AmbientParticles isNight cache, sfx ctx beforeunload
+327cd30 fix(client/ui): Chat scrollRef + smart-scroll + composite key, AuctionHouse title literal + double-buy ref guard, Hotbar clear on job change, AchievementsPanel/JobAdvancement listener leak, CraftingPanel recipe:discovered overlay, Game.tsx joinOrCreate try/catch
+e79b4e3 fix(server+shared): Combat respawn timer registry + Spawn cancelRespawn, statusTickAcc clear on kill, SurvivalService hunger else-if (no stack), Spawn getUTCDay, Leaderboard flush snapshot + tie-break, shared add magic_scroll/rare_ring/banshee/skeleton_captain
+efed085 fix(social): Friend bidirectional in $transaction, Guild.leave interactive txn, Party stale-invite guard, /block /unblock /blocklist (in-memory), DailyChallenge endless re-validate
+91e4448 fix(economy): CraftingService snapshot+rollback, Auction cancel fee refund + ITEMS validation, Trade itemId snapshot + bounds check, sendMail self-reject
+8feedd8 fix(security): auth.ts /refresh redis-uid lookup + single-use rotation + crypto.randomBytes, /api/admin/audit ADMIN_USER_IDS gate, /metrics Bearer+cookie+URL-scrub redirect, CAPTCHA fail-closed prod, Redis required prod, trust proxy, AuditService DB-failure file fallback, HS256 pinned
+```
+
+**New prod env contract (see `.env.production.example` + `docs/DEPLOY.md`):**
+- `REDIS_URL` — REQUIRED in prod (refresh-token storage). Server `process.exit(1)` without it.
+- `ADMIN_USER_IDS` — comma-separated User.id list. `/api/admin/audit` returns 503 if unset.
+- `CAPTCHA_SECRET` unset in prod → `/register` fail-closes (startup warning).
+- `TRUST_PROXY` — number of upstream proxy hops (default 1 in prod). Required for rate-limit-by-IP.
+- `AUDIT_FALLBACK_LOG` — optional. AuditService writes here when DB write fails.
+
+**Known follow-up (not done this session):**
+- `Character.blocklistJson` schema migration so /block persists across server restart. Current implementation is `WorldRoom.blocklist: Map<string, Set<string>>` (session-only).
 
 ```
 947afdc fix(mobile): responsive gaps — GameFrame banner, corner gems, form inputs, detail panels
