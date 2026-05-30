@@ -2,7 +2,7 @@
 // crystal lights) anchored at CAVES coords from shared/biomes.ts.
 // No portal, no map switch — just walk in.
 
-import { useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
 import { CAVES, caveAt, type CaveDef } from "@game/shared";
@@ -303,6 +303,10 @@ function CaveLabel({ name, mouthAngle, r }: { name: string; mouthAngle: number; 
     tex.needsUpdate = true;
     return tex;
   }, [name]);
+  // Three.js textures aren't garbage-collected when their JS ref drops — they
+  // need explicit dispose() to release GPU memory. Without this, every
+  // unmount or `name` change leaks one CanvasTexture.
+  useEffect(() => () => { sprite.dispose(); }, [sprite]);
 
   const spriteRef = useRef<THREE.Sprite>(null);
   const matRef = useRef<THREE.SpriteMaterial>(null);

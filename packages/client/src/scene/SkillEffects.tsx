@@ -144,8 +144,9 @@ function Arrow({ e }: { e: Effect }) {
     );
     (ref.current.material as THREE.MeshBasicMaterial).opacity = t < 0.85 ? 1 : 1 - (t - 0.85) * 6;
   });
-  const dir = new THREE.Vector3(e.tx - e.fx, 0, e.tz - e.fz);
-  const angle = Math.atan2(dir.x, dir.z);
+  // Compute the direction angle without allocating a Vector3 on every render —
+  // the y component is unused so atan2(dx, dz) is sufficient.
+  const angle = Math.atan2(e.tx - e.fx, e.tz - e.fz);
   return (
     <mesh ref={ref} rotation={[0, angle, Math.PI / 2]}>
       <cylinderGeometry args={[0.03, 0.03, 0.6, 5]} />

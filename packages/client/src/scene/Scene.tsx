@@ -1945,8 +1945,11 @@ const MonsterView = React.memo(function MonsterView({ m, selected, onClick, onHo
         if (billboardRef.current && billboardRef.current.visible !== billboardVisible) billboardRef.current.visible = billboardVisible;
       }
       if (selectionRing.current) {
-        selectionRing.current.visible = selected;
-        selectionRing.current.rotation.z = performance.now() * 0.002;
+        // only-assign-on-change for .visible to avoid scene-graph dirtying
+        // for off-target monsters (most of them, most of the time).
+        if (selectionRing.current.visible !== selected) selectionRing.current.visible = selected;
+        // Rotation is purely visual — only spin it while it's actually shown.
+        if (selected) selectionRing.current.rotation.z = performance.now() * 0.002;
       }
     }
   });

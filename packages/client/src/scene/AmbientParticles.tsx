@@ -32,6 +32,10 @@ export function AmbientParticles({ room }: { room: Room<WorldState> }) {
 
   const matRef = useRef<THREE.PointsMaterial>(null);
   const lastAnchor = useRef({ x: 0, z: 0 });
+  // Cache the last-applied day/night state so we only re-set the material
+  // color on transition. Size/opacity still update for the breathing
+  // animation (cheap), but setHex was being called 60×/sec for no reason.
+  const lastNight = useRef<boolean | null>(null);
 
   useFrame(({ clock }) => {
     if (!pointsRef.current || !matRef.current) return;
@@ -76,16 +80,16 @@ export function AmbientParticles({ room }: { room: Room<WorldState> }) {
     attr.needsUpdate = true;
     lastAnchor.current = { x: me.pos.x, z: me.pos.z };
 
-    // Color + size based on day/night
-    if (isNight) {
-      matRef.current.color.setHex(0xfde047);   // firefly yellow
-      matRef.current.size = 0.22 + Math.sin(t * 4) * 0.05;
-      matRef.current.opacity = 0.9;
-    } else {
-      matRef.current.color.setHex(0xfbcfe8);   // soft pink petals
-      matRef.current.size = 0.18 + Math.sin(t * 2) * 0.03;
-      matRef.current.opacity = 0.7;
+    // Color + size based on day/night. Only repaint color + opacity on the
+    // transition; size animates every frame because it's the visual breath.
+    if (lastNight.current !== isNight) {
+      matRef.current.color.setHex(isNight ? 0xfde047 : 0xfbcfe8);
+      matRef.current.opacity = isNight ? 0.9 : 0.7;
+      lastNight.current = isNight;
     }
+    matRef.current.size = isNight
+      ? 0.22 + Math.sin(t * 4) * 0.05
+      : 0.18 + Math.sin(t * 2) * 0.03;
   });
 
   return (

@@ -21,6 +21,19 @@ export function getSfxVolume() {
   return parseFloat(localStorage.getItem("sfxVolume") ?? "0.3");
 }
 
+/** Close the audio context and release audio thread / hardware resources. */
+export function closeSfx() {
+  try { ctx?.close(); } catch { /* best effort */ }
+  ctx = null;
+  masterGain = null;
+}
+
+// Release audio resources on page unload so a browser reload doesn't leak
+// audio threads or block hardware release.
+if (typeof window !== "undefined") {
+  window.addEventListener("beforeunload", () => closeSfx());
+}
+
 function tone(opts: { freq: number; freqEnd?: number; dur: number; type?: OscillatorType; gain?: number; attack?: number; decay?: number }) {
   const c = ensureCtx();
   const o = c.createOscillator();
