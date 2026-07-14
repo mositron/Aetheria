@@ -4,6 +4,7 @@
 export class MusicController {
   private ctx: AudioContext | null = null;
   private masterGain: GainNode | null = null;
+  private melodyDelaySend: DelayNode | null = null;
   private nodes: {
     stop: (() => void) | null;
     disconnect: () => void;
@@ -19,8 +20,29 @@ export class MusicController {
     this.ctx = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
     this.masterGain = this.ctx.createGain();
     this.masterGain.gain.value = volume;
-    this.masterGain.connect(this.ctx.destination);
+
+    // Master bus: aggressive highpass + gentle lowpass so the mix can never
+    // build into a rumbly/muffled wall, plus a compressor for headroom. The
+    // first pass (40Hz highpass + a quiet low anchor pad) still read as
+    // bassy/muffled/fatiguing to the ear — cut much harder this time: no low
+    // anchor pad at all (removed below) and the highpass raised well above
+    // the "boomy" range so nothing under ~180Hz survives into the mix.
+    const highpass = this.ctx.createBiquadFilter();
+    highpass.type = "highpass";
+    highpass.frequency.value = 180;
+    const lowpass = this.ctx.createBiquadFilter();
+    lowpass.type = "lowpass";
+    lowpass.frequency.value = 3500;
+    lowpass.Q.value = 0.5;
+    const compressor = this.ctx.createDynamicsCompressor();
+    compressor.threshold.value = -18;
+    compressor.ratio.value = 3;
+    compressor.attack.value = 0.02;
+    compressor.release.value = 0.3;
+    this.masterGain.connect(highpass).connect(lowpass).connect(compressor).connect(this.ctx.destination);
+
     this.buildAmbientPads();
+    this.buildMelodyDelay();
     this.scheduleMelody();
   }
 
@@ -33,6 +55,7 @@ export class MusicController {
       try { n.stop?.(); } catch { /* already stopped */ }
     }
     this.nodes = [];
+    this.melodyDelaySend = null;
     this.ctx?.close();
     this.ctx = null;
     this.masterGain = null;
@@ -45,72 +68,60 @@ export class MusicController {
   }
 
   // ── Ambient pads ────────────────────────────────────────────────────────────
-  // Builds three layered drone chords (root, fifth, octave) with slow LFO
-  // modulation on gains to create a living texture.
+  // Three quiet pad voices spread across the stereo field, one shared slow
+  // LFO for a coherent "breathing" motion. No bass content at all this time
+  // — the first redesign (G3/C4/E4 chord + a quiet filtered G2 anchor) still
+  // read as bassy/muffled, so the anchor is gone entirely and the chord
+  // moved up another step (was G3/C4/E4, now C4/E4/G4) so the whole pad bed
+  // sits safely above the master highpass's 180Hz cutoff.
 
   private buildAmbientPads() {
     const c = this.ctx!;
     const now = c.currentTime;
 
-    // Chord: minor pentatonic-based ambient — C2, G2, C3
-    const freqs = [65.41, 98.00, 130.81];
+    const sharedLfo = c.createOscillator();
+    sharedLfo.type = "sine";
+    sharedLfo.frequency.value = 0.04; // ~25s period — subliminal, not a pulse
+    const sharedLfoGain = c.createGain();
+    sharedLfoGain.gain.value = 1;
+    sharedLfo.connect(sharedLfoGain);
+    sharedLfo.start(now);
+    this.nodes.push(
+      { stop: () => sharedLfo.stop(), disconnect: () => { sharedLfo.disconnect(); sharedLfoGain.disconnect(); } },
+    );
 
-    for (const freq of freqs) {
-      // Main sine oscillator
+    const notes: Array<{ freq: number; pan: number }> = [
+      { freq: 261.63, pan: -0.4 }, // C4
+      { freq: 329.63, pan: 0 },    // E4
+      { freq: 392.00, pan: 0.4 },  // G4
+    ];
+
+    for (const { freq, pan } of notes) {
       const osc = c.createOscillator();
       osc.type = "sine";
       osc.frequency.value = freq;
 
-      // Soft detune for width
-      const osc2 = c.createOscillator();
-      osc2.type = "sine";
-      osc2.frequency.value = freq * 1.003;
-
-      // Gain envelope — slow fade-in
       const gainNode = c.createGain();
       gainNode.gain.setValueAtTime(0, now);
-      gainNode.gain.linearRampToValueAtTime(0.12, now + 4);
+      gainNode.gain.linearRampToValueAtTime(0.07, now + 4);
 
-      // LFO to modulate volume slightly (breathing effect)
-      const lfo = c.createOscillator();
-      lfo.type = "sine";
-      lfo.frequency.value = 0.07 + Math.random() * 0.04;
-      const lfoGain = c.createGain();
-      lfoGain.gain.value = 0.03;
-      lfo.connect(lfoGain).connect(gainNode.gain);
+      // ~10% depth modulation driven by the one shared LFO above.
+      const depthGain = c.createGain();
+      depthGain.gain.value = 0.007;
+      sharedLfoGain.connect(depthGain).connect(gainNode.gain);
 
-      osc.connect(gainNode);
-      osc2.connect(gainNode);
-      gainNode.connect(this.masterGain!);
+      const panner = c.createStereoPanner();
+      panner.pan.value = pan;
 
+      osc.connect(gainNode).connect(panner).connect(this.masterGain!);
       osc.start(now);
-      osc2.start(now);
-      lfo.start(now);
 
       this.nodes.push(
-        { stop: () => osc.stop(), disconnect: () => { osc.disconnect(); osc2.disconnect(); gainNode.disconnect(); lfo.disconnect(); lfoGain.disconnect(); } },
-        { stop: () => osc2.stop(), disconnect: () => {} },
-        { stop: () => gainNode.disconnect(), disconnect: () => {} },
-        { stop: () => lfo.stop(), disconnect: () => {} },
-        { stop: () => lfoGain.disconnect(), disconnect: () => {} },
+        { stop: () => osc.stop(), disconnect: () => { osc.disconnect(); gainNode.disconnect(); panner.disconnect(); depthGain.disconnect(); } },
       );
     }
 
-    // Sub-bass pad — very low, felt more than heard
-    const subOsc = c.createOscillator();
-    subOsc.type = "sine";
-    subOsc.frequency.value = 32.70; // C1
-    const subGain = c.createGain();
-    subGain.gain.setValueAtTime(0, now);
-    subGain.gain.linearRampToValueAtTime(0.08, now + 6);
-    subOsc.connect(subGain).connect(this.masterGain!);
-    subOsc.start(now);
-    this.nodes.push(
-      { stop: () => subOsc.stop(), disconnect: () => { subOsc.disconnect(); subGain.disconnect(); } },
-      { stop: () => subGain.disconnect(), disconnect: () => {} },
-    );
-
-    // High shimmer — filtered noise at very low level
+    // High shimmer — filtered noise at low level, gives the thinner bed some air.
     const bufSize = Math.floor(c.sampleRate * 4);
     const buf = c.createBuffer(1, bufSize, c.sampleRate);
     const data = buf.getChannelData(0);
@@ -124,13 +135,31 @@ export class MusicController {
     noiseFilter.Q.value = 0.5;
     const noiseGain = c.createGain();
     noiseGain.gain.setValueAtTime(0, now);
-    noiseGain.gain.linearRampToValueAtTime(0.015, now + 5);
+    noiseGain.gain.linearRampToValueAtTime(0.02, now + 5);
     noiseSrc.connect(noiseFilter).connect(noiseGain).connect(this.masterGain!);
     noiseSrc.start(now);
     this.nodes.push(
       { stop: () => noiseSrc.stop(), disconnect: () => { noiseSrc.disconnect(); noiseFilter.disconnect(); noiseGain.disconnect(); } },
-      { stop: () => noiseFilter.disconnect(), disconnect: () => {} },
-      { stop: () => noiseGain.disconnect(), disconnect: () => {} },
+    );
+  }
+
+  // ── Shared melody delay send ────────────────────────────────────────────────
+  // A short feedback delay every melody note sends into, for a little airy
+  // space instead of relying on long decay tails alone.
+
+  private buildMelodyDelay() {
+    const c = this.ctx!;
+    const delay = c.createDelay(1);
+    delay.delayTime.value = 0.35;
+    const feedback = c.createGain();
+    feedback.gain.value = 0.25;
+    const wet = c.createGain();
+    wet.gain.value = 0.15;
+    delay.connect(feedback).connect(delay);
+    delay.connect(wet).connect(this.masterGain!);
+    this.melodyDelaySend = delay;
+    this.nodes.push(
+      { stop: null, disconnect: () => { delay.disconnect(); feedback.disconnect(); wet.disconnect(); } },
     );
   }
 
@@ -160,7 +189,7 @@ export class MusicController {
 
     const gainNode = c.createGain();
     gainNode.gain.setValueAtTime(0, now);
-    gainNode.gain.linearRampToValueAtTime(0.08, now + 0.4);
+    gainNode.gain.linearRampToValueAtTime(0.13, now + 0.4);
     gainNode.gain.exponentialRampToValueAtTime(0.001, now + 3.2);
 
     // Light reverb via second slightly-detuned oscillator
@@ -172,15 +201,18 @@ export class MusicController {
     gain2.gain.linearRampToValueAtTime(0.04, now + 0.5);
     gain2.gain.exponentialRampToValueAtTime(0.001, now + 3.5);
 
-    osc.connect(gainNode).connect(this.masterGain!);
+    osc.connect(gainNode);
+    gainNode.connect(this.masterGain!);
+    if (this.melodyDelaySend) gainNode.connect(this.melodyDelaySend);
     osc2.connect(gain2).connect(this.masterGain!);
     osc.start(now);
     osc2.start(now);
     osc.stop(now + 3.5);
     osc2.stop(now + 3.7);
 
-    // Schedule next note — 1.8–3.5s apart for sparse, ambient feel
-    const delay = 1800 + Math.random() * 1700;
+    // Schedule next note — tighter spacing (was 1.8-3.5s) so the melody reads
+    // as present motion instead of a sparse accent buried under the pad bed.
+    const delay = 1200 + Math.random() * 1300;
     this.melodyTimer = setTimeout(() => this.scheduleMelody(), delay);
   }
 }
