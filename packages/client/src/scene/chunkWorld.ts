@@ -78,6 +78,16 @@ export function isWater(x: number, z: number): boolean {
   return riverDistance(x, z) < RIVER_WIDTH;
 }
 
+const BANK_WIDTH = 1.6;
+// 0 = normal ground, 1 = right at the water's edge. Smooth ramp used to blend
+// a "wet ground" ring into terrain color instead of a hard grass/water cutoff.
+export function bankFactor(x: number, z: number): number {
+  if (Math.hypot(x, z) < SPAWN_RADIUS - 2) return 0;
+  const edge = riverDistance(x, z) - RIVER_WIDTH;
+  if (edge <= 0 || edge > BANK_WIDTH) return edge <= 0 ? 1 : 0;
+  return 1 - edge / BANK_WIDTH;
+}
+
 // ── Terrain heightmap (works for any x, z) ──────────────────────────────────
 export function getHeight(x: number, z: number): number {
   // Spawn area: perfectly flat
@@ -98,6 +108,40 @@ export function getHeight(x: number, z: number): number {
   h = h * MAX_HEIGHT * ramp;
   h = Math.floor(h / STEP) * STEP;
   return Math.max(0, h);
+}
+
+// World-unit spacing between terrain MESH vertices — coarser than CELL_SIZE
+// on purpose (perf: sampling every cell was ~4x more getHeight/getBiome/color
+// evaluations per chunk than a still-smooth stylized look needs). Exported so
+// ChunkedTerrain.tsx's mesh builder and getSmoothHeight() below always sample
+// the exact same lattice — if they drifted apart, grass/decor would float
+// above or sink into the ground again on slopes.
+export const TERRAIN_MESH_STEP = CELL_SIZE * 2; // 4 units
+
+// Bilinear-interpolated height matching the actual surface the terrain mesh
+// renders. getHeight() itself is a discrete step function (quantized by
+// STEP) — sampling it directly at an arbitrary (x,z), like decor placement
+// does, can land on a different terrace step than the mesh surface
+// interpolates to at that same point on a slope, making grass/trees/rocks
+// appear to float above or sink into the ground (worse the steeper the
+// slope — this is what made grass look like it was "constantly shifting" as
+// the camera moved). Use this for any visual Y-placement that needs to hug
+// the rendered ground; getHeight() stays as-is for collision/movement-step
+// gating, where the discrete steps are the intended "can I step up this
+// ledge" behavior.
+export function getSmoothHeight(x: number, z: number): number {
+  const step = TERRAIN_MESH_STEP;
+  const gx = Math.floor(x / step) * step;
+  const gz = Math.floor(z / step) * step;
+  const tx = (x - gx) / step;
+  const tz = (z - gz) / step;
+  const h00 = getHeight(gx, gz);
+  const h10 = getHeight(gx + step, gz);
+  const h01 = getHeight(gx, gz + step);
+  const h11 = getHeight(gx + step, gz + step);
+  const hx0 = h00 + (h10 - h00) * tx;
+  const hx1 = h01 + (h11 - h01) * tx;
+  return hx0 + (hx1 - hx0) * tz;
 }
 
 export function getBiomeValue(x: number, z: number): number {
@@ -175,6 +219,35 @@ export function getChunkDecor(chunkX: number, chunkZ: number): ChunkDecor {
     }
   }
   return { trees, rocks, bushes };
+}
+
+// ── Per-chunk deterministic grass blades ─────────────────────────────────────
+// Cheap crossed-billboard grass, seeded identically to decor so it's stable
+// per (chunkX, chunkZ) across clients. Only placed on flat plains/forest —
+// mountains/desert/snow/swamp stay bare per the existing decor mix.
+export type GrassBlade = { x: number; z: number; scale: number; rot: number };
+
+export function getChunkGrass(chunkX: number, chunkZ: number): GrassBlade[] {
+  const seed = (chunkX * 928371) ^ (chunkZ * 123457) ^ (SEED + 555);
+  const rand = mulberry32(seed);
+  const baseX = chunkX * CHUNK_SIZE;
+  const baseZ = chunkZ * CHUNK_SIZE;
+  const blades: GrassBlade[] = [];
+  const tries = 70 + Math.floor(rand() * 40);
+
+  for (let i = 0; i < tries; i++) {
+    const x = baseX + rand() * CHUNK_SIZE;
+    const z = baseZ + rand() * CHUNK_SIZE;
+    if (Math.hypot(x, z) < SPAWN_RADIUS) continue;
+    if (isWater(x, z)) continue;
+    if (bankFactor(x, z) > 0) continue; // keep the wet bank clear of grass
+    const h = getHeight(x, z);
+    if (h > MAX_HEIGHT * 0.4) continue; // no grass on rocky highlands
+    const biome = getBiome(x, z);
+    if (biome !== "plains" && biome !== "forest") continue;
+    blades.push({ x, z, scale: 0.6 + rand() * 0.6, rot: rand() * Math.PI * 2 });
+  }
+  return blades;
 }
 
 export function chunkKey(cx: number, cz: number): string {

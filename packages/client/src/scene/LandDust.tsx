@@ -4,7 +4,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
-import { getHeight as terrainHeight } from "./chunkWorld";
+import { getSmoothHeight as terrainHeight } from "./chunkWorld";
 
 type Puff = { id: number; x: number; z: number; y: number; bornAt: number; intensity: number };
 

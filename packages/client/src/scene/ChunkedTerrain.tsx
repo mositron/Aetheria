@@ -1,94 +1,94 @@
 // Renders the infinite world as discrete chunks loaded around the player.
 // Mounts chunks within LOAD_RADIUS, unmounts beyond UNLOAD_RADIUS.
 // Each chunk is a memoized component that renders its own toon-shaded
-// stacked columns + decor (trees/rocks/bushes).
+// smooth heightmap terrain mesh + decor (trees/rocks/bushes).
 
-import { useEffect, useMemo, useState, useRef } from "react";
+import { useEffect, useMemo, useState, useRef, type ReactNode } from "react";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import type { Room } from "colyseus.js";
 import type { WorldState } from "@game/shared";
 import {
-  CHUNK_SIZE, CELL_SIZE, CHUNK_CELLS, STEP, MAX_HEIGHT, WATER_Y,
-  getHeight, getBiomeValue, getBiome, isWater, getChunkDecor, worldToChunk,
+  CHUNK_SIZE, CELL_SIZE, CHUNK_CELLS, STEP, MAX_HEIGHT, WATER_Y, TERRAIN_MESH_STEP,
+  getHeight, getSmoothHeight, getBiomeValue, getBiome, isWater, bankFactor, getChunkDecor, worldToChunk,
   type Biome,
 } from "./chunkWorld";
+import { GrassField } from "./GrassField";
 import { registerObstacles, unregisterObstacles } from "./obstacles";
+import { toonGradient } from "./materials";
 
-const LOAD_RADIUS = 3;       // chunks loaded around player (3 = 7×7 area = ~225m wide)
-const UNLOAD_RADIUS = 4;     // chunks beyond this distance are evicted
+// Radius tuned to keep frame time smooth on modest hardware: fewer resident
+// chunks means less per-chunk mesh/decor build cost as the player walks and
+// chunks stream in/out (each chunk mount does real work — terrain-mesh
+// sampling, decor placement, grass — not free). Was 3/4, then 2/3
+// (7×7=49 → 5×5=25 chunks); still felt like it rendered too far, so cut
+// again to 1/2 (3×3=9 chunks resident). Paired with the fog retune in
+// Environment.tsx so the closer unload boundary is masked instead of
+// visibly popping into view.
+const LOAD_RADIUS = 1;       // chunks loaded around player (1 = 3×3 area = ~96m wide)
+const UNLOAD_RADIUS = 2;     // chunks beyond this distance are evicted
 const STREAM_INTERVAL_MS = 300;
 
-// Shared toon gradient (single instance, all chunks share)
-const toonGradient = (() => {
-  const steps = [50, 110, 175, 220, 255];
-  const data = new Uint8Array(steps.length * 4);
-  for (let i = 0; i < steps.length; i++) {
-    data[i * 4] = data[i * 4 + 1] = data[i * 4 + 2] = steps[i];
-    data[i * 4 + 3] = 255;
-  }
-  const t = new THREE.DataTexture(data, steps.length, 1, THREE.RGBAFormat);
-  t.minFilter = THREE.NearestFilter; t.magFilter = THREE.NearestFilter;
-  t.generateMipmaps = false; t.needsUpdate = true;
-  return t;
-})();
+// Elevation gradient stops per biome — [ground, rockMid, peak]. Blended
+// continuously by height, written directly into a per-vertex color attribute
+// on the terrain mesh (see TerrainMesh below) — the old hard 2-band bucketed
+// system only existed to keep InstancedMesh color-grouping cheap, which a
+// single mesh draw call per chunk no longer needs.
+const BIOME_STOPS: Record<Biome, [string, string, string]> = {
+  plains: ["#86c259", "#7c5e3f", "#a8a09a"],
+  forest: ["#3fb555", "#7c5e3f", "#a8a09a"],
+  desert: ["#e8c890", "#c9986a", "#a8a09a"],
+  snow:   ["#e6ecf2", "#d4dce4", "#f0f4f8"],
+  swamp:  ["#4a6b3f", "#5e6b3f", "#8f9a86"],
+};
+const _stopColors = new Map<string, THREE.Color>();
+function stopColor(hex: string): THREE.Color {
+  let c = _stopColors.get(hex);
+  if (!c) { c = new THREE.Color(hex); _stopColors.set(hex, c); }
+  return c;
+}
 
-function pickColor(biome: Biome, h: number): string {
-  const ratio = h / MAX_HEIGHT;
-  // High elevations always rocky/snowy regardless of biome
-  if (ratio > 0.75) return biome === "snow" ? "#f0f4f8" : "#a8a09a";
-  if (ratio > 0.45) {
-    if (biome === "desert") return "#c9986a";
-    if (biome === "snow")   return "#d4dce4";
-    if (biome === "swamp")  return "#5e6b3f";
-    return "#7c5e3f";  // rocky mid
+// Mutates + returns `out` — avoids per-vertex Color allocation across a
+// 17×17 grid × many streamed chunks.
+function pickColor(biome: Biome, h: number, out: THREE.Color): THREE.Color {
+  const ratio = Math.min(1, Math.max(0, h / MAX_HEIGHT));
+  const [groundHex, midHex, peakHex] = BIOME_STOPS[biome];
+  if (ratio < 0.5) {
+    out.copy(stopColor(groundHex)).lerp(stopColor(midHex), ratio / 0.5);
+  } else {
+    out.copy(stopColor(midHex)).lerp(stopColor(peakHex), (ratio - 0.5) / 0.5);
   }
-  // Ground level by biome
-  switch (biome) {
-    case "forest": return "#3fb555";
-    case "desert": return "#e8c890";
-    case "snow":   return "#e6ecf2";
-    case "swamp":  return "#4a6b3f";
-    default:       return "#86c259";    // plains
-  }
+  return out;
+}
+
+// Bank/shoreline tint — a soft "wet ground" ring around water instead of a
+// hard grass-to-water cutoff. Mutates `color` in place.
+const WET_TONE = new THREE.Color("#3f5a42");
+function applyBankTint(color: THREE.Color, bank: number): THREE.Color {
+  if (bank > 0) color.lerp(WET_TONE, Math.min(1, bank) * 0.5);
+  return color;
 }
 
 // ── Single chunk renderer ────────────────────────────────────────────────────
-function Chunk({ cx, cz }: { cx: number; cz: number }) {
-  // Build all geometry data once per chunk mount
+function Chunk({ cx, cz, room }: { cx: number; cz: number; room: Room<WorldState> }) {
+  // Water tiles (for the animated WaterPatch instances) + decor placement —
+  // both still sampled at cell centers, unrelated to the terrain mesh's
+  // vertex grid below.
   const data = useMemo(() => {
     const baseX = cx * CHUNK_SIZE;
     const baseZ = cz * CHUNK_SIZE;
-    type Col = { x: number; z: number; h: number; color: string };
-    const columns: Col[] = [];
     const waterTiles: Array<{ x: number; z: number }> = [];
 
     for (let i = 0; i < CHUNK_CELLS; i++) {
       for (let j = 0; j < CHUNK_CELLS; j++) {
         const x = baseX + (i + 0.5) * CELL_SIZE;
         const z = baseZ + (j + 0.5) * CELL_SIZE;
-        const h = getHeight(x, z);
-        if (isWater(x, z)) {
-          waterTiles.push({ x, z });
-        } else if (h > 0) {
-          const biome = getBiome(x, z);
-          columns.push({ x, z, h, color: pickColor(biome, h) });
-        }
+        if (isWater(x, z)) waterTiles.push({ x, z });
       }
     }
     const decor = getChunkDecor(cx, cz);
-    return { columns, waterTiles, decor };
+    return { waterTiles, decor };
   }, [cx, cz]);
-
-  // Group columns by color → fewer materials, fewer draw calls
-  const colorGroups = useMemo(() => {
-    const m = new Map<string, typeof data.columns>();
-    for (const c of data.columns) {
-      const list = m.get(c.color);
-      if (list) list.push(c); else m.set(c.color, [c]);
-    }
-    return Array.from(m.entries());
-  }, [data.columns]);
 
   // Publish obstacles for this chunk on mount, remove on unmount
   useEffect(() => {
@@ -102,13 +102,16 @@ function Chunk({ cx, cz }: { cx: number; cz: number }) {
 
   return (
     <group>
-      {colorGroups.map(([color, cols]) => (
-        <ColumnGroup key={color} color={color} cols={cols} />
-      ))}
+      <TerrainMesh cx={cx} cz={cz} />
       {data.waterTiles.length > 0 && <WaterPatch tiles={data.waterTiles} />}
-      {data.decor.trees.length > 0 && <TreeInstanced trees={data.decor.trees} />}
-      {data.decor.rocks.length > 0 && <RockInstanced rocks={data.decor.rocks} />}
-      {data.decor.bushes.length > 0 && <BushInstanced bushes={data.decor.bushes} />}
+      <GrassField cx={cx} cz={cz} room={room} />
+      {(data.decor.trees.length > 0 || data.decor.rocks.length > 0 || data.decor.bushes.length > 0) && (
+        <DecorVisibility cx={cx} cz={cz} room={room}>
+          {data.decor.trees.length > 0 && <TreeInstanced trees={data.decor.trees} />}
+          {data.decor.rocks.length > 0 && <RockInstanced rocks={data.decor.rocks} />}
+          {data.decor.bushes.length > 0 && <BushInstanced bushes={data.decor.bushes} />}
+        </DecorVisibility>
+      )}
       {/* One signpost per chunk near origin facing back home (every 4th chunk) */}
       {((cx + cz) & 3) === 0 && <Signpost cx={cx} cz={cz} />}
     </group>
@@ -141,29 +144,117 @@ function Signpost({ cx, cz }: { cx: number; cz: number }) {
   );
 }
 
-function ColumnGroup({ color, cols }: { color: string; cols: Array<{ x: number; z: number; h: number }> }) {
-  const ref = useRef<THREE.InstancedMesh>(null);
-  useEffect(() => {
-    if (!ref.current) return;
-    const obj = new THREE.Object3D();
-    for (let i = 0; i < cols.length; i++) {
-      const c = cols[i];
-      obj.position.set(c.x, c.h / 2, c.z);
-      obj.scale.set(CELL_SIZE, c.h, CELL_SIZE);
-      obj.updateMatrix();
-      ref.current.setMatrixAt(i, obj.matrix);
+// Ground grid resolution — sampled at TERRAIN_MESH_STEP spacing (coarser
+// than CELL_SIZE, see chunkWorld.ts) so adjacent chunks' shared edge
+// vertices still land on identical world coordinates (getHeight is a pure
+// fn of world x,z with no per-chunk randomness, so seams tile automatically
+// — no stitching logic needed) while cutting per-chunk noise evaluations
+// substantially versus sampling every cell.
+const TERRAIN_GRID = CHUNK_SIZE / TERRAIN_MESH_STEP + 1;
+const _scratchColor = new THREE.Color();
+
+// Smooth per-chunk terrain mesh — replaces the old stacked-unit-cube
+// InstancedMesh columns with a single triangulated heightmap surface (real
+// slopes + vertex-lit normals instead of flat cube tops). getHeight() still
+// applies its existing STEP quantization, which now reads as gentle stylized
+// terracing on an interpolated slope rather than flat boxes — "low-poly
+// hills" for free, no new sampling function needed.
+function TerrainMesh({ cx, cz }: { cx: number; cz: number }) {
+  const geometry = useMemo(() => {
+    const baseX = cx * CHUNK_SIZE;
+    const baseZ = cz * CHUNK_SIZE;
+    const size = TERRAIN_GRID;
+    const positions = new Float32Array(size * size * 3);
+    const colors = new Float32Array(size * size * 3);
+
+    let vi = 0;
+    for (let j = 0; j < size; j++) {
+      for (let i = 0; i < size; i++) {
+        const wx = baseX + i * TERRAIN_MESH_STEP;
+        const wz = baseZ + j * TERRAIN_MESH_STEP;
+        const h = getHeight(wx, wz);
+        const biome = getBiome(wx, wz);
+        pickColor(biome, h, _scratchColor);
+        applyBankTint(_scratchColor, bankFactor(wx, wz));
+
+        const p = vi * 3;
+        positions[p] = wx; positions[p + 1] = h; positions[p + 2] = wz;
+        colors[p] = _scratchColor.r; colors[p + 1] = _scratchColor.g; colors[p + 2] = _scratchColor.b;
+        vi++;
+      }
     }
-    ref.current.instanceMatrix.needsUpdate = true;
-    ref.current.computeBoundingSphere();
-  }, [cols]);
-  if (cols.length === 0) return null;
+
+    const cells = TERRAIN_GRID - 1;
+    const indices = new Uint16Array(cells * cells * 6);
+    let ii = 0;
+    for (let j = 0; j < cells; j++) {
+      for (let i = 0; i < cells; i++) {
+        const a = i + size * j;
+        const b = i + size * (j + 1);
+        const c = (i + 1) + size * (j + 1);
+        const d = (i + 1) + size * j;
+        indices[ii++] = a; indices[ii++] = b; indices[ii++] = d;
+        indices[ii++] = b; indices[ii++] = c; indices[ii++] = d;
+      }
+    }
+
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+    geo.setAttribute("color", new THREE.BufferAttribute(colors, 3));
+    geo.setIndex(new THREE.BufferAttribute(indices, 1));
+    geo.computeVertexNormals();
+    geo.computeBoundingSphere();
+    return geo;
+  }, [cx, cz]);
+
+  // Imperatively-built geometry isn't auto-disposed by R3F on unmount —
+  // chunks mount/unmount continuously under the 300ms streamer, so skipping
+  // this is a GPU buffer leak (same class already fixed once in 06792e9).
+  useEffect(() => () => geometry.dispose(), [geometry]);
+
   return (
-    <instancedMesh ref={ref} args={[undefined as any, undefined as any, cols.length]} receiveShadow castShadow>
-      <boxGeometry args={[1, 1, 1]} />
-      <meshToonMaterial color={color} gradientMap={toonGradient} />
-    </instancedMesh>
+    <mesh geometry={geometry} receiveShadow castShadow>
+      <meshToonMaterial vertexColors gradientMap={toonGradient} />
+    </mesh>
   );
 }
+
+// Shared water material — one shader compile for every chunk's water instead
+// of one per chunk. Adds a gentle per-tile bob + a soft flow shimmer driven
+// by a uTime uniform (updated via ref in useFrame, never React state).
+const waterMaterial = (() => {
+  const mat = new THREE.MeshToonMaterial({
+    color: "#38bdf8",
+    gradientMap: toonGradient,
+    transparent: true,
+    opacity: 0.86,
+  });
+  mat.onBeforeCompile = (shader) => {
+    shader.uniforms.uTime = { value: 0 };
+    (mat as any).userData.shader = shader;
+    shader.vertexShader = shader.vertexShader
+      .replace("#include <common>", "#include <common>\nuniform float uTime;\nvarying float vFlow;")
+      .replace(
+        "#include <begin_vertex>",
+        `#include <begin_vertex>
+#ifdef USE_INSTANCING
+  float wPhase = instanceMatrix[3].x * 0.35 + instanceMatrix[3].z * 0.5;
+  float wave = sin(uTime * 1.4 + wPhase) * 0.06;
+  transformed.y += wave * step(0.0, position.y);
+  vFlow = sin(uTime * 2.1 + wPhase * 1.7) * 0.5 + 0.5;
+#else
+  vFlow = 0.0;
+#endif`
+      );
+    shader.fragmentShader = shader.fragmentShader
+      .replace("#include <common>", "#include <common>\nvarying float vFlow;")
+      .replace(
+        "#include <color_fragment>",
+        "#include <color_fragment>\ndiffuseColor.rgb = mix(diffuseColor.rgb, vec3(1.0), vFlow * 0.14);"
+      );
+  };
+  return mat;
+})();
 
 function WaterPatch({ tiles }: { tiles: Array<{ x: number; z: number }> }) {
   const ref = useRef<THREE.InstancedMesh>(null);
@@ -179,12 +270,52 @@ function WaterPatch({ tiles }: { tiles: Array<{ x: number; z: number }> }) {
     ref.current.instanceMatrix.needsUpdate = true;
     ref.current.computeBoundingSphere();
   }, [tiles]);
+
+  useFrame((state) => {
+    const shader = (waterMaterial as any).userData.shader;
+    if (shader) shader.uniforms.uTime.value = state.clock.elapsedTime;
+  });
+
   return (
-    <instancedMesh ref={ref} args={[undefined as any, undefined as any, tiles.length]} receiveShadow>
+    <instancedMesh ref={ref} args={[undefined as any, waterMaterial, tiles.length]} receiveShadow>
       <boxGeometry args={[1, 1, 1]} />
-      <meshToonMaterial color="#38bdf8" gradientMap={toonGradient} transparent opacity={0.85} />
     </instancedMesh>
   );
+}
+
+// Distance-based visibility for decor (trees/rocks/bushes) — a fully-treed
+// chunk was previously rendered in full for as long as it stayed loaded
+// (LOAD_RADIUS chunk streaming has no per-decor distance culling at all,
+// unlike grass/mobs which already throttle-toggle visibility). Same
+// hysteresis pattern as GrassField: check every ~250ms, only touch
+// `.visible` on change, never at frame rate. Obstacle registration is
+// unaffected (a separate effect keyed off chunk mount, not this) — collision
+// stays correct even for decor that's visually culled here.
+const DECOR_RADIUS = 50;
+const DECOR_CHECK_INTERVAL_MS = 250;
+
+function DecorVisibility({ cx, cz, room, children }: { cx: number; cz: number; room: Room<WorldState>; children: ReactNode }) {
+  const ref = useRef<THREE.Group>(null);
+  const lastCheck = useRef(0);
+  const visible = useRef(true);
+
+  useFrame((state) => {
+    const now = state.clock.elapsedTime * 1000;
+    if (now - lastCheck.current < DECOR_CHECK_INTERVAL_MS) return;
+    lastCheck.current = now;
+    const me = room.state.players.get(room.sessionId);
+    if (!me || !ref.current) return;
+    const centerX = cx * CHUNK_SIZE + CHUNK_SIZE / 2;
+    const centerZ = cz * CHUNK_SIZE + CHUNK_SIZE / 2;
+    const dx = me.pos.x - centerX, dz = me.pos.z - centerZ;
+    const near = dx * dx + dz * dz <= DECOR_RADIUS * DECOR_RADIUS;
+    if (near !== visible.current) {
+      visible.current = near;
+      ref.current.visible = near;
+    }
+  });
+
+  return <group ref={ref}>{children}</group>;
 }
 
 // ── Decor primitives (toon-shaded simple shapes) ────────────────────────────
@@ -200,7 +331,7 @@ function TreeInstanced({ trees }: { trees: Array<{ x: number; z: number; scale: 
       if (!mesh) return;
       for (let i = 0; i < trees.length; i++) {
         const t = trees[i];
-        const baseY = getHeight(t.x, t.z);
+        const baseY = getSmoothHeight(t.x, t.z);
         obj.position.set(t.x, baseY + y * t.scale, t.z);
         obj.scale.set(sx * t.scale, sy * t.scale, sz * t.scale);
         obj.rotation.set(0, t.rot, 0);
@@ -248,7 +379,7 @@ function RockInstanced({ rocks }: { rocks: Array<{ x: number; z: number; scale: 
     const obj = new THREE.Object3D();
     for (let i = 0; i < rocks.length; i++) {
       const r = rocks[i];
-      const baseY = getHeight(r.x, r.z);
+      const baseY = getSmoothHeight(r.x, r.z);
       obj.position.set(r.x, baseY + 0.3 * r.scale, r.z);
       obj.scale.set(r.scale, r.scale, r.scale);
       obj.rotation.set(r.rot * 0.3, r.rot, r.rot * 0.5);
@@ -275,7 +406,7 @@ function BushInstanced({ bushes }: { bushes: Array<{ x: number; z: number; scale
       if (!mesh) return;
       for (let i = 0; i < bushes.length; i++) {
         const u = bushes[i];
-        const baseY = getHeight(u.x, u.z);
+        const baseY = getSmoothHeight(u.x, u.z);
         obj.position.set(u.x + ox * u.scale, baseY + oy * u.scale, u.z + oz * u.scale);
         obj.scale.set(s * u.scale, s * u.scale, s * u.scale);
         obj.rotation.set(jitter, u.rot, jitter);
@@ -397,7 +528,7 @@ export function ChunkedTerrain({ room }: { room: Room<WorldState> }) {
     <group>
       {Array.from(loaded).map((k) => {
         const [cx, cz] = k.split(",").map(Number);
-        return <Chunk key={k} cx={cx} cz={cz} />;
+        return <Chunk key={k} cx={cx} cz={cz} room={room} />;
       })}
     </group>
   );

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import type { Room } from "colyseus.js";
-import { MAPS, biomeAt, BIOMES, type MapId, type WorldState } from "@game/shared";
+import { MAPS, type MapId, type WorldState } from "@game/shared";
 import { ChunkedTerrain } from "./ChunkedTerrain";
 import { registerObstacles, unregisterObstacles } from "./obstacles";
 import { SPAWN_RADIUS } from "./chunkWorld";
@@ -81,111 +81,71 @@ function buildField(mapId: MapId, size: number, pal: Palette) {
   const rand = mulberry32(mapId === "field" ? 42 : 99);
   const half = size / 2;
   const useBiomes = mapId === "field";
+  // The open-world "field" map gets its terrain/rim/decor from ChunkedTerrain
+  // + DistantMountains instead — computing a second, unrendered copy here
+  // wasted CPU on every mount. Only non-field maps (dungeons) need this
+  // block-based backdrop.
+  const needsBackdrop = !useBiomes;
 
   // ground patches: scattered low boxes coloured by biome (so each region has visual identity)
   const groundPatches: Block[] = [];
-  const patchCount = Math.floor((size * size) / (useBiomes ? 90 : 60));
-  for (let i = 0; i < patchCount; i++) {
-    const x = (rand() - 0.5) * size;
-    const z = (rand() - 0.5) * size;
-    const w = 1.5 + rand() * 2.5;
-    const d = 1.5 + rand() * 2.5;
-    const h = 0.08 + rand() * 0.15;
-    let color: string;
-    if (useBiomes) {
-      const biome = BIOMES[biomeAt(x, z, half)];
+  if (needsBackdrop) {
+    const patchCount = Math.floor((size * size) / 60);
+    for (let i = 0; i < patchCount; i++) {
+      const x = (rand() - 0.5) * size;
+      const z = (rand() - 0.5) * size;
+      const w = 1.5 + rand() * 2.5;
+      const d = 1.5 + rand() * 2.5;
+      const h = 0.08 + rand() * 0.15;
       const r = rand();
-      color = r < 0.5 ? biome.accent : r < 0.85 ? biome.ground : biome.trim;
-    } else {
-      const r = rand();
-      color = r < 0.5 ? pal.groundB : r < 0.85 ? pal.groundA : pal.groundC;
+      const color = r < 0.5 ? pal.groundB : r < 0.85 ? pal.groundA : pal.groundC;
+      groundPatches.push({ x, y: h / 2, z, sx: w, sy: h, sz: d, color });
     }
-    groundPatches.push({ x, y: h / 2, z, sx: w, sy: h, sz: d, color });
   }
 
   // mountains around the rim
   const mountains: Block[] = [];
-  const ringRadius = half - 4;
-  const peaks = mapId === "field" ? 14 : 10;
-  for (let i = 0; i < peaks; i++) {
-    const a = (i / peaks) * Math.PI * 2 + rand() * 0.3;
-    const cx = Math.cos(a) * (ringRadius - rand() * 4);
-    const cz = Math.sin(a) * (ringRadius - rand() * 4);
-    const peakH = 5 + rand() * 7;
-    // stack a few cubes of varying width to look like a chunky mountain
-    const layers = 4 + Math.floor(rand() * 3);
-    for (let L = 0; L < layers; L++) {
-      const t = L / layers;
-      const w = (1 - t) * (3 + rand() * 3) + 1.5;
-      const h = peakH / layers;
-      const y = L * h + h / 2;
-      const ox = (rand() - 0.5) * 0.6;
-      const oz = (rand() - 0.5) * 0.6;
-      const color = L % 2 === 0 ? pal.rock : pal.rockDark;
-      mountains.push({ x: cx + ox, y, z: cz + oz, sx: w, sy: h, sz: w, color });
+  if (needsBackdrop) {
+    const ringRadius = half - 4;
+    const peaks = 10;
+    for (let i = 0; i < peaks; i++) {
+      const a = (i / peaks) * Math.PI * 2 + rand() * 0.3;
+      const cx = Math.cos(a) * (ringRadius - rand() * 4);
+      const cz = Math.sin(a) * (ringRadius - rand() * 4);
+      const peakH = 5 + rand() * 7;
+      // stack a few cubes of varying width to look like a chunky mountain
+      const layers = 4 + Math.floor(rand() * 3);
+      for (let L = 0; L < layers; L++) {
+        const t = L / layers;
+        const w = (1 - t) * (3 + rand() * 3) + 1.5;
+        const h = peakH / layers;
+        const y = L * h + h / 2;
+        const ox = (rand() - 0.5) * 0.6;
+        const oz = (rand() - 0.5) * 0.6;
+        const color = L % 2 === 0 ? pal.rock : pal.rockDark;
+        mountains.push({ x: cx + ox, y, z: cz + oz, sx: w, sy: h, sz: w, color });
+      }
     }
   }
 
-  // river: kept for small/dungeon map only; open-world uses lake biome instead
-  const river: Block[] = [];
-  if (false && mapId === "field") {
-    const riverZ = -size * 0.18;
-    const riverWidth = 4;
-    // skip a gap near x=0 so players can cross at a bridge
-    for (let x = -half + 2; x < half - 2; x += 2) {
-      if (Math.abs(x) < 3) continue; // bridge gap
-      const wob = Math.sin(x * 0.18) * 1.2;
-      river.push({
-        x, y: -0.05, z: riverZ + wob,
-        sx: 2.05, sy: 0.12, sz: riverWidth,
-        color: pal.river,
-      });
-      // deeper center stripe
-      river.push({
-        x, y: -0.1, z: riverZ + wob,
-        sx: 2.05, sy: 0.04, sz: riverWidth * 0.5,
-        color: pal.riverDeep,
-      });
-    }
-    // bridge planks
-    for (let i = 0; i < 3; i++) {
-      river.push({
-        x: -2 + i * 2, y: 0.12, z: riverZ + Math.sin(0 * 0.18) * 1.2,
-        sx: 2, sy: 0.12, sz: riverWidth + 0.5,
-        color: pal.trunk,
-      });
-    }
-  }
-
-  // decor: trees, rocks, bushes, flowers — biome-aware density/mix
+  // decor: trees, rocks, bushes, flowers — dungeon-only density/mix
   const decor: { type: "tree" | "rock" | "bush" | "flower"; x: number; z: number; s: number; r: number; seed: number }[] = [];
-  const count = useBiomes ? 200 : 30;
-  for (let i = 0; i < count; i++) {
-    const x = (rand() - 0.5) * (size - 6);
-    const z = (rand() - 0.5) * (size - 6);
-    if (Math.hypot(x, z) < 14) continue; // keep village/spawn clear
-    const r = rand();
-    let type: "tree" | "rock" | "bush" | "flower";
-    if (useBiomes) {
-      const b = biomeAt(x, z, half);
-      if (b === "village") continue;
-      if (b === "lake") continue; // no decor on water
-      if (b === "forest")          type = r < 0.65 ? "tree" : r < 0.85 ? "bush" : "flower";
-      else if (b === "mountains")  type = r < 0.65 ? "rock" : r < 0.85 ? "bush" : "tree";
-      else if (b === "swamp")      type = r < 0.5 ? "bush" : r < 0.8 ? "tree" : "rock";
-      else if (b === "wilderness") type = r < 0.5 ? "rock" : r < 0.8 ? "tree" : "bush";
-      else                         type = r < 0.35 ? "tree" : r < 0.6 ? "bush" : r < 0.85 ? "flower" : "rock";
-    } else if (mapId === "dungeon") {
-      type = r < 0.6 ? "rock" : r < 0.85 ? "bush" : "flower";
-    } else {
-      type = r < 0.45 ? "tree" : r < 0.7 ? "bush" : r < 0.9 ? "flower" : "rock";
+  if (needsBackdrop) {
+    const count = 30;
+    for (let i = 0; i < count; i++) {
+      const x = (rand() - 0.5) * (size - 6);
+      const z = (rand() - 0.5) * (size - 6);
+      if (Math.hypot(x, z) < 14) continue; // keep village/spawn clear
+      const r = rand();
+      const type: "tree" | "rock" | "bush" | "flower" = mapId === "dungeon"
+        ? (r < 0.6 ? "rock" : r < 0.85 ? "bush" : "flower")
+        : (r < 0.45 ? "tree" : r < 0.7 ? "bush" : r < 0.9 ? "flower" : "rock");
+      decor.push({ type, x, z, s: 0.8 + rand() * 0.5, r: Math.floor(rand() * 4) * (Math.PI / 2), seed: Math.floor(rand() * 9999) });
     }
-    decor.push({ type, x, z, s: 0.8 + rand() * 0.5, r: Math.floor(rand() * 4) * (Math.PI / 2), seed: Math.floor(rand() * 9999) });
   }
 
-  // Village at center (only on open-world field) — simple blocky houses + lake tiles
+  // Village at center (only on open-world field) — simple blocky houses
   const village: Block[] = [];
-  const lakeBlocks: Block[] = [];
   if (useBiomes) {
     // 4 huts arranged around (0,0) with a central plaza
     const huts: Array<{ x: number; z: number; rot: number }> = [
@@ -209,27 +169,9 @@ function buildField(mapId: MapId, size: number, pal: Palette) {
     // central fountain
     village.push({ x: 0, y: 0.2, z: 0, sx: 2.5, sy: 0.3, sz: 2.5, color: "#71717a" });
     village.push({ x: 0, y: 0.45, z: 0, sx: 2.0, sy: 0.2, sz: 2.0, color: "#3aa0d8" });
-
-    // Lake tiles (raised slightly to be visible)
-    const lakeCx = half * 0.4;
-    const lakeCz = half * 0.35;
-    const lakeR = half * 0.18;
-    const step = 2.5;
-    for (let x = lakeCx - lakeR; x <= lakeCx + lakeR; x += step) {
-      for (let z = lakeCz - lakeR; z <= lakeCz + lakeR; z += step) {
-        const d = Math.hypot(x - lakeCx, z - lakeCz);
-        if (d > lakeR) continue;
-        const deeper = d < lakeR * 0.5;
-        lakeBlocks.push({
-          x, y: 0.06, z,
-          sx: step * 1.02, sy: 0.12, sz: step * 1.02,
-          color: deeper ? "#1e6fa3" : "#3aa0d8",
-        });
-      }
-    }
   }
 
-  return { groundPatches, mountains, river, decor, village, lakeBlocks };
+  return { groundPatches, mountains, decor, village };
 }
 
 export function Environment({ mapId, room }: { mapId: MapId; room?: import("colyseus.js").Room<WorldState> }) {
@@ -278,9 +220,12 @@ export function Environment({ mapId, room }: { mapId: MapId; room?: import("coly
         </>
       )}
 
-      {/* fog — tuned so chunks fade in well before the 3-chunk load radius (~96m).
-          Near = 40m so close terrain is sharp; far = 90m so chunks blend before they pop. */}
-      <fog attach="fog" args={[mapId === "dungeon" ? "#1a0f2c" : "#a8d8f0", 40, 90]} />
+      {/* fog — field near=28/far=62 masks the chunk-streaming unload boundary
+          (LOAD_RADIUS=1/UNLOAD_RADIUS=2 in ChunkedTerrain.tsx, ~64m cardinal)
+          so terrain/decor popping in and out at the edge of render distance
+          reads as haze instead of an obviously empty gap; dungeons keep the
+          tighter, moodier 40-90 fog since those maps are small. */}
+      <fog attach="fog" args={[mapId === "dungeon" ? "#1a0f2c" : "#a8d8f0", mapId === "field" ? 28 : 40, mapId === "field" ? 62 : 90]} />
     </group>
   );
 }

@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
 import { Sky, Stars } from "@react-three/drei";
 import * as THREE from "three";
@@ -98,16 +98,38 @@ export function DayNight({ mapId }: { mapId: MapId }) {
   );
 }
 
+// Procedural soft-edge radial gradient — replaces the old plain-box cloud
+// clusters with painterly billboard sprites. Drawn once at module load
+// (same procedural-everything spirit as sfx.ts), reused across every cloud.
+let _cloudTexture: THREE.Texture | null = null;
+function cloudTexture(): THREE.Texture {
+  if (_cloudTexture) return _cloudTexture;
+  const size = 128;
+  const canvas = document.createElement("canvas");
+  canvas.width = canvas.height = size;
+  const ctx = canvas.getContext("2d")!;
+  const grad = ctx.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
+  grad.addColorStop(0, "rgba(255,255,255,0.95)");
+  grad.addColorStop(0.55, "rgba(255,255,255,0.55)");
+  grad.addColorStop(1, "rgba(255,255,255,0)");
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, size, size);
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.needsUpdate = true;
+  _cloudTexture = tex;
+  return tex;
+}
+
 /** Slow-drifting cute fluffy clouds high overhead. Hidden at night. */
 function FluffyClouds({ nightRef }: { nightRef: React.MutableRefObject<boolean> }) {
   const group = useRef<THREE.Group>(null);
-  const clouds = useRef<{ x: number; y: number; z: number; speed: number; mesh: THREE.Group | null }[]>(
+  const tex = useMemo(() => cloudTexture(), []);
+  const clouds = useRef<{ x: number; y: number; z: number; speed: number }[]>(
     Array.from({ length: 12 }).map((_, i) => ({
       x: (i / 12) * 200 - 100,
       y: 25 + Math.random() * 10,
       z: (Math.random() - 0.5) * 200,
       speed: 0.4 + Math.random() * 0.4,
-      mesh: null,
     }))
   );
 
@@ -126,18 +148,15 @@ function FluffyClouds({ nightRef }: { nightRef: React.MutableRefObject<boolean> 
     <group ref={group}>
       {clouds.current.map((_, i) => (
         <group key={i}>
-          <mesh position={[0, 0, 0]}>
-            <boxGeometry args={[6, 2, 4]} />
-            <meshStandardMaterial color="#ffffff" emissive="#ffffff" emissiveIntensity={0.2} />
-          </mesh>
-          <mesh position={[3, 0.4, 0]}>
-            <boxGeometry args={[4, 1.8, 3.5]} />
-            <meshStandardMaterial color="#fafafa" />
-          </mesh>
-          <mesh position={[-2.5, -0.2, 0.5]}>
-            <boxGeometry args={[3, 1.5, 3]} />
-            <meshStandardMaterial color="#f5f5f5" />
-          </mesh>
+          <sprite scale={[9, 4, 1]}>
+            <spriteMaterial map={tex} transparent depthWrite={false} opacity={0.95} fog />
+          </sprite>
+          <sprite scale={[6.5, 3.2, 1]} position={[3.4, 0.3, 0.2]}>
+            <spriteMaterial map={tex} transparent depthWrite={false} opacity={0.85} fog />
+          </sprite>
+          <sprite scale={[5.5, 2.8, 1]} position={[-2.8, -0.2, -0.2]}>
+            <spriteMaterial map={tex} transparent depthWrite={false} opacity={0.85} fog />
+          </sprite>
         </group>
       ))}
     </group>
