@@ -3,6 +3,9 @@ import React from "react";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import { DEFAULT_APPEARANCE, type Appearance } from "@game/shared";
+import { RoundedBox } from "@react-three/drei";
+import { RoundLimb, RoundTorso, RoundHead, RoundSpike } from "./organicPrimitives";
+import { toonGradient } from "../materials";
 
 type Props = {
   bodyColor: string;
@@ -164,34 +167,19 @@ export function HeroModel({ bodyColor, appearance, isMoving, isAttacking, isCast
 
   return (
     <group ref={root}>
-      {/* legs */}
-      <mesh ref={leftLeg} position={[-dims.legW * 0.95, legY, 0]}>
-        <boxGeometry args={[dims.legW, 0.55, dims.legW]} />
-        <meshStandardMaterial color={pants} />
-      </mesh>
-      <mesh ref={rightLeg} position={[dims.legW * 0.95, legY, 0]}>
-        <boxGeometry args={[dims.legW, 0.55, dims.legW]} />
-        <meshStandardMaterial color={pants} />
-      </mesh>
+      {/* legs — rounded capsules instead of rectangular boxes */}
+      <RoundLimb ref={leftLeg} length={0.55} radius={dims.legW * 0.5} color={pants} position={[-dims.legW * 0.95, legY, 0]} />
+      <RoundLimb ref={rightLeg} length={0.55} radius={dims.legW * 0.5} color={pants} position={[dims.legW * 0.95, legY, 0]} />
 
-      {/* torso */}
-      <mesh position={[0, torsoY, 0]} castShadow>
-        <boxGeometry args={[dims.torsoW, dims.torsoH, 0.35]} />
-        <meshStandardMaterial color={shirt} />
-      </mesh>
+      {/* torso — capsule scaled to width/depth, reads as a "pill" torso */}
+      <RoundTorso width={dims.torsoW} height={dims.torsoH} depth={0.35} color={shirt} position={[0, torsoY, 0]} castShadow />
 
       {/* arms */}
       <group ref={leftArm} position={[-(dims.torsoW * 0.55 + dims.armW * 0.5), armShoulderY, 0]}>
-        <mesh position={[0, -0.25, 0]}>
-          <boxGeometry args={[dims.armW, 0.5, dims.armW]} />
-          <meshStandardMaterial color={skin} />
-        </mesh>
+        <RoundLimb length={0.5} radius={dims.armW * 0.5} color={skin} position={[0, -0.25, 0]} />
       </group>
       <group ref={rightArm} position={[dims.torsoW * 0.55 + dims.armW * 0.5, armShoulderY, 0]}>
-        <mesh position={[0, -0.25, 0]}>
-          <boxGeometry args={[dims.armW, 0.5, dims.armW]} />
-          <meshStandardMaterial color={skin} />
-        </mesh>
+        <RoundLimb length={0.5} radius={dims.armW * 0.5} color={skin} position={[0, -0.25, 0]} />
         <mesh ref={weapon} position={[0, -0.55, 0.1]} rotation={[Math.PI * 0.1, 0, 0]} visible={hasWeapon?.() ?? false}>
           <boxGeometry args={[0.06, 0.65, 0.06]} />
           <meshStandardMaterial color="#e5e7eb" metalness={0.5} roughness={0.4} />
@@ -209,11 +197,8 @@ export function HeroModel({ bodyColor, appearance, isMoving, isAttacking, isCast
       </mesh>
       <pointLight ref={castLight} position={[0, 1.2, 0]} color="#22d3ee" intensity={2} distance={5} visible={false} />
 
-      {/* head -- chibi sized (bigger than torso) */}
-      <mesh position={[0, headY + 0.05, 0]}>
-        <boxGeometry args={[0.6, 0.6, 0.6]} />
-        <meshStandardMaterial color={skin} />
-      </mesh>
+      {/* head -- chibi sized (bigger than torso), rounded instead of a cube */}
+      <RoundHead radius={0.32} color={skin} position={[0, headY + 0.05, 0]} />
       {/* eye whites (sparkly) */}
       <mesh position={[-0.13, headY + 0.06, 0.305]}>
         <boxGeometry args={[0.11, 0.13, 0.01]} />
@@ -271,72 +256,71 @@ function Accessories({ ap, headY }: { ap: Appearance; headY: number }) {
     <>
       {/* Hat */}
       {ap.hat === "cap" && (
-        <group position={[0, headY + 0.45, 0]}>
-          <mesh><boxGeometry args={[0.6, 0.12, 0.6]} /><meshStandardMaterial color={ap.hatColor || "#fbbf24"} flatShading /></mesh>
-          <mesh position={[0, 0.1, 0]}><boxGeometry args={[0.5, 0.1, 0.5]} /><meshStandardMaterial color={ap.hatColor || "#fbbf24"} flatShading /></mesh>
-          <mesh position={[0, -0.06, 0.32]}><boxGeometry args={[0.55, 0.06, 0.18]} /><meshStandardMaterial color={ap.hatColor || "#fbbf24"} flatShading /></mesh>
+        <group position={[0, headY + 0.4, 0]}>
+          <mesh scale={[1, 0.65, 1]}><sphereGeometry args={[0.34, 10, 8]} /><meshToonMaterial color={ap.hatColor || "#fbbf24"} gradientMap={toonGradient} /></mesh>
+          <mesh position={[0, -0.08, 0.3]}><boxGeometry args={[0.55, 0.06, 0.2]} /><meshToonMaterial color={ap.hatColor || "#fbbf24"} gradientMap={toonGradient} /></mesh>
         </group>
       )}
       {ap.hat === "wizard" && (
-        <group position={[0, headY + 0.45, 0]}>
-          <mesh position={[0, 0.0, 0]}><boxGeometry args={[0.6, 0.1, 0.6]} /><meshStandardMaterial color={ap.hatColor || "#7c3aed"} flatShading /></mesh>
-          <mesh position={[0, 0.2, 0]}><boxGeometry args={[0.4, 0.25, 0.4]} /><meshStandardMaterial color={ap.hatColor || "#7c3aed"} flatShading /></mesh>
-          <mesh position={[0, 0.45, 0]}><boxGeometry args={[0.22, 0.25, 0.22]} /><meshStandardMaterial color={ap.hatColor || "#7c3aed"} flatShading /></mesh>
-          <mesh position={[0, 0.65, 0]}><boxGeometry args={[0.1, 0.2, 0.1]} /><meshStandardMaterial color={ap.hatColor || "#7c3aed"} flatShading /></mesh>
-          <mesh position={[0, 0.82, 0]}><sphereGeometry args={[0.08, 8, 8]} /><meshStandardMaterial color="#fde047" emissive="#fbbf24" emissiveIntensity={0.6} /></mesh>
+        <group position={[0, headY + 0.42, 0]}>
+          <mesh><boxGeometry args={[0.6, 0.08, 0.6]} /><meshToonMaterial color={ap.hatColor || "#7c3aed"} gradientMap={toonGradient} /></mesh>
+          <RoundSpike radius={0.3} height={0.75} color={ap.hatColor || "#7c3aed"} position={[0, 0.415, 0]} />
+          <mesh position={[0, 0.79, 0]}><sphereGeometry args={[0.07, 8, 8]} /><meshStandardMaterial color="#fde047" emissive="#fbbf24" emissiveIntensity={0.6} /></mesh>
         </group>
       )}
       {ap.hat === "crown" && (
         <group position={[0, headY + 0.4, 0]}>
-          <mesh><boxGeometry args={[0.55, 0.12, 0.55]} /><meshStandardMaterial color={ap.hatColor || "#fde047"} flatShading metalness={0.6} /></mesh>
+          <mesh rotation={[Math.PI / 2, 0, 0]}>
+            <torusGeometry args={[0.26, 0.06, 8, 16]} />
+            <meshStandardMaterial color={ap.hatColor || "#fde047"} metalness={0.6} />
+          </mesh>
           {[-0.2, 0, 0.2].map((x, i) => (
-            <mesh key={i} position={[x, 0.15, 0]}>
-              <boxGeometry args={[0.08, 0.2, 0.08]} />
-              <meshStandardMaterial color={ap.hatColor || "#fde047"} flatShading metalness={0.6} />
-            </mesh>
+            <RoundSpike key={`x${i}`} radius={0.045} height={0.2} color={ap.hatColor || "#fde047"} position={[x, 0.15, 0]} />
           ))}
           {[-0.2, 0.2].map((z, i) => (
-            <mesh key={i} position={[0, 0.15, z]}>
-              <boxGeometry args={[0.08, 0.2, 0.08]} />
-              <meshStandardMaterial color={ap.hatColor || "#fde047"} flatShading metalness={0.6} />
-            </mesh>
+            <RoundSpike key={`z${i}`} radius={0.045} height={0.2} color={ap.hatColor || "#fde047"} position={[0, 0.15, z]} />
           ))}
           <mesh position={[0, 0.27, 0]}><octahedronGeometry args={[0.06, 0]} /><meshStandardMaterial color="#dc2626" emissive="#dc2626" emissiveIntensity={0.5} /></mesh>
         </group>
       )}
       {ap.hat === "headband" && (
         <group position={[0, headY + 0.18, 0]}>
-          <mesh><boxGeometry args={[0.64, 0.08, 0.64]} /><meshStandardMaterial color={ap.hatColor || "#f472b6"} flatShading /></mesh>
-          <mesh position={[0, 0.03, 0.34]}><boxGeometry args={[0.1, 0.06, 0.06]} /><meshStandardMaterial color={ap.hatColor || "#f472b6"} flatShading /></mesh>
+          <mesh rotation={[Math.PI / 2, 0, 0]}>
+            <torusGeometry args={[0.32, 0.045, 6, 16]} />
+            <meshToonMaterial color={ap.hatColor || "#f472b6"} gradientMap={toonGradient} />
+          </mesh>
+          <RoundedBox args={[0.1, 0.06, 0.06]} radius={0.02} smoothness={2} position={[0, 0.03, 0.34]}>
+            <meshToonMaterial color={ap.hatColor || "#f472b6"} gradientMap={toonGradient} />
+          </RoundedBox>
         </group>
       )}
-      {/* Glasses */}
+      {/* Glasses — "round" used to be literally square boxes; now real rings. */}
       {ap.glasses === "round" && (
         <group position={[0, headY + 0.04, 0.32]}>
-          <mesh position={[-0.13, 0, 0]}><boxGeometry args={[0.14, 0.14, 0.02]} /><meshStandardMaterial color="#1f2937" flatShading /></mesh>
-          <mesh position={[0.13, 0, 0]}><boxGeometry args={[0.14, 0.14, 0.02]} /><meshStandardMaterial color="#1f2937" flatShading /></mesh>
+          <mesh position={[-0.13, 0, 0]}><torusGeometry args={[0.07, 0.015, 6, 12]} /><meshStandardMaterial color="#1f2937" /></mesh>
+          <mesh position={[0.13, 0, 0]}><torusGeometry args={[0.07, 0.015, 6, 12]} /><meshStandardMaterial color="#1f2937" /></mesh>
           <mesh position={[0, 0, 0]}><boxGeometry args={[0.13, 0.02, 0.02]} /><meshStandardMaterial color="#1f2937" /></mesh>
         </group>
       )}
       {ap.glasses === "sun" && (
         <group position={[0, headY + 0.04, 0.32]}>
-          <mesh position={[-0.13, 0, 0]}><boxGeometry args={[0.16, 0.12, 0.02]} /><meshStandardMaterial color="#000" flatShading metalness={0.8} /></mesh>
-          <mesh position={[0.13, 0, 0]}><boxGeometry args={[0.16, 0.12, 0.02]} /><meshStandardMaterial color="#000" flatShading metalness={0.8} /></mesh>
+          <RoundedBox args={[0.16, 0.12, 0.02]} radius={0.03} smoothness={2} position={[-0.13, 0, 0]}><meshStandardMaterial color="#000" metalness={0.8} /></RoundedBox>
+          <RoundedBox args={[0.16, 0.12, 0.02]} radius={0.03} smoothness={2} position={[0.13, 0, 0]}><meshStandardMaterial color="#000" metalness={0.8} /></RoundedBox>
           <mesh position={[0, 0, 0]}><boxGeometry args={[0.13, 0.02, 0.02]} /><meshStandardMaterial color="#000" /></mesh>
         </group>
       )}
       {/* Scarf */}
       {ap.scarf === "regular" && (
         <group position={[0, 1.32, 0]}>
-          <mesh><boxGeometry args={[0.55, 0.18, 0.4]} /><meshStandardMaterial color={ap.scarfColor || "#f472b6"} flatShading /></mesh>
-          <mesh position={[0.15, -0.18, 0.18]}><boxGeometry args={[0.12, 0.28, 0.05]} /><meshStandardMaterial color={ap.scarfColor || "#f472b6"} flatShading /></mesh>
+          <RoundedBox args={[0.55, 0.18, 0.4]} radius={0.06} smoothness={2}><meshToonMaterial color={ap.scarfColor || "#f472b6"} gradientMap={toonGradient} /></RoundedBox>
+          <RoundedBox args={[0.12, 0.28, 0.05]} radius={0.03} smoothness={2} position={[0.15, -0.18, 0.18]}><meshToonMaterial color={ap.scarfColor || "#f472b6"} gradientMap={toonGradient} /></RoundedBox>
         </group>
       )}
       {ap.scarf === "long" && (
         <group position={[0, 1.32, 0]}>
-          <mesh><boxGeometry args={[0.55, 0.18, 0.4]} /><meshStandardMaterial color={ap.scarfColor || "#f472b6"} flatShading /></mesh>
-          <mesh position={[0.18, -0.4, 0.16]}><boxGeometry args={[0.14, 0.7, 0.05]} /><meshStandardMaterial color={ap.scarfColor || "#f472b6"} flatShading /></mesh>
-          <mesh position={[-0.18, -0.3, 0.16]}><boxGeometry args={[0.14, 0.5, 0.05]} /><meshStandardMaterial color={ap.scarfColor || "#f472b6"} flatShading /></mesh>
+          <RoundedBox args={[0.55, 0.18, 0.4]} radius={0.06} smoothness={2}><meshToonMaterial color={ap.scarfColor || "#f472b6"} gradientMap={toonGradient} /></RoundedBox>
+          <RoundedBox args={[0.14, 0.7, 0.05]} radius={0.03} smoothness={2} position={[0.18, -0.4, 0.16]}><meshToonMaterial color={ap.scarfColor || "#f472b6"} gradientMap={toonGradient} /></RoundedBox>
+          <RoundedBox args={[0.14, 0.5, 0.05]} radius={0.03} smoothness={2} position={[-0.18, -0.3, 0.16]}><meshToonMaterial color={ap.scarfColor || "#f472b6"} gradientMap={toonGradient} /></RoundedBox>
         </group>
       )}
     </>
@@ -345,18 +329,24 @@ function Accessories({ ap, headY }: { ap: Appearance; headY: number }) {
 
 function Hair({ style, color, y }: { style: Appearance["hairStyle"]; color: string; y: number }) {
   if (style === "bald") return null;
-  const m = <meshStandardMaterial color={color} flatShading />;
+  const mt = <meshToonMaterial color={color} gradientMap={toonGradient} />;
+
+  // Every style shares the same rounded scalp dome — only the style-specific
+  // extra (back-hair/tail/spikes/bun) differs below.
+  const dome = (
+    <mesh position={[0, y + 0.22, 0]} scale={[1, 0.55, 1]}>
+      <sphereGeometry args={[0.34, 10, 8]} />
+      {mt}
+    </mesh>
+  );
 
   if (style === "short") {
     return (
       <group>
-        <mesh position={[0, y + 0.26, 0]}>
-          <boxGeometry args={[0.48, 0.12, 0.48]} />
-          {m}
-        </mesh>
-        <mesh position={[0, y + 0.16, -0.21]}>
-          <boxGeometry args={[0.46, 0.18, 0.08]} />
-          {m}
+        {dome}
+        <mesh position={[0, y + 0.14, -0.18]} scale={[1, 0.7, 0.6]}>
+          <sphereGeometry args={[0.28, 8, 6]} />
+          {mt}
         </mesh>
       </group>
     );
@@ -365,23 +355,20 @@ function Hair({ style, color, y }: { style: Appearance["hairStyle"]; color: stri
   if (style === "long") {
     return (
       <group>
-        <mesh position={[0, y + 0.26, 0]}>
-          <boxGeometry args={[0.5, 0.14, 0.5]} />
-          {m}
-        </mesh>
-        {/* back hair down to mid-torso */}
-        <mesh position={[0, y - 0.25, -0.25]}>
-          <boxGeometry args={[0.5, 0.7, 0.1]} />
-          {m}
+        {dome}
+        {/* back hair flowing down to mid-torso */}
+        <mesh position={[0, y - 0.22, -0.24]} scale={[1.35, 2.0, 0.45]}>
+          <sphereGeometry args={[0.26, 8, 8]} />
+          {mt}
         </mesh>
         {/* side bangs */}
-        <mesh position={[-0.22, y - 0.05, 0.16]}>
-          <boxGeometry args={[0.08, 0.3, 0.16]} />
-          {m}
+        <mesh position={[-0.22, y - 0.05, 0.15]} scale={[0.5, 1.6, 0.9]}>
+          <sphereGeometry args={[0.11, 6, 6]} />
+          {mt}
         </mesh>
-        <mesh position={[0.22, y - 0.05, 0.16]}>
-          <boxGeometry args={[0.08, 0.3, 0.16]} />
-          {m}
+        <mesh position={[0.22, y - 0.05, 0.15]} scale={[0.5, 1.6, 0.9]}>
+          <sphereGeometry args={[0.11, 6, 6]} />
+          {mt}
         </mesh>
       </group>
     );
@@ -390,15 +377,8 @@ function Hair({ style, color, y }: { style: Appearance["hairStyle"]; color: stri
   if (style === "ponytail") {
     return (
       <group>
-        <mesh position={[0, y + 0.26, 0]}>
-          <boxGeometry args={[0.48, 0.12, 0.48]} />
-          {m}
-        </mesh>
-        {/* tail */}
-        <mesh position={[0, y + 0.05, -0.32]}>
-          <boxGeometry args={[0.14, 0.55, 0.14]} />
-          {m}
-        </mesh>
+        {dome}
+        <RoundLimb length={0.55} radius={0.08} color={color} position={[0, y + 0.02, -0.34]} rotation={[0.5, 0, 0]} />
       </group>
     );
   }
@@ -406,22 +386,10 @@ function Hair({ style, color, y }: { style: Appearance["hairStyle"]; color: stri
   if (style === "spiky") {
     return (
       <group>
-        <mesh position={[0, y + 0.24, 0]}>
-          <boxGeometry args={[0.48, 0.1, 0.48]} />
-          {m}
-        </mesh>
-        <mesh position={[-0.13, y + 0.38, 0]} rotation={[0, 0, 0.2]}>
-          <boxGeometry args={[0.1, 0.22, 0.1]} />
-          {m}
-        </mesh>
-        <mesh position={[0, y + 0.4, 0]}>
-          <boxGeometry args={[0.1, 0.24, 0.1]} />
-          {m}
-        </mesh>
-        <mesh position={[0.13, y + 0.38, 0]} rotation={[0, 0, -0.2]}>
-          <boxGeometry args={[0.1, 0.22, 0.1]} />
-          {m}
-        </mesh>
+        {dome}
+        <RoundSpike radius={0.09} height={0.28} color={color} position={[-0.13, y + 0.4, 0]} rotation={[0, 0, 0.2]} />
+        <RoundSpike radius={0.09} height={0.3} color={color} position={[0, y + 0.42, 0]} />
+        <RoundSpike radius={0.09} height={0.28} color={color} position={[0.13, y + 0.4, 0]} rotation={[0, 0, -0.2]} />
       </group>
     );
   }
@@ -429,13 +397,10 @@ function Hair({ style, color, y }: { style: Appearance["hairStyle"]; color: stri
   if (style === "bun") {
     return (
       <group>
-        <mesh position={[0, y + 0.26, 0]}>
-          <boxGeometry args={[0.48, 0.12, 0.48]} />
-          {m}
-        </mesh>
+        {dome}
         <mesh position={[0, y + 0.43, 0]}>
-          <boxGeometry args={[0.22, 0.22, 0.22]} />
-          {m}
+          <sphereGeometry args={[0.14, 8, 6]} />
+          {mt}
         </mesh>
       </group>
     );

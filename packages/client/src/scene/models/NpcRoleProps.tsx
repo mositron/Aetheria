@@ -7,6 +7,7 @@
 import * as THREE from "three";
 import { useRef } from "react";
 import { useFrame } from "@react-three/fiber";
+import { RoundedBox } from "@react-three/drei";
 import type { Appearance } from "@game/shared";
 
 export type NpcRole =
@@ -67,26 +68,23 @@ function CarpenterProps() {
   return (
     <group>
       {/* Apron — dark brown plane on chest */}
-      <mesh position={[0, 0.95, 0.18]}>
-        <boxGeometry args={[0.5, 0.55, 0.04]} />
+      <RoundedBox args={[0.5, 0.55, 0.04]} radius={0.03} smoothness={2} position={[0, 0.95, 0.18]}>
         <meshStandardMaterial color="#78350f" flatShading />
-      </mesh>
+      </RoundedBox>
       {/* Hammer in right hand */}
       <group position={[0.42, 0.85, 0.05]} rotation={[0, 0, -0.3]}>
         <mesh position={[0, 0, 0]}>
           <cylinderGeometry args={[0.04, 0.04, 0.5, 8]} />
           <meshStandardMaterial color="#451a03" flatShading />
         </mesh>
-        <mesh position={[0, 0.28, 0]}>
-          <boxGeometry args={[0.16, 0.12, 0.12]} />
+        <RoundedBox args={[0.16, 0.12, 0.12]} radius={0.025} smoothness={2} position={[0, 0.28, 0]}>
           <meshStandardMaterial color="#64748b" flatShading />
-        </mesh>
+        </RoundedBox>
       </group>
       {/* Plank under arm */}
-      <mesh position={[-0.4, 0.95, 0]} rotation={[0, 0, 0.3]}>
-        <boxGeometry args={[0.7, 0.06, 0.18]} />
+      <RoundedBox args={[0.7, 0.06, 0.18]} radius={0.02} smoothness={2} position={[-0.4, 0.95, 0]} rotation={[0, 0, 0.3]}>
         <meshStandardMaterial color="#a16207" flatShading />
-      </mesh>
+      </RoundedBox>
     </group>
   );
 }
@@ -95,10 +93,9 @@ function BlacksmithProps() {
   return (
     <group>
       {/* Heavy leather apron */}
-      <mesh position={[0, 0.85, 0.2]}>
-        <boxGeometry args={[0.6, 0.7, 0.05]} />
+      <RoundedBox args={[0.6, 0.7, 0.05]} radius={0.03} smoothness={2} position={[0, 0.85, 0.2]}>
         <meshStandardMaterial color="#1c1917" flatShading />
-      </mesh>
+      </RoundedBox>
       {/* Anvil at feet */}
       <group position={[0.6, 0.18, 0]}>
         <mesh position={[0, 0.06, 0]}>
@@ -116,10 +113,9 @@ function BlacksmithProps() {
           <cylinderGeometry args={[0.05, 0.05, 0.55, 8]} />
           <meshStandardMaterial color="#1c1917" flatShading />
         </mesh>
-        <mesh position={[0, 0.32, 0]}>
-          <boxGeometry args={[0.2, 0.18, 0.14]} />
+        <RoundedBox args={[0.2, 0.18, 0.14]} radius={0.03} smoothness={2} position={[0, 0.32, 0]}>
           <meshStandardMaterial color="#475569" flatShading metalness={0.8} />
-        </mesh>
+        </RoundedBox>
       </group>
       {/* Glowing forge ember at feet */}
       <pointLight position={[0.6, 0.4, 0]} color="#fb923c" intensity={1.2} distance={2.5} />
@@ -178,10 +174,9 @@ function ScholarProps() {
       </group>
       {/* Open book in left hand */}
       <group position={[-0.36, 0.88, 0.16]} rotation={[Math.PI * 0.25, 0, 0]}>
-        <mesh>
-          <boxGeometry args={[0.3, 0.04, 0.22]} />
+        <RoundedBox args={[0.3, 0.04, 0.22]} radius={0.015} smoothness={2}>
           <meshStandardMaterial color="#7c2d12" flatShading />
-        </mesh>
+        </RoundedBox>
         <mesh position={[0, 0.025, 0]}>
           <boxGeometry args={[0.28, 0.01, 0.2]} />
           <meshStandardMaterial color="#fef3c7" flatShading />

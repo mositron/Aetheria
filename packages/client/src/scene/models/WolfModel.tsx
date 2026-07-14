@@ -1,6 +1,7 @@
 import { useRef } from "react";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
+import { RoundLimb, RoundTorso, RoundHead, RoundSpike } from "./organicPrimitives";
 
 type Props = { isMoving: () => boolean; isDead?: () => boolean; isAttacking?: () => boolean };
 
@@ -49,30 +50,18 @@ export function WolfModel({ isMoving, isDead, isAttacking }: Props) {
   const fur = "#6b7280";
   return (
     <group ref={root}>
-      {/* body */}
-      <mesh position={[0, 0.55, 0]} castShadow>
-        <boxGeometry args={[0.5, 0.45, 1.0]} />
-        <meshStandardMaterial color={fur} />
-      </mesh>
+      {/* body — rounded pill instead of a box; capsule's native axis (Y) is
+          rotated 90° onto Z so it reads as a lean, nose-to-tail torso */}
+      <group position={[0, 0.55, 0]} rotation={[Math.PI / 2, 0, 0]}>
+        <RoundTorso width={0.5} height={1.0} depth={0.45} color={fur} castShadow />
+      </group>
       {/* head */}
-      <mesh position={[0, 0.7, 0.55]}>
-        <boxGeometry args={[0.42, 0.42, 0.42]} />
-        <meshStandardMaterial color={fur} />
-      </mesh>
-      {/* snout */}
-      <mesh position={[0, 0.62, 0.8]}>
-        <boxGeometry args={[0.22, 0.18, 0.22]} />
-        <meshStandardMaterial color="#4b5563" />
-      </mesh>
+      <RoundHead radius={0.26} color={fur} position={[0, 0.7, 0.55]} />
+      {/* snout — small forward-pointing capsule */}
+      <RoundLimb length={0.32} radius={0.11} color="#4b5563" position={[0, 0.62, 0.8]} rotation={[Math.PI / 2, 0, 0]} />
       {/* ears */}
-      <mesh position={[-0.15, 0.95, 0.5]} rotation={[0, 0, 0.3]}>
-        <coneGeometry args={[0.08, 0.18, 4]} />
-        <meshStandardMaterial color={fur} />
-      </mesh>
-      <mesh position={[0.15, 0.95, 0.5]} rotation={[0, 0, -0.3]}>
-        <coneGeometry args={[0.08, 0.18, 4]} />
-        <meshStandardMaterial color={fur} />
-      </mesh>
+      <RoundSpike radius={0.08} height={0.18} color={fur} position={[-0.15, 0.95, 0.5]} rotation={[0, 0, 0.3]} />
+      <RoundSpike radius={0.08} height={0.18} color={fur} position={[0.15, 0.95, 0.5]} rotation={[0, 0, -0.3]} />
       {/* eye whites */}
       <mesh position={[-0.1, 0.76, 0.72]}>
         <sphereGeometry args={[0.07, 8, 8]} />
@@ -104,28 +93,13 @@ export function WolfModel({ isMoving, isDead, isAttacking }: Props) {
         <boxGeometry args={[0.08, 0.06, 0.04]} />
         <meshBasicMaterial color="#f472b6" />
       </mesh>
-      {/* legs (4) */}
-      <mesh ref={fl} position={[-0.18, 0.25, 0.35]}>
-        <boxGeometry args={[0.14, 0.5, 0.14]} />
-        <meshStandardMaterial color={fur} />
-      </mesh>
-      <mesh ref={fr} position={[0.18, 0.25, 0.35]}>
-        <boxGeometry args={[0.14, 0.5, 0.14]} />
-        <meshStandardMaterial color={fur} />
-      </mesh>
-      <mesh ref={bl} position={[-0.18, 0.25, -0.35]}>
-        <boxGeometry args={[0.14, 0.5, 0.14]} />
-        <meshStandardMaterial color={fur} />
-      </mesh>
-      <mesh ref={br} position={[0.18, 0.25, -0.35]}>
-        <boxGeometry args={[0.14, 0.5, 0.14]} />
-        <meshStandardMaterial color={fur} />
-      </mesh>
-      {/* tail */}
-      <mesh ref={tail} position={[0, 0.6, -0.55]} rotation={[0.4, 0, 0]}>
-        <boxGeometry args={[0.1, 0.1, 0.4]} />
-        <meshStandardMaterial color={fur} />
-      </mesh>
+      {/* legs (4) — rounded capsules */}
+      <RoundLimb ref={fl} length={0.5} radius={0.07} color={fur} position={[-0.18, 0.25, 0.35]} />
+      <RoundLimb ref={fr} length={0.5} radius={0.07} color={fur} position={[0.18, 0.25, 0.35]} />
+      <RoundLimb ref={bl} length={0.5} radius={0.07} color={fur} position={[-0.18, 0.25, -0.35]} />
+      <RoundLimb ref={br} length={0.5} radius={0.07} color={fur} position={[0.18, 0.25, -0.35]} />
+      {/* tail — capsule tilted up-and-back, same pose as the old box */}
+      <RoundLimb ref={tail} length={0.4} radius={0.06} color={fur} position={[0, 0.6, -0.55]} rotation={[Math.PI / 2 + 0.4, 0, 0]} />
     </group>
   );
 }

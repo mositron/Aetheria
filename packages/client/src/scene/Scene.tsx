@@ -16,12 +16,16 @@ import { keyEq } from "../utils/keyMatch";
 import { DamageNumbers } from "./DamageNumbers";
 import { SkillEffects } from "./SkillEffects";
 import { Environment } from "./Environment";
+import { DistantMountains } from "./DistantMountains";
 import { AmbientParticles } from "./AmbientParticles";
 import { LandDust } from "./LandDust";
 import { Weather } from "./Weather";
 import { getHeight as terrainHeight, isWater as terrainIsWater, SPAWN_RADIUS, STEP as TERRAIN_STEP } from "./chunkWorld";
 import { isBlocked as isObstacle } from "./obstacles";
 const TERRAIN_CONFIG = { STEP: TERRAIN_STEP };
+import { RoundedBox } from "@react-three/drei";
+import { RoundLimb, RoundTorso, RoundHead, RoundSpike } from "./models/organicPrimitives";
+import { toonGradient } from "./materials";
 import { HeroModel } from "./models/HeroModel";
 import { npcAppearance } from "./models/npcAppearance";
 import { NpcRoleProps, roleFromNpcId, appearanceForRole } from "./models/NpcRoleProps";
@@ -60,6 +64,27 @@ const COLORS = {
   wolf: "#9ca3af",
 } as const;
 
+// Per-kind billboard (name/HP bar) height above the model's feet. Falls back
+// to 1.2 for any kind not listed here — see MonsterView's Billboard usage.
+const MONSTER_BILLBOARD_Y: Record<string, number> = {
+  darklord: 5,
+  orc: 2.7,
+  wolf: 1.5,
+  // — Part 2 additions —
+  boar: 1.0,
+  spider: 0.55,
+  ghost: 1.3,
+  bat: 1.3,
+  golem: 2.9,
+  fox: 0.95,
+  shadow_lord: 3.6,
+  ice_giant: 4.6,
+  shadow_wolf: 1.4,
+  frost_spider: 0.6,
+  banshee: 1.5,
+  skeleton_captain: 2.15,
+};
+
 export function Scene({ room }: { room: Room<WorldState> }) {
   const [players, setPlayers] = useState<Player[]>([]);
   const [monsters, setMonsters] = useState<Monster[]>([]);
@@ -90,7 +115,7 @@ export function Scene({ room }: { room: Room<WorldState> }) {
   const lastAutoPickupAt = useRef(0);
   const lastAutoAttack = useRef(0);
   const lastAutoSkill = useRef(new Map<string, number>());
-  const [marker, setMarker] = useState<{ x: number; z: number; t: number } | null>(null);
+  const [marker, setMarker] = useState<{ x: number; z: number; t: number; cancelled?: boolean } | null>(null);
 
   // cursor helper — supports named cursors ("auto", "grab") and our custom
   // sword/loot/dialog images via short aliases.
@@ -224,7 +249,15 @@ export function Scene({ room }: { room: Room<WorldState> }) {
         fwd += sy;
       }
       const usingKeys = fwd !== 0 || right !== 0;
-      if (usingKeys) walkTarget.current = null; // keyboard overrides click-to-walk
+      if (usingKeys && walkTarget.current) {
+        // Keyboard overrides an in-flight click-to-walk — previously this
+        // silently stopped the walk with no feedback ("why did I stop
+        // moving?"). Flash a cancel marker at the abandoned target instead.
+        setMarker({ x: walkTarget.current.x, z: walkTarget.current.z, t: Date.now(), cancelled: true });
+        walkTarget.current = null;
+      } else if (usingKeys) {
+        walkTarget.current = null;
+      }
 
       // Always clear stale dead-monster targets (regardless of bot mode) — otherwise
       // the player gets stuck with no movement: dead target blocks walk + wander logic.
@@ -633,6 +666,7 @@ export function Scene({ room }: { room: Room<WorldState> }) {
     <group>
       <Environment mapId={mapDef.id} room={room} />
       {mapDef.id === "field" && <CaveZones room={room} />}
+      {mapDef.id === "field" && <DistantMountains room={room} />}
       <AmbientParticles room={room} />
       <LandDust />
       <Weather room={room} />
@@ -654,7 +688,7 @@ export function Scene({ room }: { room: Room<WorldState> }) {
         <planeGeometry args={[ground, ground, 1, 1]} />
         <meshBasicMaterial visible={false} transparent opacity={0} />
       </mesh>
-      {marker && Date.now() - marker.t < 800 && <ClickMarker x={marker.x} z={marker.z} t0={marker.t} />}
+      {marker && Date.now() - marker.t < 800 && <ClickMarker x={marker.x} z={marker.z} t0={marker.t} cancelled={marker.cancelled} />}
 
       {mapDef.portals.map((p, i) => (
         <Portal key={i} x={p.x} z={p.z} />
@@ -869,19 +903,22 @@ function NpcLabel({ text, y }: { text: string; y: number }) {
   );
 }
 
-function ClickMarker({ x, z, t0 }: { x: number; z: number; t0: number }) {
+function ClickMarker({ x, z, t0, cancelled }: { x: number; z: number; t0: number; cancelled?: boolean }) {
   const ref = useRef<THREE.Mesh>(null);
   useFrame(() => {
     if (!ref.current) return;
     const age = (Date.now() - t0) / 800;
-    const s = 1 + age * 2;
+    // Cancelled (keyboard override) shrinks + reads red — distinct from the
+    // normal expanding yellow "go here" ping — so stopping a click-walk
+    // looks intentional instead of a mystery halt.
+    const s = cancelled ? Math.max(0.15, 1.3 - age * 1.6) : 1 + age * 2;
     ref.current.scale.set(s, 1, s);
     (ref.current.material as THREE.MeshBasicMaterial).opacity = Math.max(0, 1 - age);
   });
   return (
     <mesh ref={ref} position={[x, 0.05, z]} rotation={[-Math.PI / 2, 0, 0]}>
       <ringGeometry args={[0.3, 0.45, 24]} />
-      <meshBasicMaterial color="#fde047" transparent />
+      <meshBasicMaterial color={cancelled ? "#f87171" : "#fde047"} transparent />
     </mesh>
   );
 }
@@ -1202,7 +1239,7 @@ function FollowingPet({ kind, ownerMoving }: { kind: string; ownerMoving: () => 
 
 function ScorpionModel({ isMoving, isAttacking }: { isMoving: () => boolean; isAttacking: () => boolean }) {
   const root = useRef<THREE.Group>(null);
-  const tail = useRef<THREE.Mesh>(null);
+  const tail = useRef<THREE.Group>(null);
   const attackPhase = useRef(0);
   useFrame((_, dt) => {
     if (!root.current) return;
@@ -1219,27 +1256,26 @@ function ScorpionModel({ isMoving, isAttacking }: { isMoving: () => boolean; isA
   });
   return (
     <group ref={root}>
-      <mesh position={[0, 0.25, 0]}><boxGeometry args={[0.7, 0.3, 0.5]} /><meshStandardMaterial color="#92400e" flatShading /></mesh>
-      <mesh position={[0, 0.3, 0.3]}><boxGeometry args={[0.5, 0.25, 0.25]} /><meshStandardMaterial color="#b45309" flatShading /></mesh>
+      <RoundTorso width={0.7} height={0.3} depth={0.5} color="#92400e" position={[0, 0.25, 0]} />
+      <RoundHead radius={0.22} color="#b45309" position={[0, 0.3, 0.32]} />
       {/* pincers */}
-      <mesh position={[-0.35, 0.3, 0.4]}><boxGeometry args={[0.18, 0.12, 0.18]} /><meshStandardMaterial color="#92400e" flatShading /></mesh>
-      <mesh position={[0.35, 0.3, 0.4]}><boxGeometry args={[0.18, 0.12, 0.18]} /><meshStandardMaterial color="#92400e" flatShading /></mesh>
-      {/* tail with stinger */}
-      <mesh ref={tail} position={[0, 0.5, -0.3]}>
-        <boxGeometry args={[0.12, 0.6, 0.12]} />
-        <meshStandardMaterial color="#92400e" flatShading />
-      </mesh>
-      <mesh position={[0, 0.85, -0.45]}><boxGeometry args={[0.1, 0.12, 0.1]} /><meshStandardMaterial color="#1f2937" flatShading /></mesh>
-      {/* legs */}
-      {[-0.3, -0.1, 0.1, 0.3].map((zx, i) => (
+      <RoundTorso width={0.2} height={0.14} depth={0.24} color="#92400e" position={[-0.36, 0.3, 0.42]} />
+      <RoundTorso width={0.2} height={0.14} depth={0.24} color="#92400e" position={[0.36, 0.3, 0.42]} />
+      {/* tail with stinger — grouped so the stinger tip arcs with the tail */}
+      <group ref={tail} position={[0, 0.5, -0.3]} rotation={[0.15, 0, 0]}>
+        <RoundLimb length={0.6} radius={0.09} color="#92400e" position={[0, 0.3, 0]} />
+        <RoundSpike radius={0.07} height={0.16} color="#1f2937" position={[0, 0.68, 0]} />
+      </group>
+      {/* legs — 3 splayed pairs */}
+      {[-0.25, 0, 0.25].map((zx, i) => (
         <group key={i}>
-          <mesh position={[-0.35, 0.12, zx]}><boxGeometry args={[0.06, 0.18, 0.06]} /><meshStandardMaterial color="#78350f" flatShading /></mesh>
-          <mesh position={[0.35, 0.12, zx]}><boxGeometry args={[0.06, 0.18, 0.06]} /><meshStandardMaterial color="#78350f" flatShading /></mesh>
+          <RoundLimb length={0.24} radius={0.045} color="#78350f" position={[-0.38, 0.11, zx]} rotation={[0, 0, 0.35]} />
+          <RoundLimb length={0.24} radius={0.045} color="#78350f" position={[0.38, 0.11, zx]} rotation={[0, 0, -0.35]} />
         </group>
       ))}
       {/* eyes (cute) */}
-      <mesh position={[-0.1, 0.4, 0.42]}><boxGeometry args={[0.06, 0.06, 0.02]} /><meshBasicMaterial color="#fde047" /></mesh>
-      <mesh position={[0.1, 0.4, 0.42]}><boxGeometry args={[0.06, 0.06, 0.02]} /><meshBasicMaterial color="#fde047" /></mesh>
+      <mesh position={[-0.1, 0.4, 0.44]}><sphereGeometry args={[0.045, 6, 6]} /><meshBasicMaterial color="#fde047" /></mesh>
+      <mesh position={[0.1, 0.4, 0.44]}><sphereGeometry args={[0.045, 6, 6]} /><meshBasicMaterial color="#fde047" /></mesh>
     </group>
   );
 }
@@ -1267,24 +1303,23 @@ function YetiModel({ isMoving, isAttacking }: { isMoving: () => boolean; isAttac
   });
   return (
     <group ref={root} scale={1.2}>
-      {/* big white body */}
-      <mesh position={[0, 1.0, 0]}><boxGeometry args={[0.9, 1.0, 0.55]} /><meshStandardMaterial color="#f0f9ff" flatShading /></mesh>
-      <mesh position={[0, 1.85, 0]}><boxGeometry args={[0.7, 0.7, 0.5]} /><meshStandardMaterial color="#f0f9ff" flatShading /></mesh>
+      {/* big white body + round head */}
+      <RoundTorso width={0.9} height={1.0} depth={0.55} color="#f0f9ff" position={[0, 1.0, 0]} />
+      <RoundHead radius={0.4} color="#f0f9ff" position={[0, 1.95, 0]} />
       {/* horns */}
-      <mesh position={[-0.22, 2.25, 0]}><boxGeometry args={[0.1, 0.25, 0.1]} /><meshStandardMaterial color="#94a3b8" flatShading /></mesh>
-      <mesh position={[0.22, 2.25, 0]}><boxGeometry args={[0.1, 0.25, 0.1]} /><meshStandardMaterial color="#94a3b8" flatShading /></mesh>
+      <RoundSpike radius={0.09} height={0.28} color="#94a3b8" position={[-0.24, 2.28, 0.02]} rotation={[0.3, 0, 0.25]} />
+      <RoundSpike radius={0.09} height={0.28} color="#94a3b8" position={[0.24, 2.28, 0.02]} rotation={[0.3, 0, -0.25]} />
       {/* face */}
-      <mesh position={[-0.18, 1.9, 0.26]}><boxGeometry args={[0.12, 0.14, 0.02]} /><meshBasicMaterial color="#fff" /></mesh>
-      <mesh position={[0.18, 1.9, 0.26]}><boxGeometry args={[0.12, 0.14, 0.02]} /><meshBasicMaterial color="#fff" /></mesh>
-      <mesh position={[-0.18, 1.9, 0.27]}><boxGeometry args={[0.06, 0.08, 0.01]} /><meshBasicMaterial color="#1f2937" /></mesh>
-      <mesh position={[0.18, 1.9, 0.27]}><boxGeometry args={[0.06, 0.08, 0.01]} /><meshBasicMaterial color="#1f2937" /></mesh>
-      <mesh position={[0, 1.7, 0.27]}><boxGeometry args={[0.18, 0.04, 0.01]} /><meshBasicMaterial color="#1f2937" /></mesh>
+      <mesh position={[-0.15, 1.98, 0.34]}><sphereGeometry args={[0.08, 8, 8]} /><meshBasicMaterial color="#fff" /></mesh>
+      <mesh position={[0.15, 1.98, 0.34]}><sphereGeometry args={[0.08, 8, 8]} /><meshBasicMaterial color="#fff" /></mesh>
+      <mesh position={[-0.15, 1.98, 0.4]}><sphereGeometry args={[0.045, 6, 6]} /><meshBasicMaterial color="#1f2937" /></mesh>
+      <mesh position={[0.15, 1.98, 0.4]}><sphereGeometry args={[0.045, 6, 6]} /><meshBasicMaterial color="#1f2937" /></mesh>
       {/* arms */}
-      <mesh ref={leftArm} position={[-0.55, 1.2, 0]}><boxGeometry args={[0.2, 0.8, 0.2]} /><meshStandardMaterial color="#e0f2fe" flatShading /></mesh>
-      <mesh ref={rightArm} position={[0.55, 1.2, 0]}><boxGeometry args={[0.2, 0.8, 0.2]} /><meshStandardMaterial color="#e0f2fe" flatShading /></mesh>
+      <RoundLimb ref={leftArm} length={0.85} radius={0.14} color="#e0f2fe" position={[-0.58, 1.15, 0]} />
+      <RoundLimb ref={rightArm} length={0.85} radius={0.14} color="#e0f2fe" position={[0.58, 1.15, 0]} />
       {/* legs */}
-      <mesh position={[-0.2, 0.3, 0]}><boxGeometry args={[0.25, 0.6, 0.25]} /><meshStandardMaterial color="#f0f9ff" flatShading /></mesh>
-      <mesh position={[0.2, 0.3, 0]}><boxGeometry args={[0.25, 0.6, 0.25]} /><meshStandardMaterial color="#f0f9ff" flatShading /></mesh>
+      <RoundLimb length={0.65} radius={0.16} color="#f0f9ff" position={[-0.22, 0.32, 0]} />
+      <RoundLimb length={0.65} radius={0.16} color="#f0f9ff" position={[0.22, 0.32, 0]} />
     </group>
   );
 }
@@ -1298,30 +1333,15 @@ function ChickenModel({ isMoving }: { isMoving: () => boolean }) {
   });
   return (
     <group ref={root}>
-      <mesh position={[0, 0.35, 0]}>
-        <boxGeometry args={[0.4, 0.35, 0.5]} />
-        <meshStandardMaterial color="#f8fafc" flatShading />
-      </mesh>
-      <mesh position={[0, 0.7, 0.12]}>
-        <boxGeometry args={[0.25, 0.25, 0.25]} />
-        <meshStandardMaterial color="#f8fafc" flatShading />
-      </mesh>
-      <mesh position={[0, 0.72, 0.27]}>
-        <boxGeometry args={[0.08, 0.06, 0.1]} />
-        <meshStandardMaterial color="#fb923c" flatShading />
-      </mesh>
-      <mesh position={[0, 0.92, 0.08]}>
-        <boxGeometry args={[0.1, 0.18, 0.06]} />
-        <meshStandardMaterial color="#dc2626" flatShading />
-      </mesh>
-      <mesh position={[-0.1, 0.08, 0]}>
-        <boxGeometry args={[0.06, 0.18, 0.06]} />
-        <meshStandardMaterial color="#fb923c" flatShading />
-      </mesh>
-      <mesh position={[0.1, 0.08, 0]}>
-        <boxGeometry args={[0.06, 0.18, 0.06]} />
-        <meshStandardMaterial color="#fb923c" flatShading />
-      </mesh>
+      <RoundTorso width={0.4} height={0.35} depth={0.5} color="#f8fafc" position={[0, 0.35, 0]} />
+      <RoundHead radius={0.15} color="#f8fafc" position={[0, 0.68, 0.16]} />
+      {/* beak */}
+      <RoundSpike radius={0.05} height={0.14} color="#fb923c" position={[0, 0.68, 0.32]} rotation={[Math.PI / 2, 0, 0]} />
+      {/* comb */}
+      <RoundSpike radius={0.05} height={0.16} color="#dc2626" position={[0, 0.86, 0.08]} />
+      {/* thin legs */}
+      <RoundLimb length={0.2} radius={0.035} color="#fb923c" position={[-0.1, 0.1, 0]} />
+      <RoundLimb length={0.2} radius={0.035} color="#fb923c" position={[0.1, 0.1, 0]} />
     </group>
   );
 }
@@ -1335,23 +1355,15 @@ function PigModel({ isMoving }: { isMoving: () => boolean }) {
   });
   return (
     <group ref={root}>
-      <mesh position={[0, 0.55, 0]}>
-        <boxGeometry args={[0.65, 0.55, 0.95]} />
-        <meshStandardMaterial color="#f9a8d4" flatShading />
-      </mesh>
-      <mesh position={[0, 0.7, 0.55]}>
-        <boxGeometry args={[0.45, 0.45, 0.4]} />
-        <meshStandardMaterial color="#f9a8d4" flatShading />
-      </mesh>
-      <mesh position={[0, 0.65, 0.78]}>
-        <boxGeometry args={[0.18, 0.16, 0.1]} />
-        <meshStandardMaterial color="#fb7185" flatShading />
-      </mesh>
-      {[[-0.22, 0, 0.32], [0.22, 0, 0.32], [-0.22, 0, -0.32], [0.22, 0, -0.32]].map(([x, y, z], i) => (
-        <mesh key={i} position={[x as number, 0.13 + (y as number), z as number]}>
-          <boxGeometry args={[0.14, 0.26, 0.14]} />
-          <meshStandardMaterial color="#ec4899" flatShading />
-        </mesh>
+      <RoundTorso width={0.65} height={0.55} depth={0.95} color="#f9a8d4" position={[0, 0.55, 0]} />
+      <RoundHead radius={0.24} color="#f9a8d4" position={[0, 0.62, 0.52]} />
+      {/* flat stubby snout */}
+      <RoundedBox args={[0.2, 0.16, 0.1]} radius={0.04} smoothness={2} position={[0, 0.58, 0.75]}>
+        <meshToonMaterial color="#fb7185" gradientMap={toonGradient} />
+      </RoundedBox>
+      {/* stout legs */}
+      {[[-0.22, 0.32], [0.22, 0.32], [-0.22, -0.32], [0.22, -0.32]].map(([x, z], i) => (
+        <RoundLimb key={i} length={0.24} radius={0.075} color="#ec4899" position={[x, 0.13, z]} />
       ))}
     </group>
   );
@@ -1366,45 +1378,527 @@ function CowModel({ isMoving }: { isMoving: () => boolean }) {
   });
   return (
     <group ref={root}>
-      {/* body */}
-      <mesh position={[0, 0.85, 0]}>
-        <boxGeometry args={[0.85, 0.7, 1.3]} />
-        <meshStandardMaterial color="#f5f5f5" flatShading />
-      </mesh>
+      {/* body — boxier-but-rounded proportions to distinguish from pig */}
+      <RoundTorso width={0.85} height={0.7} depth={1.3} color="#f5f5f5" position={[0, 0.85, 0]} />
       {/* spots */}
-      <mesh position={[0.3, 1.05, 0.2]}>
-        <boxGeometry args={[0.3, 0.35, 0.4]} />
-        <meshStandardMaterial color="#171717" flatShading />
-      </mesh>
-      <mesh position={[-0.25, 0.95, -0.3]}>
-        <boxGeometry args={[0.3, 0.3, 0.3]} />
-        <meshStandardMaterial color="#171717" flatShading />
-      </mesh>
+      <mesh position={[0.3, 1.05, 0.2]} scale={[1.1, 1.3, 1.4]}><sphereGeometry args={[0.18, 8, 6]} /><meshToonMaterial color="#171717" gradientMap={toonGradient} /></mesh>
+      <mesh position={[-0.25, 0.95, -0.3]} scale={[1.1, 1.1, 1.1]}><sphereGeometry args={[0.17, 8, 6]} /><meshToonMaterial color="#171717" gradientMap={toonGradient} /></mesh>
       {/* head */}
-      <mesh position={[0, 1.05, 0.75]}>
-        <boxGeometry args={[0.55, 0.55, 0.55]} />
-        <meshStandardMaterial color="#f5f5f5" flatShading />
-      </mesh>
-      <mesh position={[0, 0.95, 1.05]}>
-        <boxGeometry args={[0.25, 0.18, 0.12]} />
-        <meshStandardMaterial color="#f9a8d4" flatShading />
-      </mesh>
+      <RoundHead radius={0.3} color="#f5f5f5" position={[0, 1.05, 0.82]} />
+      <RoundedBox args={[0.26, 0.16, 0.12]} radius={0.04} smoothness={2} position={[0, 0.95, 1.08]}>
+        <meshToonMaterial color="#f9a8d4" gradientMap={toonGradient} />
+      </RoundedBox>
       {/* horns */}
-      <mesh position={[-0.2, 1.4, 0.8]}>
-        <boxGeometry args={[0.08, 0.18, 0.08]} />
-        <meshStandardMaterial color="#fde047" flatShading />
-      </mesh>
-      <mesh position={[0.2, 1.4, 0.8]}>
-        <boxGeometry args={[0.08, 0.18, 0.08]} />
-        <meshStandardMaterial color="#fde047" flatShading />
-      </mesh>
+      <RoundSpike radius={0.045} height={0.2} color="#fde047" position={[-0.2, 1.42, 0.85]} rotation={[0.2, 0, 0.3]} />
+      <RoundSpike radius={0.045} height={0.2} color="#fde047" position={[0.2, 1.42, 0.85]} rotation={[0.2, 0, -0.3]} />
       {/* legs */}
-      {[[-0.3, 0, 0.4], [0.3, 0, 0.4], [-0.3, 0, -0.4], [0.3, 0, -0.4]].map(([x, , z], i) => (
-        <mesh key={i} position={[x as number, 0.25, z as number]}>
-          <boxGeometry args={[0.16, 0.5, 0.16]} />
-          <meshStandardMaterial color="#171717" flatShading />
-        </mesh>
+      {[[-0.3, 0.4], [0.3, 0.4], [-0.3, -0.4], [0.3, -0.4]].map(([x, z], i) => (
+        <RoundLimb key={i} length={0.5} radius={0.09} color="#171717" position={[x, 0.25, z]} />
       ))}
+    </group>
+  );
+}
+
+// ── Part 2: previously-invisible monster kinds ──────────────────────────
+// boar, spider, ghost, bat, golem, fox, shadow_lord, ice_giant, shadow_wolf,
+// frost_spider, banshee, skeleton_captain — all built from the organic
+// primitive kit, sized/paletted to stay distinct from each other and from
+// the mobs above.
+
+function BoarModel({ isMoving, isDead, isAttacking }: { isMoving: () => boolean; isDead: () => boolean; isAttacking: () => boolean }) {
+  const root = useRef<THREE.Group>(null);
+  const fl = useRef<THREE.Mesh>(null);
+  const fr = useRef<THREE.Mesh>(null);
+  const bl = useRef<THREE.Mesh>(null);
+  const br = useRef<THREE.Mesh>(null);
+  const walkPhase = useRef(0);
+  const attackPhase = useRef(0);
+  useFrame((_, dt) => {
+    if (!root.current) return;
+    if (isDead()) { root.current.rotation.z = THREE.MathUtils.lerp(root.current.rotation.z, Math.PI / 2, 0.1); return; }
+    root.current.rotation.z = THREE.MathUtils.lerp(root.current.rotation.z, 0, 0.2);
+    const moving = isMoving();
+    if (moving) walkPhase.current += dt * 9; else walkPhase.current *= 0.85;
+    const s = Math.sin(walkPhase.current) * (moving ? 0.5 : 0.05);
+    if (fl.current) fl.current.rotation.x = s;
+    if (br.current) br.current.rotation.x = s;
+    if (fr.current) fr.current.rotation.x = -s;
+    if (bl.current) bl.current.rotation.x = -s;
+    root.current.position.y = moving ? Math.abs(Math.sin(walkPhase.current * 2)) * 0.04 : 0;
+    if (isAttacking() && attackPhase.current <= 0) attackPhase.current = 1;
+    if (attackPhase.current > 0) {
+      attackPhase.current -= dt * 4;
+      const a = Math.max(0, attackPhase.current);
+      root.current.position.z = Math.sin((1 - a) * Math.PI) * 0.4;
+    }
+  });
+  const hide = "#57534e";
+  return (
+    <group ref={root}>
+      <RoundTorso width={0.55} height={0.45} depth={0.75} color={hide} position={[0, 0.42, 0]} castShadow />
+      <RoundHead radius={0.22} color={hide} position={[0, 0.48, 0.5]} />
+      {/* small tusks */}
+      <RoundSpike radius={0.035} height={0.14} color="#f5f5f4" position={[-0.12, 0.36, 0.66]} rotation={[1.2, 0, 0]} />
+      <RoundSpike radius={0.035} height={0.14} color="#f5f5f4" position={[0.12, 0.36, 0.66]} rotation={[1.2, 0, 0]} />
+      {/* bristled mane ridge */}
+      <RoundSpike radius={0.05} height={0.16} color="#292524" position={[0, 0.7, 0.1]} rotation={[0.3, 0, 0]} />
+      {/* legs */}
+      <RoundLimb ref={fl} length={0.32} radius={0.075} color={hide} position={[-0.17, 0.16, 0.25]} />
+      <RoundLimb ref={fr} length={0.32} radius={0.075} color={hide} position={[0.17, 0.16, 0.25]} />
+      <RoundLimb ref={bl} length={0.32} radius={0.075} color={hide} position={[-0.17, 0.16, -0.25]} />
+      <RoundLimb ref={br} length={0.32} radius={0.075} color={hide} position={[0.17, 0.16, -0.25]} />
+      {/* eyes */}
+      <mesh position={[-0.09, 0.52, 0.68]}><sphereGeometry args={[0.035, 6, 6]} /><meshBasicMaterial color="#1c1917" /></mesh>
+      <mesh position={[0.09, 0.52, 0.68]}><sphereGeometry args={[0.035, 6, 6]} /><meshBasicMaterial color="#1c1917" /></mesh>
+    </group>
+  );
+}
+
+/** Shared body plan for spider / frost_spider — a round body + 6 splayed thin legs, palette-swapped per kind. */
+function SpiderLikeModel({ isMoving, isDead, isAttacking, bodyColor, legColor, eyeColor, scale = 1 }: {
+  isMoving: () => boolean; isDead: () => boolean; isAttacking: () => boolean;
+  bodyColor: string; legColor: string; eyeColor: string; scale?: number;
+}) {
+  const root = useRef<THREE.Group>(null);
+  const legsGroup = useRef<THREE.Group>(null);
+  const walkPhase = useRef(0);
+  const attackPhase = useRef(0);
+  useFrame((_, dt) => {
+    if (!root.current) return;
+    if (isDead()) { root.current.rotation.z = THREE.MathUtils.lerp(root.current.rotation.z, Math.PI / 2, 0.1); return; }
+    root.current.rotation.z = THREE.MathUtils.lerp(root.current.rotation.z, 0, 0.2);
+    const moving = isMoving();
+    if (moving) walkPhase.current += dt * 13; else walkPhase.current *= 0.8;
+    root.current.position.y = moving ? Math.abs(Math.sin(walkPhase.current)) * 0.03 : 0;
+    if (legsGroup.current) {
+      legsGroup.current.children.forEach((leg, i) => {
+        leg.rotation.x = Math.sin(walkPhase.current + i * 1.1) * 0.25;
+      });
+    }
+    if (isAttacking() && attackPhase.current <= 0) attackPhase.current = 1;
+    if (attackPhase.current > 0) {
+      attackPhase.current -= dt * 5;
+      const a = Math.max(0, attackPhase.current);
+      root.current.position.z = Math.sin((1 - a) * Math.PI) * 0.25;
+    }
+  });
+  const legDefs = [
+    { x: -0.18, z: 0.14, rz: 0.9, ry: 0.5 },
+    { x: -0.2, z: 0, rz: 1.0, ry: 0 },
+    { x: -0.18, z: -0.14, rz: 0.9, ry: -0.5 },
+    { x: 0.18, z: 0.14, rz: -0.9, ry: -0.5 },
+    { x: 0.2, z: 0, rz: -1.0, ry: 0 },
+    { x: 0.18, z: -0.14, rz: -0.9, ry: 0.5 },
+  ];
+  return (
+    <group ref={root} scale={scale}>
+      <RoundTorso width={0.3} height={0.22} depth={0.38} color={bodyColor} position={[0, 0.18, 0]} />
+      <RoundHead radius={0.13} color={bodyColor} position={[0, 0.2, 0.2]} />
+      <group ref={legsGroup}>
+        {legDefs.map((l, i) => (
+          <RoundLimb key={i} length={0.3} radius={0.025} color={legColor} position={[l.x, 0.17, l.z]} rotation={[0, l.ry, l.rz]} />
+        ))}
+      </group>
+      <mesh position={[-0.06, 0.24, 0.32]}><sphereGeometry args={[0.03, 6, 6]} /><meshBasicMaterial color={eyeColor} /></mesh>
+      <mesh position={[0.06, 0.24, 0.32]}><sphereGeometry args={[0.03, 6, 6]} /><meshBasicMaterial color={eyeColor} /></mesh>
+    </group>
+  );
+}
+
+function SpiderModel(props: { isMoving: () => boolean; isDead: () => boolean; isAttacking: () => boolean }) {
+  return <SpiderLikeModel {...props} bodyColor="#292524" legColor="#1c1917" eyeColor="#ef4444" />;
+}
+
+function FrostSpiderModel(props: { isMoving: () => boolean; isDead: () => boolean; isAttacking: () => boolean }) {
+  return <SpiderLikeModel {...props} bodyColor="#e0f2fe" legColor="#7dd3fc" eyeColor="#0ea5e9" scale={1.05} />;
+}
+
+function GhostModel({ isDead, isAttacking }: { isDead: () => boolean; isAttacking: () => boolean }) {
+  const root = useRef<THREE.Group>(null);
+  const phase = useRef(0);
+  useFrame((_, dt) => {
+    if (!root.current) return;
+    if (isDead()) { const s = Math.max(0.05, root.current.scale.x - dt * 0.6); root.current.scale.set(s, s, s); return; }
+    phase.current += dt;
+    root.current.position.y = 0.7 + Math.sin(phase.current * 1.4) * 0.15;
+    root.current.rotation.y += dt * 0.3;
+    if (isAttacking()) root.current.scale.set(1.1, 0.95, 1.1);
+    else root.current.scale.set(1, 1, 1);
+  });
+  return (
+    <group ref={root}>
+      {/* teardrop: round head + tapered tail, both translucent */}
+      <mesh>
+        <sphereGeometry args={[0.34, 10, 8]} />
+        <meshToonMaterial color="#e0e7ff" gradientMap={toonGradient} transparent opacity={0.55} />
+      </mesh>
+      <mesh position={[0, -0.3, 0]} rotation={[Math.PI, 0, 0]}>
+        <coneGeometry args={[0.3, 0.5, 8]} />
+        <meshToonMaterial color="#e0e7ff" gradientMap={toonGradient} transparent opacity={0.4} />
+      </mesh>
+      {/* glowing eyes */}
+      <mesh position={[-0.1, 0.05, 0.28]}><sphereGeometry args={[0.05, 6, 6]} /><meshBasicMaterial color="#38bdf8" /></mesh>
+      <mesh position={[0.1, 0.05, 0.28]}><sphereGeometry args={[0.05, 6, 6]} /><meshBasicMaterial color="#38bdf8" /></mesh>
+    </group>
+  );
+}
+
+function BatModel({ isDead, isAttacking }: { isDead: () => boolean; isAttacking: () => boolean }) {
+  const root = useRef<THREE.Group>(null);
+  const lw = useRef<THREE.Mesh>(null);
+  const rw = useRef<THREE.Mesh>(null);
+  const phase = useRef(0);
+  useFrame((_, dt) => {
+    if (!root.current) return;
+    if (isDead()) { root.current.visible = false; return; }
+    root.current.visible = true;
+    phase.current += dt * (isAttacking() ? 22 : 12);
+    root.current.position.y = 0.9 + Math.sin(phase.current * 0.25) * 0.15;
+    const flap = Math.sin(phase.current) * 0.6 + 0.5;
+    if (lw.current) lw.current.rotation.z = 0.4 + flap * 0.7;
+    if (rw.current) rw.current.rotation.z = -0.4 - flap * 0.7;
+  });
+  const skin = "#3f3f46";
+  return (
+    <group ref={root} scale={0.7}>
+      <RoundTorso width={0.16} height={0.2} depth={0.2} color={skin} position={[0, 0, 0]} />
+      <RoundHead radius={0.11} color={skin} position={[0, 0.06, 0.13]} />
+      <RoundSpike radius={0.025} height={0.09} color={skin} position={[-0.06, 0.16, 0.09]} rotation={[0.2, 0, -0.15]} />
+      <RoundSpike radius={0.025} height={0.09} color={skin} position={[0.06, 0.16, 0.09]} rotation={[0.2, 0, 0.15]} />
+      {/* membranous wings — flat low-poly (radial=3) cones, same trick as the Dark Lord's cape edges */}
+      <mesh ref={lw} position={[-0.14, 0.02, 0]} rotation={[Math.PI / 2, 0, 0.4]}>
+        <coneGeometry args={[0.26, 0.02, 3]} />
+        <meshToonMaterial color={skin} gradientMap={toonGradient} side={THREE.DoubleSide} />
+      </mesh>
+      <mesh ref={rw} position={[0.14, 0.02, 0]} rotation={[Math.PI / 2, 0, -0.4]}>
+        <coneGeometry args={[0.26, 0.02, 3]} />
+        <meshToonMaterial color={skin} gradientMap={toonGradient} side={THREE.DoubleSide} />
+      </mesh>
+      <mesh position={[-0.04, 0.06, 0.22]}><sphereGeometry args={[0.02, 6, 6]} /><meshBasicMaterial color="#ef4444" /></mesh>
+      <mesh position={[0.04, 0.06, 0.22]}><sphereGeometry args={[0.02, 6, 6]} /><meshBasicMaterial color="#ef4444" /></mesh>
+    </group>
+  );
+}
+
+function GolemModel({ isMoving, isDead, isAttacking }: { isMoving: () => boolean; isDead: () => boolean; isAttacking: () => boolean }) {
+  const root = useRef<THREE.Group>(null);
+  const leftLeg = useRef<THREE.Mesh>(null);
+  const rightLeg = useRef<THREE.Mesh>(null);
+  const leftArm = useRef<THREE.Mesh>(null);
+  const rightArm = useRef<THREE.Mesh>(null);
+  const phase = useRef(0);
+  useFrame((_, dt) => {
+    if (!root.current) return;
+    if (isDead()) { root.current.rotation.x = THREE.MathUtils.lerp(root.current.rotation.x, Math.PI / 2, dt * 3); return; }
+    root.current.rotation.x = THREE.MathUtils.lerp(root.current.rotation.x, 0, dt * 3);
+    const moving = isMoving();
+    phase.current += dt * (moving ? 3.5 : 1);
+    const sway = Math.sin(phase.current);
+    if (leftLeg.current) leftLeg.current.rotation.x = moving ? sway * 0.35 : 0;
+    if (rightLeg.current) rightLeg.current.rotation.x = moving ? -sway * 0.35 : 0;
+    root.current.position.y = Math.abs(sway) * 0.05;
+    const target = isAttacking() ? -1.6 : -0.15;
+    if (leftArm.current) leftArm.current.rotation.x = THREE.MathUtils.lerp(leftArm.current.rotation.x, target, dt * 10);
+    if (rightArm.current) rightArm.current.rotation.x = THREE.MathUtils.lerp(rightArm.current.rotation.x, target, dt * 10);
+  });
+  const rock = "#78716c"; const rockDark = "#57534e";
+  return (
+    <group ref={root} scale={1.25}>
+      {/* short thick legs */}
+      <RoundLimb ref={leftLeg} length={0.55} radius={0.22} color={rockDark} position={[-0.26, 0.32, 0]} castShadow />
+      <RoundLimb ref={rightLeg} length={0.55} radius={0.22} color={rockDark} position={[0.26, 0.32, 0]} castShadow />
+      {/* wide torso — blocky silhouette via proportions, not literal boxes */}
+      <RoundTorso width={1.15} height={0.85} depth={0.65} color={rock} position={[0, 1.05, 0]} castShadow />
+      {/* rock-chunk chest accents */}
+      <RoundSpike radius={0.12} height={0.16} color={rockDark} position={[-0.2, 1.25, 0.32]} rotation={[1.4, 0, 0.3]} />
+      <RoundSpike radius={0.1} height={0.14} color={rockDark} position={[0.22, 1.0, 0.34]} rotation={[1.5, 0, -0.2]} />
+      <RoundHead radius={0.32} color={rock} position={[0, 1.72, 0]} />
+      {/* glowing core eyes */}
+      <mesh position={[-0.12, 1.76, 0.28]}><sphereGeometry args={[0.055, 8, 8]} /><meshBasicMaterial color="#fbbf24" /></mesh>
+      <mesh position={[0.12, 1.76, 0.28]}><sphereGeometry args={[0.055, 8, 8]} /><meshBasicMaterial color="#fbbf24" /></mesh>
+      {/* boulder shoulders */}
+      <mesh position={[-0.62, 1.35, 0]}><sphereGeometry args={[0.26, 8, 6]} /><meshToonMaterial color={rockDark} gradientMap={toonGradient} /></mesh>
+      <mesh position={[0.62, 1.35, 0]}><sphereGeometry args={[0.26, 8, 6]} /><meshToonMaterial color={rockDark} gradientMap={toonGradient} /></mesh>
+      <RoundLimb ref={leftArm} length={0.6} radius={0.19} color={rock} position={[-0.62, 1.0, 0]} />
+      <RoundLimb ref={rightArm} length={0.6} radius={0.19} color={rock} position={[0.62, 1.0, 0]} />
+    </group>
+  );
+}
+
+function FoxModel({ isMoving, isDead, isAttacking }: { isMoving: () => boolean; isDead: () => boolean; isAttacking: () => boolean }) {
+  const root = useRef<THREE.Group>(null);
+  const fl = useRef<THREE.Mesh>(null);
+  const fr = useRef<THREE.Mesh>(null);
+  const bl = useRef<THREE.Mesh>(null);
+  const br = useRef<THREE.Mesh>(null);
+  const tail = useRef<THREE.Group>(null);
+  const walkPhase = useRef(0);
+  const attackPhase = useRef(0);
+  useFrame((_, dt) => {
+    if (!root.current) return;
+    if (isDead()) { root.current.rotation.z = THREE.MathUtils.lerp(root.current.rotation.z, Math.PI / 2, 0.1); return; }
+    root.current.rotation.z = THREE.MathUtils.lerp(root.current.rotation.z, 0, 0.2);
+    const moving = isMoving();
+    if (moving) walkPhase.current += dt * 12; else walkPhase.current *= 0.85;
+    const s = Math.sin(walkPhase.current) * (moving ? 0.6 : 0.05);
+    if (fl.current) fl.current.rotation.x = s;
+    if (br.current) br.current.rotation.x = s;
+    if (fr.current) fr.current.rotation.x = -s;
+    if (bl.current) bl.current.rotation.x = -s;
+    if (tail.current) tail.current.rotation.z = Math.sin(performance.now() * 0.007) * 0.35;
+    root.current.position.y = moving ? Math.abs(Math.sin(walkPhase.current * 2)) * 0.04 : 0;
+    if (isAttacking() && attackPhase.current <= 0) attackPhase.current = 1;
+    if (attackPhase.current > 0) {
+      attackPhase.current -= dt * 4;
+      const a = Math.max(0, attackPhase.current);
+      root.current.position.z = Math.sin((1 - a) * Math.PI) * 0.35;
+    }
+  });
+  // Slimmer cousin of the wolf silhouette — same shape language, smaller + reddish.
+  const fur = "#c2410c"; const belly = "#fed7aa";
+  return (
+    <group ref={root} scale={0.7}>
+      <RoundTorso width={0.4} height={0.34} depth={0.75} color={fur} position={[0, 0.4, 0]} />
+      <RoundHead radius={0.2} color={fur} position={[0, 0.5, 0.42]} />
+      <RoundSpike radius={0.06} height={0.18} color={fur} position={[-0.11, 0.68, 0.36]} rotation={[0, 0, 0.15]} />
+      <RoundSpike radius={0.06} height={0.18} color={fur} position={[0.11, 0.68, 0.36]} rotation={[0, 0, -0.15]} />
+      <RoundLimb length={0.2} radius={0.08} color={belly} position={[0, 0.45, 0.6]} rotation={[Math.PI / 2, 0, 0]} />
+      <RoundLimb ref={fl} length={0.32} radius={0.06} color={fur} position={[-0.14, 0.18, 0.26]} />
+      <RoundLimb ref={fr} length={0.32} radius={0.06} color={fur} position={[0.14, 0.18, 0.26]} />
+      <RoundLimb ref={bl} length={0.32} radius={0.06} color={fur} position={[-0.14, 0.18, -0.26]} />
+      <RoundLimb ref={br} length={0.32} radius={0.06} color={fur} position={[0.14, 0.18, -0.26]} />
+      {/* bushy tail */}
+      <group ref={tail} position={[0, 0.42, -0.4]} rotation={[0.5, 0, 0]}>
+        <RoundLimb length={0.4} radius={0.11} color={fur} position={[0, 0.15, 0]} />
+        <RoundSpike radius={0.13} height={0.22} color="#fde68a" position={[0, 0.4, 0]} />
+      </group>
+      <mesh position={[-0.08, 0.53, 0.58]}><sphereGeometry args={[0.035, 6, 6]} /><meshBasicMaterial color="#1c1917" /></mesh>
+      <mesh position={[0.08, 0.53, 0.58]}><sphereGeometry args={[0.035, 6, 6]} /><meshBasicMaterial color="#1c1917" /></mesh>
+    </group>
+  );
+}
+
+function ShadowWolfModel({ isMoving, isDead, isAttacking }: { isMoving: () => boolean; isDead: () => boolean; isAttacking: () => boolean }) {
+  const root = useRef<THREE.Group>(null);
+  const fl = useRef<THREE.Mesh>(null);
+  const fr = useRef<THREE.Mesh>(null);
+  const bl = useRef<THREE.Mesh>(null);
+  const br = useRef<THREE.Mesh>(null);
+  const tail = useRef<THREE.Mesh>(null);
+  const walkPhase = useRef(0);
+  const attackPhase = useRef(0);
+  useFrame((_, dt) => {
+    if (!root.current) return;
+    if (isDead()) { root.current.rotation.z = THREE.MathUtils.lerp(root.current.rotation.z, Math.PI / 2, 0.1); return; }
+    root.current.rotation.z = THREE.MathUtils.lerp(root.current.rotation.z, 0, 0.2);
+    const moving = isMoving();
+    if (moving) walkPhase.current += dt * 10; else walkPhase.current *= 0.85;
+    const s = Math.sin(walkPhase.current) * (moving ? 0.6 : 0.05);
+    if (fl.current) fl.current.rotation.x = s;
+    if (br.current) br.current.rotation.x = s;
+    if (fr.current) fr.current.rotation.x = -s;
+    if (bl.current) bl.current.rotation.x = -s;
+    if (tail.current) tail.current.rotation.z = Math.sin(performance.now() * 0.006) * 0.4;
+    root.current.position.y = moving ? Math.abs(Math.sin(walkPhase.current * 2)) * 0.05 : 0;
+    if (isAttacking() && attackPhase.current <= 0) attackPhase.current = 1;
+    if (attackPhase.current > 0) {
+      attackPhase.current -= dt * 4;
+      const a = Math.max(0, attackPhase.current);
+      root.current.position.z = Math.sin((1 - a) * Math.PI) * 0.5;
+    }
+  });
+  // Elemental palette-swap of the wolf silhouette — same shape language, dark + glowing eyes.
+  const fur = "#1e1b2e";
+  return (
+    <group ref={root}>
+      <RoundTorso width={0.48} height={0.42} depth={0.95} color={fur} position={[0, 0.52, 0]} />
+      <RoundHead radius={0.22} color={fur} position={[0, 0.65, 0.5]} />
+      <RoundSpike radius={0.06} height={0.18} color={fur} position={[-0.12, 0.86, 0.44]} rotation={[0, 0, 0.2]} />
+      <RoundSpike radius={0.06} height={0.18} color={fur} position={[0.12, 0.86, 0.44]} rotation={[0, 0, -0.2]} />
+      <mesh position={[-0.1, 0.7, 0.68]}><sphereGeometry args={[0.045, 8, 8]} /><meshBasicMaterial color="#a855f7" /></mesh>
+      <mesh position={[0.1, 0.7, 0.68]}><sphereGeometry args={[0.045, 8, 8]} /><meshBasicMaterial color="#a855f7" /></mesh>
+      <RoundLimb ref={fl} length={0.48} radius={0.075} color={fur} position={[-0.17, 0.24, 0.32]} />
+      <RoundLimb ref={fr} length={0.48} radius={0.075} color={fur} position={[0.17, 0.24, 0.32]} />
+      <RoundLimb ref={bl} length={0.48} radius={0.075} color={fur} position={[-0.17, 0.24, -0.32]} />
+      <RoundLimb ref={br} length={0.48} radius={0.075} color={fur} position={[0.17, 0.24, -0.32]} />
+      <RoundLimb ref={tail} length={0.4} radius={0.08} color={fur} position={[0, 0.58, -0.5]} rotation={[0.4, 0, 0]} />
+    </group>
+  );
+}
+
+function BansheeModel({ isDead, isAttacking }: { isDead: () => boolean; isAttacking: () => boolean }) {
+  const root = useRef<THREE.Group>(null);
+  const wailPhase = useRef(0);
+  const gown = useRef<THREE.Mesh>(null);
+  useFrame((_, dt) => {
+    if (!root.current) return;
+    if (isDead()) { const s = Math.max(0.05, root.current.scale.x - dt * 0.6); root.current.scale.set(s, s, s); return; }
+    wailPhase.current += dt * 1.6;
+    root.current.position.y = 0.9 + Math.sin(wailPhase.current * 0.9) * 0.12;
+    root.current.rotation.y = Math.sin(wailPhase.current * 0.3) * 0.3;
+    if (gown.current) gown.current.scale.y = 1 + Math.sin(wailPhase.current * 1.3) * 0.06;
+    if (isAttacking()) root.current.rotation.z = Math.sin(performance.now() * 0.05) * 0.05;
+    else root.current.rotation.z = 0;
+  });
+  const pale = "#e9d5ff"; const gownColor = "#ddd6fe";
+  return (
+    <group ref={root}>
+      <RoundTorso width={0.42} height={0.5} depth={0.28} color={pale} position={[0, 0.55, 0]} />
+      <RoundHead radius={0.22} color={pale} position={[0, 1.02, 0]} />
+      {/* hollow glowing eyes */}
+      <mesh position={[-0.09, 1.05, 0.19]}><sphereGeometry args={[0.045, 8, 8]} /><meshBasicMaterial color="#38bdf8" /></mesh>
+      <mesh position={[0.09, 1.05, 0.19]}><sphereGeometry args={[0.045, 8, 8]} /><meshBasicMaterial color="#38bdf8" /></mesh>
+      {/* long ghostly hair trailing behind */}
+      <RoundSpike radius={0.14} height={0.5} color="#c4b5fd" position={[0, 0.75, -0.12]} rotation={[Math.PI, 0, 0]} />
+      {/* flowing lower half stands in for legs — banshees don't have visible feet */}
+      <mesh ref={gown} position={[0, 0.15, 0]} rotation={[Math.PI, 0, 0]}>
+        <coneGeometry args={[0.32, 0.7, 10]} />
+        <meshToonMaterial color={gownColor} gradientMap={toonGradient} transparent opacity={0.65} />
+      </mesh>
+      <RoundLimb length={0.4} radius={0.06} color={pale} position={[-0.32, 0.65, 0]} rotation={[0, 0, 0.5]} />
+      <RoundLimb length={0.4} radius={0.06} color={pale} position={[0.32, 0.65, 0]} rotation={[0, 0, -0.5]} />
+    </group>
+  );
+}
+
+function SkeletonCaptainModel({ isMoving, isDead, isAttacking }: { isMoving: () => boolean; isDead: () => boolean; isAttacking: () => boolean }) {
+  const root = useRef<THREE.Group>(null);
+  const leftLeg = useRef<THREE.Mesh>(null);
+  const rightLeg = useRef<THREE.Mesh>(null);
+  const swordArm = useRef<THREE.Group>(null);
+  const phase = useRef(0);
+  useFrame((_, dt) => {
+    if (!root.current) return;
+    if (isDead()) { root.current.rotation.x = THREE.MathUtils.lerp(root.current.rotation.x, Math.PI / 2, dt * 4); return; }
+    root.current.rotation.x = THREE.MathUtils.lerp(root.current.rotation.x, 0, dt * 4);
+    const moving = isMoving();
+    phase.current += dt * (moving ? 5.5 : 1.5);
+    const sway = Math.sin(phase.current);
+    if (leftLeg.current) leftLeg.current.rotation.x = moving ? sway * 0.5 : 0;
+    if (rightLeg.current) rightLeg.current.rotation.x = moving ? -sway * 0.5 : 0;
+    root.current.position.y = Math.abs(sway) * 0.03;
+    if (swordArm.current) {
+      const target = isAttacking() ? -Math.PI * 0.65 : -0.3;
+      swordArm.current.rotation.x = THREE.MathUtils.lerp(swordArm.current.rotation.x, target, dt * 13);
+    }
+  });
+  // Bone-white, gaunt proportions (thin limbs, narrow torso) read as "skeleton" without extra bone-segment meshes.
+  const bone = "#e7e5e4"; const boneShade = "#a8a29e";
+  return (
+    <group ref={root}>
+      <RoundLimb ref={leftLeg} length={0.82} radius={0.09} color={bone} position={[-0.14, 0.42, 0]} />
+      <RoundLimb ref={rightLeg} length={0.82} radius={0.09} color={bone} position={[0.14, 0.42, 0]} />
+      <RoundTorso width={0.5} height={0.68} depth={0.28} color={bone} position={[0, 1.15, 0]} castShadow />
+      {/* tattered captain's tabard */}
+      <RoundedBox args={[0.42, 0.3, 0.3]} radius={0.03} smoothness={2} position={[0, 1.05, 0]}>
+        <meshToonMaterial color="#7f1d1d" gradientMap={toonGradient} />
+      </RoundedBox>
+      <RoundHead radius={0.2} color={bone} position={[0, 1.72, 0]} />
+      <mesh position={[-0.08, 1.75, 0.17]}><sphereGeometry args={[0.04, 8, 8]} /><meshBasicMaterial color="#0c0a09" /></mesh>
+      <mesh position={[0.08, 1.75, 0.17]}><sphereGeometry args={[0.04, 8, 8]} /><meshBasicMaterial color="#0c0a09" /></mesh>
+      {/* captain's helm spike */}
+      <RoundSpike radius={0.05} height={0.2} color={boneShade} position={[0, 1.95, 0]} />
+      <RoundLimb length={0.6} radius={0.07} color={bone} position={[-0.36, 0.95, 0]} />
+      <group ref={swordArm} position={[0.36, 1.4, 0]}>
+        <RoundLimb length={0.6} radius={0.07} color={bone} position={[0, -0.3, 0]} />
+        <mesh position={[0, -0.62, 0]}><cylinderGeometry args={[0.025, 0.025, 0.18, 6]} /><meshStandardMaterial color="#57534e" flatShading /></mesh>
+        <RoundedBox args={[0.08, 0.7, 0.02]} radius={0.01} smoothness={2} position={[0, -1.05, 0]}>
+          <meshStandardMaterial color="#cbd5e1" metalness={0.7} flatShading />
+        </RoundedBox>
+      </group>
+    </group>
+  );
+}
+
+function ShadowLordModel({ isMoving, isDead, isAttacking }: { isMoving: () => boolean; isDead: () => boolean; isAttacking: () => boolean }) {
+  const root = useRef<THREE.Group>(null);
+  const leftLeg = useRef<THREE.Mesh>(null);
+  const rightLeg = useRef<THREE.Mesh>(null);
+  const armGroup = useRef<THREE.Group>(null);
+  const phase = useRef(0);
+  useFrame((_, dt) => {
+    if (!root.current) return;
+    if (isDead()) { root.current.rotation.x = THREE.MathUtils.lerp(root.current.rotation.x, Math.PI / 2, dt * 4); return; }
+    root.current.rotation.x = THREE.MathUtils.lerp(root.current.rotation.x, 0, dt * 4);
+    const moving = isMoving();
+    phase.current += dt * (moving ? 5 : 1.5);
+    const sway = Math.sin(phase.current);
+    if (leftLeg.current) leftLeg.current.rotation.x = moving ? sway * 0.45 : 0;
+    if (rightLeg.current) rightLeg.current.rotation.x = moving ? -sway * 0.45 : 0;
+    root.current.position.y = Math.abs(sway) * 0.04;
+    if (armGroup.current) {
+      const target = isAttacking() ? -1.4 : -0.2;
+      armGroup.current.rotation.x = THREE.MathUtils.lerp(armGroup.current.rotation.x, target, dt * 12);
+    }
+  });
+  // Dungeon boss — imposing wraith-lord frame, dark purple/black.
+  const shade = "#1e1033"; const shadeDark = "#0d0616";
+  return (
+    <group ref={root} scale={1.35}>
+      <RoundLimb ref={leftLeg} length={0.85} radius={0.13} color={shadeDark} position={[-0.17, 0.43, 0]} />
+      <RoundLimb ref={rightLeg} length={0.85} radius={0.13} color={shadeDark} position={[0.17, 0.43, 0]} />
+      <RoundTorso width={0.7} height={0.75} depth={0.4} color={shade} position={[0, 1.18, 0]} castShadow />
+      <RoundHead radius={0.24} color={shade} position={[0, 1.85, 0]} />
+      <mesh position={[-0.1, 1.9, 0.22]}><sphereGeometry args={[0.045, 8, 8]} /><meshBasicMaterial color="#c084fc" /></mesh>
+      <mesh position={[0.1, 1.9, 0.22]}><sphereGeometry args={[0.045, 8, 8]} /><meshBasicMaterial color="#c084fc" /></mesh>
+      {/* shoulder spikes */}
+      <RoundSpike radius={0.09} height={0.32} color={shadeDark} position={[-0.42, 1.5, 0]} rotation={[0, 0, -0.9]} />
+      <RoundSpike radius={0.09} height={0.32} color={shadeDark} position={[0.42, 1.5, 0]} rotation={[0, 0, 0.9]} />
+      {/* crown-like head spikes */}
+      <RoundSpike radius={0.05} height={0.28} color={shadeDark} position={[0, 2.14, 0]} />
+      <RoundSpike radius={0.045} height={0.2} color={shadeDark} position={[-0.13, 2.08, 0]} rotation={[0, 0, 0.3]} />
+      <RoundSpike radius={0.045} height={0.2} color={shadeDark} position={[0.13, 2.08, 0]} rotation={[0, 0, -0.3]} />
+      <group ref={armGroup} position={[0, 1.55, 0]}>
+        <RoundLimb length={0.7} radius={0.1} color={shade} position={[-0.45, -0.35, 0]} />
+        <RoundLimb length={0.7} radius={0.1} color={shade} position={[0.45, -0.35, 0]} />
+      </group>
+      <pointLight position={[0, 1.4, 0.3]} color="#7c3aed" intensity={1.5} distance={6} />
+    </group>
+  );
+}
+
+function IceGiantModel({ isMoving, isDead, isAttacking }: { isMoving: () => boolean; isDead: () => boolean; isAttacking: () => boolean }) {
+  const root = useRef<THREE.Group>(null);
+  const leftLeg = useRef<THREE.Mesh>(null);
+  const rightLeg = useRef<THREE.Mesh>(null);
+  const armGroup = useRef<THREE.Group>(null);
+  const phase = useRef(0);
+  useFrame((_, dt) => {
+    if (!root.current) return;
+    if (isDead()) { root.current.rotation.x = THREE.MathUtils.lerp(root.current.rotation.x, Math.PI / 2, dt * 3); return; }
+    root.current.rotation.x = THREE.MathUtils.lerp(root.current.rotation.x, 0, dt * 3);
+    const moving = isMoving();
+    phase.current += dt * (moving ? 3 : 1);
+    const sway = Math.sin(phase.current);
+    if (leftLeg.current) leftLeg.current.rotation.x = moving ? sway * 0.35 : 0;
+    if (rightLeg.current) rightLeg.current.rotation.x = moving ? -sway * 0.35 : 0;
+    root.current.position.y = Math.abs(sway) * 0.05;
+    if (armGroup.current) {
+      const target = isAttacking() ? -1.5 : -0.15;
+      armGroup.current.rotation.x = THREE.MathUtils.lerp(armGroup.current.rotation.x, target, dt * 10);
+    }
+  });
+  // Dungeon boss — large bulky humanoid, icy blue-white.
+  const ice = "#e0f2fe"; const iceDark = "#7dd3fc"; const skin = "#bae6fd";
+  return (
+    <group ref={root} scale={1.5}>
+      <RoundLimb ref={leftLeg} length={0.95} radius={0.22} color={skin} position={[-0.26, 0.5, 0]} />
+      <RoundLimb ref={rightLeg} length={0.95} radius={0.22} color={skin} position={[0.26, 0.5, 0]} />
+      <RoundTorso width={1.05} height={0.95} depth={0.55} color={ice} position={[0, 1.5, 0]} castShadow />
+      <RoundHead radius={0.34} color={skin} position={[0, 2.25, 0]} />
+      <mesh position={[-0.13, 2.3, 0.28]}><sphereGeometry args={[0.05, 8, 8]} /><meshBasicMaterial color="#0ea5e9" /></mesh>
+      <mesh position={[0.13, 2.3, 0.28]}><sphereGeometry args={[0.05, 8, 8]} /><meshBasicMaterial color="#0ea5e9" /></mesh>
+      {/* ice-shard shoulder accents */}
+      <RoundSpike radius={0.1} height={0.4} color={iceDark} position={[-0.58, 1.85, 0]} rotation={[0, 0, -0.5]} />
+      <RoundSpike radius={0.08} height={0.3} color={iceDark} position={[-0.5, 1.7, 0.15]} rotation={[0.3, 0, -0.7]} />
+      <RoundSpike radius={0.1} height={0.4} color={iceDark} position={[0.58, 1.85, 0]} rotation={[0, 0, 0.5]} />
+      <RoundSpike radius={0.08} height={0.3} color={iceDark} position={[0.5, 1.7, 0.15]} rotation={[0.3, 0, 0.7]} />
+      <RoundSpike radius={0.07} height={0.3} color={iceDark} position={[0, 2.55, 0]} />
+      <group ref={armGroup} position={[0, 2.0, 0]}>
+        <RoundLimb length={0.85} radius={0.17} color={ice} position={[-0.62, -0.42, 0]} />
+        <RoundLimb length={0.85} radius={0.17} color={ice} position={[0.62, -0.42, 0]} />
+      </group>
+      <pointLight position={[0, 1.8, 0.4]} color="#7dd3fc" intensity={1.5} distance={7} />
     </group>
   );
 }
@@ -1997,13 +2491,25 @@ const MonsterView = React.memo(function MonsterView({ m, selected, onClick, onHo
         {m.kind === "swamp_serpent" && <SwampSerpentModel isMoving={() => performance.now() - lastMoveAt.current < 200} isDead={() => m.dead} isAttacking={() => { const t = attackPulses.get(m.id); return !!t && performance.now() - t < 60; }} />}
         {m.kind === "pig" && <PigModel isMoving={() => performance.now() - lastMoveAt.current < 250} />}
         {m.kind === "cow" && <CowModel isMoving={() => performance.now() - lastMoveAt.current < 250} />}
+        {m.kind === "boar" && <BoarModel isMoving={() => performance.now() - lastMoveAt.current < 200} isDead={() => m.dead} isAttacking={() => { const t = attackPulses.get(m.id); return !!t && performance.now() - t < 60; }} />}
+        {m.kind === "spider" && <SpiderModel isMoving={() => performance.now() - lastMoveAt.current < 200} isDead={() => m.dead} isAttacking={() => { const t = attackPulses.get(m.id); return !!t && performance.now() - t < 60; }} />}
+        {m.kind === "ghost" && <GhostModel isDead={() => m.dead} isAttacking={() => { const t = attackPulses.get(m.id); return !!t && performance.now() - t < 60; }} />}
+        {m.kind === "bat" && <BatModel isDead={() => m.dead} isAttacking={() => { const t = attackPulses.get(m.id); return !!t && performance.now() - t < 60; }} />}
+        {m.kind === "golem" && <GolemModel isMoving={() => performance.now() - lastMoveAt.current < 200} isDead={() => m.dead} isAttacking={() => { const t = attackPulses.get(m.id); return !!t && performance.now() - t < 60; }} />}
+        {m.kind === "fox" && <FoxModel isMoving={() => performance.now() - lastMoveAt.current < 200} isDead={() => m.dead} isAttacking={() => { const t = attackPulses.get(m.id); return !!t && performance.now() - t < 60; }} />}
+        {m.kind === "shadow_lord" && <ShadowLordModel isMoving={() => performance.now() - lastMoveAt.current < 200} isDead={() => m.dead} isAttacking={() => { const t = attackPulses.get(m.id); return !!t && performance.now() - t < 60; }} />}
+        {m.kind === "ice_giant" && <IceGiantModel isMoving={() => performance.now() - lastMoveAt.current < 200} isDead={() => m.dead} isAttacking={() => { const t = attackPulses.get(m.id); return !!t && performance.now() - t < 60; }} />}
+        {m.kind === "shadow_wolf" && <ShadowWolfModel isMoving={() => performance.now() - lastMoveAt.current < 200} isDead={() => m.dead} isAttacking={() => { const t = attackPulses.get(m.id); return !!t && performance.now() - t < 60; }} />}
+        {m.kind === "frost_spider" && <FrostSpiderModel isMoving={() => performance.now() - lastMoveAt.current < 200} isDead={() => m.dead} isAttacking={() => { const t = attackPulses.get(m.id); return !!t && performance.now() - t < 60; }} />}
+        {m.kind === "banshee" && <BansheeModel isDead={() => m.dead} isAttacking={() => { const t = attackPulses.get(m.id); return !!t && performance.now() - t < 60; }} />}
+        {m.kind === "skeleton_captain" && <SkeletonCaptainModel isMoving={() => performance.now() - lastMoveAt.current < 200} isDead={() => m.dead} isAttacking={() => { const t = attackPulses.get(m.id); return !!t && performance.now() - t < 60; }} />}
       </group>
       <mesh ref={selectionRing} position={[0, 0.05, 0]} rotation={[-Math.PI / 2, 0, 0]} visible={false}>
         <ringGeometry args={[0.7, 0.85, 24]} />
         <meshBasicMaterial color="#fde047" transparent opacity={0.8} />
       </mesh>
       <group ref={billboardRef}>
-        <Billboard y={m.kind === "darklord" ? 5 : m.kind === "orc" ? 2.7 : m.kind === "wolf" ? 1.5 : 1.2}>
+        <Billboard y={MONSTER_BILLBOARD_Y[m.kind] ?? 1.2}>
           <LiveLabel initial={m.kind === "darklord" ? "⚜ DARK LORD ⚜" : m.kind} />
           <LiveBar getValue={() => m.hp / m.maxHp} color={m.kind === "darklord" ? "#a855f7" : "#ef4444"} y={-0.22} />
         </Billboard>

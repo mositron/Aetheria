@@ -1,6 +1,7 @@
 import { useRef } from "react";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
+import { RoundLimb, RoundTorso, RoundHead } from "./organicPrimitives";
 
 type Props = { isMoving: () => boolean; isDead?: () => boolean; isAttacking?: () => boolean };
 
@@ -51,42 +52,29 @@ export function ScorpionLordModel({ isMoving, isDead, isAttacking }: Props) {
 
   return (
     <group ref={root}>
-      {/* Body — oval cephalothorax */}
-      <mesh position={[0, 0.5, 0]} castShadow>
-        <boxGeometry args={[0.9, 0.6, 1.2]} />
-        <meshStandardMaterial color={bodyColor} />
-      </mesh>
-      {/* Abdomen */}
-      <mesh position={[0, 0.4, -0.9]} castShadow>
-        <boxGeometry args={[0.75, 0.55, 0.9]} />
-        <meshStandardMaterial color={darkRed} />
-      </mesh>
-      {/* Head */}
-      <mesh position={[0, 0.55, 0.75]}>
-        <boxGeometry args={[0.6, 0.5, 0.5]} />
-        <meshStandardMaterial color={bodyColor} />
-      </mesh>
-      {/* Pedipalps (pincers) — left */}
-      <group ref={leftPincer} position={[-0.45, 0.5, 0.75]}>
-        <mesh position={[-0.2, 0, 0]} rotation={[0, 0, 0.3]} castShadow>
-          <boxGeometry args={[0.15, 0.15, 0.7]} />
-          <meshStandardMaterial color={darkRed} />
-        </mesh>
-        <mesh position={[-0.55, -0.15, 0.1]} rotation={[0.2, 0, 0.6]}>
-          <boxGeometry args={[0.2, 0.15, 0.45]} />
-          <meshStandardMaterial color={darkRed} />
-        </mesh>
+      {/* Body — oval cephalothorax. RoundTorso's "height" param is its long
+          (capsule) axis, so we build it long-and-flat in the wrapper's local
+          Y then rotate 90° about X to lay that long axis flat along world Z —
+          keeps the body low & wide instead of collapsing into a tall pill. */}
+      <group position={[0, 0.5, 0]} rotation={[Math.PI / 2, 0, 0]}>
+        <RoundTorso width={0.9} height={1.2} depth={0.6} color={bodyColor} castShadow />
       </group>
-      {/* Right pincer */}
+      {/* Abdomen */}
+      <group position={[0, 0.4, -0.9]} rotation={[Math.PI / 2, 0, 0]}>
+        <RoundTorso width={0.75} height={0.9} depth={0.55} color={darkRed} castShadow />
+      </group>
+      {/* Head */}
+      <RoundHead radius={0.28} color={bodyColor} position={[0, 0.55, 0.75]} />
+      {/* Pedipalps (pincers) — left. Upper-arm + claw segments as capsules,
+          tipped from their default vertical orientation to reach forward. */}
+      <group ref={leftPincer} position={[-0.45, 0.5, 0.75]}>
+        <RoundLimb length={0.55} radius={0.08} color={darkRed} position={[-0.22, 0, 0.15]} rotation={[1.15, 0, 0.5]} castShadow />
+        <RoundLimb length={0.4} radius={0.11} color={darkRed} position={[-0.5, -0.05, 0.4]} rotation={[0.9, 0, 0.9]} />
+      </group>
+      {/* Right pincer (mirrored) */}
       <group ref={rightPincer} position={[0.45, 0.5, 0.75]}>
-        <mesh position={[0.2, 0, 0]} rotation={[0, 0, -0.3]} castShadow>
-          <boxGeometry args={[0.15, 0.15, 0.7]} />
-          <meshStandardMaterial color={darkRed} />
-        </mesh>
-        <mesh position={[0.55, -0.15, 0.1]} rotation={[0.2, 0, -0.6]}>
-          <boxGeometry args={[0.2, 0.15, 0.45]} />
-          <meshStandardMaterial color={darkRed} />
-        </mesh>
+        <RoundLimb length={0.55} radius={0.08} color={darkRed} position={[0.22, 0, 0.15]} rotation={[1.15, 0, -0.5]} castShadow />
+        <RoundLimb length={0.4} radius={0.11} color={darkRed} position={[0.5, -0.05, 0.4]} rotation={[0.9, 0, -0.9]} />
       </group>
       {/* Eyes */}
       <mesh position={[-0.12, 0.75, 1.0]}>
@@ -97,13 +85,18 @@ export function ScorpionLordModel({ isMoving, isDead, isAttacking }: Props) {
         <sphereGeometry args={[0.07, 8, 8]} />
         <meshBasicMaterial color="#ef4444" />
       </mesh>
-      {/* Legs — 6 pairs */}
+      {/* Legs — 6 pairs, thin capsules with a slight outward splay at the foot */}
       {[0.3, 0, -0.3].map((z, row) =>
         [-1, 1].map((side) => (
-          <mesh key={`${row}-${side}`} position={[side * 0.55, 0.25, 0.2 + z]} castShadow>
-            <boxGeometry args={[0.1, 0.5, 0.12]} />
-            <meshStandardMaterial color={bodyColor} />
-          </mesh>
+          <RoundLimb
+            key={`${row}-${side}`}
+            length={0.5}
+            radius={0.06}
+            color={bodyColor}
+            position={[side * 0.55, 0.25, 0.2 + z]}
+            rotation={[0, 0, side * 0.3]}
+            castShadow
+          />
         ))
       )}
       {/* Tail + stinger */}
