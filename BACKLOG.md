@@ -3,8 +3,284 @@
 > **Single source of truth สำหรับงานที่เหลือ.** อ่านไฟล์นี้ก่อนเริ่ม session ใหม่
 > เพื่อให้รู้ว่าสถานะอะไร, อยู่ที่ไหน, ทำอะไรต่อ.
 
-Last updated: 2026-05-30 — Multi-agent whole-repo bug audit → 44 confirmed bugs fixed across 6 themed commits
-Total commits to date: 110+
+Last updated: 2026-07-15 — Voxel-look redesign phases 3b-3d complete: hair/accessories, all monster models, NPC props
+Total commits to date: 110+ (this session not yet committed)
+
+## Session 2026-07-15 (part 4) — Voxel-look redesign phases 3b, 3c, 3d
+
+Continuation of part 2/3 — completed the remaining phases of the
+player/monster/NPC organic-model rollout.
+
+**Phase 3b — `HeroModel.tsx` remaining hair styles + accessories.** Long/
+ponytail/spiky/bun hair rebuilt on a shared rounded "scalp dome" (squashed
+sphere) + style-specific extra (flowing back-hair, `RoundLimb` ponytail,
+`RoundSpike` spikes, sphere bun). Crown/headband converted from box-stacks to
+torus bands + `RoundSpike` points. Glasses "round" fixed to be actually round
+(torus rings — was literally square boxes despite the name, per the earlier
+survey's own finding). Scarf/sun-glasses use drei `RoundedBox` for a subtle
+bevel where a literal box still makes sense.
+
+**Phase 3c — monster models.** Ran as a 4-way parallel workflow (all touching
+disjoint files except one agent that owns all of `Scene.tsx`'s inline models,
+to avoid concurrent-edit conflicts):
+- `WolfModel.tsx` / `OrcModel.tsx` — body mass converted to
+  `RoundTorso`/`RoundLimb`/`RoundHead`, tusks/ears to `RoundSpike`.
+- `DarklordModel.tsx` (boss) — body mass converted, kept cape/sword/crown/aura
+  as their original curved primitives, deliberately did NOT round the cape's
+  jagged tri-cone edges (would erase the "torn fabric" read).
+- `ScorpionLordModel.tsx` (boss) — body/pincers/legs converted; agent
+  correctly identified and worked around a `RoundTorso` orientation issue for
+  horizontal (non-upright) bodies via a 90° group rotation.
+- `Scene.tsx` inline models — fixed `ScorpionModel`/`YetiModel`/`ChickenModel`/
+  `PigModel`/`CowModel` (all were 100% boxGeometry), then **built 12 brand-new
+  monster models from scratch** for kinds that previously rendered as
+  literally nothing (only a name+HP bar) — boar, spider, ghost, bat, golem,
+  fox, shadow_lord, ice_giant, shadow_wolf, frost_spider, banshee,
+  skeleton_captain — wired into `MonsterView`'s dispatch chain with a new
+  `MONSTER_BILLBOARD_Y` lookup table for correct label height per kind.
+
+**Bug found + fixed during review, not by the agents:** `organicPrimitives.tsx`'s
+`RoundTorso` silently rendered ~50% taller than requested whenever `width` or
+`depth` exceeded `height` (any wide/flat quadruped body) — the Y-axis scale
+compensation only worked for the upright-humanoid case it was originally
+designed for. Two agents (Wolf, ScorpionLord) independently discovered this
+and worked around it per-callsite via a 90° rotation; the `Scene.tsx` agent's
+farm animals (Chicken/Pig/Cow) did not. Fixed at the source in `RoundTorso`
+itself (Y-scale now derived from actual native geometry extent, not assumed
+to be 1) — retroactively correct for every existing and future caller,
+verified backward-compatible with the rotation-workaround callsites (no-op
+there since their case was never affected).
+
+**Phase 3d — `NpcRoleProps.tsx`.** Confirmed via review this file was already
+in good shape (hammers/staffs/shields/spears/wands already used
+cylinder/sphere/torus/cone) — only the genuinely flat/blocky objects (aprons,
+plank, book, hammer heads) got a `RoundedBox` bevel; anvils deliberately left
+as sharp boxes since anvils are correctly blocky in real life.
+
+**Verification:** `tsc --noEmit` + `vite build` clean after every phase and
+after the `RoundTorso` fix. Live browser check: confirmed the converted Orc
+renders correctly (rounded head/torso/arms, tusks/headband/belt still clearly
+read as "orc", not a generic blob), no console errors, `smoketest.mjs`
+passes. Did not visually confirm all 12 new monster kinds live (most are
+dungeon/cave/Endless-Tower spawns, not reachable without extended navigation
+in this session) — worth a look next time you're exploring caves/dungeons.
+
+This closes out the full voxel-look redesign: terrain (part 2), player/NPC
+body (part 2), and now monsters (part 4). Remaining lower-priority polish not
+done: `PlayerJobProps.tsx` touch-ups where job props might visually clash
+against the new rounder body (deferred — the survey's own assessment was
+these already lean curved and are low-risk to leave as-is).
+
+## Session 2026-07-15 (part 3) — Follow-on fixes to the terrain mesh rewrite
+
+User playtested part 2's changes live and reported 3 issues, all traced back
+to the terrain-mesh rewrite (part 2):
+
+**Grass "constantly shifting" / dazzling ground texture** — root cause:
+`GrassField.tsx`/`TreeInstanced`/`RockInstanced`/`BushInstanced` all placed
+decor Y using raw `getHeight(x,z)`, a *discrete step function* (quantized by
+`STEP`). The old box-column terrain was ALSO discretely stepped per cell, so
+this mostly matched; the new smooth mesh *linearly interpolates* between
+grid-vertex heights, so a discrete-height blade sitting on a ramped/sloped
+triangle rarely lines up with the continuously-interpolated surface under it
+— it floats or sinks, and the mismatch swims as the camera moves. Fix: new
+`chunkWorld.ts` export `getSmoothHeight(x,z)` — bilinear interpolation on the
+exact same lattice the terrain mesh samples (`TERRAIN_MESH_STEP`, also newly
+exported so the two never drift apart). Wired into `GrassField.tsx`,
+`LandDust.tsx`, and `TreeInstanced`/`RockInstanced`/`BushInstanced` in
+`ChunkedTerrain.tsx`. `getHeight()` itself is untouched — collision/movement
+step-gating in `Scene.tsx` still wants the discrete steps.
+
+**Stutter / feels resource-heavy** — the new per-chunk terrain mesh was
+sampling `getHeight`/`getBiome`/`bankFactor` (each a multi-octave noise call)
+at every grid vertex (17×17=289/chunk) *in addition to* the pre-existing
+256-cell water/decor loop — real added CPU cost per chunk, paid every time a
+new chunk streams in as the player walks. Fixes, all in
+`ChunkedTerrain.tsx`/`chunkWorld.ts`:
+- Terrain mesh grid now samples at `TERRAIN_MESH_STEP` (4 units, was
+  `CELL_SIZE`=2) → 9×9=81 vertices/chunk instead of 289 (~3.6× fewer noise
+  evaluations), still smooth-looking since `getHeight`'s own `STEP`
+  quantization already gives it a stylized terraced look at this resolution.
+- `LOAD_RADIUS` 3→2, `UNLOAD_RADIUS` 4→3 (49→25 resident chunks max).
+- New `DecorVisibility` wrapper — same throttled-distance-toggle pattern
+  `GrassField.tsx` already used, now also applied to trees/rocks/bushes
+  (`DECOR_RADIUS=70`), which previously had **no distance culling at all**
+  and rendered in full for the entire loaded radius. Obstacle
+  registration/collision is unaffected (separate effect, keyed off chunk
+  mount not visibility).
+- `Environment.tsx` fog retuned (field: near 55→45, far 165→100) to mask the
+  now-closer streaming/decor-culling boundaries — directly per the user's
+  own suggested fix ("use fog so the cutoff doesn't look like empty
+  render-gap").
+
+**Distant mountains "too tall, blocking the scenery"** — `DistantMountains.tsx`
+peaks were 26-48 units tall (vs. terrain's own `MAX_HEIGHT=18`) at a fixed
+175-unit follow radius — visually dominated the frame instead of reading as
+a subtle horizon backdrop. Reduced to 9-18 units (matching terrain's own
+peak scale) and pushed the ring out to 220 units; combined with the fog
+retune above they now read as soft, distant, mostly-fogged silhouettes.
+
+**Verification:** `tsc --noEmit` + `vite build` clean both times, live
+browser check (day + night) — river/water shader, rounded player body,
+terrain slopes all render correctly, no console errors, `smoketest.mjs`
+passes. Could not run a sustained FPS profile in this sandboxed session (same
+pre-existing WebGL-context-loss limitation as prior sessions), so the perf
+fixes are verified by the underlying math (fewer chunks × fewer
+vertices/chunk × distance-culled decor = strictly less work per frame) plus
+a clean visual spot-check, not a measured before/after frame time — worth a
+gut-check next time you're playing on your own machine.
+
+## Session 2026-07-15 (part 2) — Music redesign + drop the voxel look (phase 1)
+
+Same-day follow-up after the environment-polish pass below. Two fresh
+complaints: bg music described as "อืดๆทุ้มๆ...ปวดหัว" (muffled/bassy/droning,
+headache-inducing), and a request to move the whole game off the
+Minecraft-voxel look — confirmed via AskUserQuestion to mean **everything**
+(terrain + player/monster/NPC models), not terrain alone. Two research
+Workflows ran first (diagnosis + full dependency/survey mapping) before any
+code changed; see the approved plan for full findings —
+`C:\Users\posit\.claude\plans\swirling-sparking-pretzel.md` (this file gets
+overwritten by the next planning session, so key findings are captured here
+too).
+
+**Music (`sfx/music.ts`)** — root cause: 4 sustained unfiltered sine drones
+packed into 32-131Hz, each doubled with a +0.3%-detuned unison (audible
+0.2-0.4Hz beat) and each with its own uncorrelated LFO (3 stacking randomly)
+— structurally muddy/droning, not an EQ problem. Rewrote: pad chord moved up
+to G3/C4/E4 with per-voice stereo panning (no more detuned doubling), one
+shared gentle LFO instead of 3, a quiet filtered G2 anchor replacing the raw
+C1 sub-bass, master-bus highpass(40Hz)/lowpass(3.5kHz)/compressor added
+(none existed before), melody gain raised + tightened spacing + a short
+feedback-delay send for space.
+
+**Terrain (`ChunkedTerrain.tsx`)** — replaced the stacked-unit-cube
+`ColumnGroup` InstancedMesh voxel rendering with a real per-chunk
+triangulated heightmap mesh (17×17 vertices, `computeVertexNormals()`,
+continuous per-vertex color reusing the existing `BIOME_STOPS` gradient —
+dropped the 14-bucket color-quantization cache since a single mesh draw call
+doesn't need it). `chunkWorld.ts` is **completely untouched** — confirmed by
+a full consumer trace that `getHeight`/`isWater`/etc. are pure `(x,z)→value`
+functions with zero coupling to rendered geometry (click-to-walk raycasts a
+separate invisible flat plane; server has no terrain-height dependency at
+all). Net perf win: 1 draw call/chunk (289 verts/512 tris) vs. up to ~14
+InstancedMesh draw calls/chunk before. New shared `scene/materials.ts`
+exports the toon gradient texture (previously duplicated inline).
+
+**Characters/NPCs — Phase 1 of a phased rollout** — discovered
+`scene/models/HeroModel.tsx` is the **single shared body renderer** for both
+real players and every humanoid NPC (`Scene.tsx:806` + `:1652`), 100%
+`boxGeometry` (57 primitives). New `scene/models/organicPrimitives.tsx` kit
+(`RoundLimb`/`RoundTorso`/`RoundHead`/`RoundSpike`, capsule/sphere/cone based,
+low segment counts sized against the monster perf ceiling found in survey —
+~15-20 concurrent fully-modeled instances in caves/dungeons) now used for
+`HeroModel`'s core body (legs/torso/arms/head), the "short" hair style, and
+the cap/wizard-hat accessories — switched those pieces from
+`meshStandardMaterial` to `meshToonMaterial` + the shared gradient so
+characters read as one visual language with terrain/trees. Verified live in
+browser: body renders visibly rounded (capsule limbs, pill torso, sphere
+head) with no console errors, shared by players and NPCs as expected.
+
+**Bonus bug found (not yet fixed, deferred to the monster phase):** 12 of 27
+monster kinds — including 2 dungeon bosses, `shadow_lord` and `ice_giant` —
+have zero 3D geometry today and render completely invisible in-game (only a
+name + HP bar). Confirmed live: a wild "spider" mob attacked the test
+character with no visible model, matching the survey exactly.
+
+**Deliberately stopped here for a checkpoint** (per the approved plan) before
+touching hair variants 2-5, `Accessories()` crown/headband/glasses/scarf,
+`PlayerJobProps.tsx`, or any of the ~13 monster model files —
+applying an unproven look across ~15-20 more files blind was called out as
+the wrong move even with the scope pre-approved. Remaining phases, in order:
+- **3b:** remaining hair styles + `Accessories()` variants + job-prop touch-ups
+- **3c:** monsters — fix the 12 invisible kinds first (free win), then
+  `ScorpionModel`/`YetiModel`/Chicken/Pig/Cow/`OrcModel` (100% box today),
+  then the two boxy bosses `DarklordModel`/`ScorpionLordModel`. Already-round
+  models (`SlimeModel`/`SwampSerpentModel`/`SnowmanGiantModel`/`BogWitchModel`)
+  need little/no work. **Watch for:** rounding everything indiscriminately
+  risks monsters converging toward "generic blob" — combat-glance
+  readability depends on today's angular silhouettes, preserve
+  species-distinguishing proportions/spikes/color per monster.
+- **3d:** `NpcRoleProps.tsx` polish (lowest urgency, 9 static NPCs total)
+
+**Verification:** client+server `tsc --noEmit` clean, `vite build` clean,
+`smoketest.mjs` passes. Live browser pass (fresh `visualtest01` character):
+confirmed rounded player body renders correctly with no console errors,
+terrain renders with no visible seams/artifacts, combat/HP/respawn systems
+unaffected. Same known environment caveat as the prior session — this
+sandboxed VM's WebGL context drops intermittently, pre-existing and
+code-unrelated (re-confirmed, didn't need to re-run the A/B stash test this
+time since the prior session's isolation already established it).
+
+## Session 2026-07-15 (part 1) — Environment visual polish + onboarding/UX pass
+
+Two-track pass: (A) elevate the voxel-toon field visuals (mountains/rivers/
+grass/fields) without rewriting the terrain architecture, (B) reduce
+first-time-player friction. Full plan + rationale:
+`C:\Users\posit\.claude\plans\swirling-sparking-pretzel.md`.
+
+**Track A — environment (kept the voxel-toon art direction, elevated it):**
+- `ChunkedTerrain.tsx` `pickColor()` — hard 2-band elevation/biome color
+  cliffs replaced with a 14-bucket continuous gradient (`BIOME_STOPS` +
+  cached `THREE.Color.lerp`), still cheap to group into InstancedMesh draw
+  calls.
+- New soft "wet bank" ring around rivers (`chunkWorld.ts` `bankFactor()`,
+  quantized tint blend) instead of a hard grass/water cutoff.
+- `WaterPatch` — shared shader-patched `MeshToonMaterial` (uTime uniform,
+  per-tile bob + flow shimmer via `onBeforeCompile`), replacing the flat
+  static water box.
+- New `GrassField.tsx` — per-chunk crossed-billboard grass blades (vertex-
+  colored base→tip, `onBeforeCompile` wind sway), distance-culled to ~46m
+  around the player with throttled (~220ms) visibility toggling (LOD
+  hysteresis pattern, never touches `.visible` at frame rate).
+- New `DistantMountains.tsx` — static 26-peak backdrop ring at ~175m radius
+  that repositions (not per-frame) as the player travels, so the horizon
+  always reads as mountains instead of empty fog.
+- Fog retuned for the field map only (55→165 vs the old flat 40–90);
+  dungeons unchanged.
+- `DayNight.tsx` `FluffyClouds` — plain box clusters replaced with
+  canvas-gradient sprite billboards (soft edges, same draw-call budget).
+- `Environment.tsx` — deleted dead `buildField()` computation that ran for
+  the field map every mount but was never rendered (ground
+  patches/mountains/decor/lake blocks — field uses `ChunkedTerrain` +
+  `DistantMountains` now); `biomeAt`/`BIOMES` import dropped, now unused here.
+
+**Track B — onboarding / ease-of-play:**
+- Fixed `TutorialFinger.tsx`'s locale-fragile targeting — was matching a
+  Thai-only `title` regex for the attack step while other steps matched
+  static English titles (broke silently under different locale wiring, and
+  2 of 5 steps targeted buttons only reachable after opening a menu that
+  was closed by default, blanking the whole tutorial). Now uses stable
+  `data-tutorial-target` attributes on 3 always-mounted elements (minimap,
+  attack button, burger-menu-open button) — 5 steps → 3, all reachable.
+- Added a shared `tutorialFingerActive` flag (`store.ts`) so `Onboarding`'s
+  toast sequence and `HintSystem`'s mascot no longer render on top of the
+  guided `TutorialFinger` flow — previously all 3 could show at once.
+- `MenuBar.tsx` — trimmed the flat 23-button grid: Inventory/Quests/Map/
+  Settings/Close stay always visible, everything else (Crafting, Guild,
+  Auction, Mail, etc.) moves behind a "More ▾" toggle. Also deleted the
+  dead unreachable desktop-grid branch (`collapsed` was hardcoded `true`).
+- New `KeybindLegend.tsx` — dismissible "❓" panel listing the real current
+  keybinds (WASD/Space/I/K/Q/M/C/O/T/P/V/F/H/B/Esc, pulled from the actual
+  handlers, not guessed).
+- `Scene.tsx` — keyboard movement cancelling an in-flight click-to-walk now
+  flashes a red shrinking marker at the abandoned target instead of
+  silently stopping with no feedback.
+- Corrected the stale `B toggles build mode` doc below (P3.29b) — `B` is
+  bound to auto-bot toggle; build mode has no dedicated key today.
+
+**Verification:** client+server `tsc --noEmit` clean, `vite build` clean,
+`smoketest.mjs` → `[done] all smoke checks passed` (against local Docker
+Postgres + dev server). Live browser pass via `claude-in-chrome`: confirmed
+the onboarding-layer coordination fix (only `TutorialFinger` shows, spotlight
+correctly locked onto the minimap with the new selector), confirmed
+combat/death/respawn still work, confirmed terrain/trees/rocks render with
+no console errors and no visual corruption. **Caveat:** this sandboxed
+browser session hit a pre-existing, code-unrelated `THREE.WebGLRenderer:
+Context Lost` issue (confirmed via `git stash`-isolated A/B test against
+the unmodified baseline — happens either way) that made sustained 3D
+viewing unreliable, so the grass/water-shader/mountain-silhouette/cloud
+changes specifically were not each individually eyeballed live — worth a
+quick look next time you're playing on your own machine.
 
 ---
 
@@ -289,7 +565,9 @@ cd packages/server && pnpm db:push    # quick dev sync
 - **Inventory:** click structure item → enters build mode automatically
 - **Limit:** 12 structures per player; server enforces + broadcasts "🏠 Structure limit reached"
 - **Items:** `struct_tent`, `struct_fence`, `struct_torch`, `struct_sign`, `struct_tower`, `struct_barrel`
-- **Keybind:** `B` toggles build mode; `ESC` exits
+- **Keybind:** HUD "🏠 สร้างฐาน" button toggles build mode; `ESC` exits.
+  (`B` is bound to the auto-bot toggle, not build mode — corrected 2026-07-15,
+  see `MenuBar.tsx`'s B-key handler. Build mode has no dedicated key today.)
 - **Feedback:** system messages shown via EventFeed (build errors, limit reached, destroy confirm)
 
 ---
