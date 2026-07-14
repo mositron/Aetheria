@@ -158,6 +158,9 @@ export function HintSystem({ room }: { room: Room<WorldState> }) {
   const dismissed = useStore((s) => s.dismissedHints);
   const dismissHint = useStore((s) => s.dismissHint);
   const setWaypoint = useStore((s) => s.setWaypoint);
+  // Stay quiet while the guided TutorialFinger flow is up front for a new
+  // player — avoids a 3rd onboarding layer competing for attention.
+  const tutorialFingerActive = useStore((s) => s.tutorialFingerActive);
 
   useEffect(() => {
     const tick = () => {
@@ -174,7 +177,7 @@ export function HintSystem({ room }: { room: Room<WorldState> }) {
     return () => clearInterval(id);
   }, [room, dismissed]);
 
-  if (!hint) return null;
+  if (!hint || tutorialFingerActive) return null;
 
   // Collapsed: just the bouncing mascot icon — click to expand
   // Positioned bottom-LEFT above chat to avoid conflict with right-side menu bar.

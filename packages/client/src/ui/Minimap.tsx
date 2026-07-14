@@ -203,6 +203,7 @@ export function Minimap({ room, mapId }: { room: Room<WorldState>; mapId: MapId 
           ref={canvasRef}
           width={SIZE}
           height={SIZE}
+          data-tutorial-target="minimap"
           onClick={onMapClick}
           style={{
             display: "block",

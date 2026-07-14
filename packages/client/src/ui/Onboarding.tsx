@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import type { Room } from "colyseus.js";
 import type { WorldState } from "@game/shared";
 import { useT } from "../locales/useT";
+import { useStore } from "../store";
 
 const STEPS: Array<{ titleKey: string; bodyKey: string }> = [
   { titleKey: "onboard.step1Title", bodyKey: "onboard.step1Body" },
@@ -19,8 +20,13 @@ export function Onboarding({ room }: { room: Room<WorldState> }) {
   const [step, setStep] = useState(0);
   const [open, setOpen] = useState(false);
   const t = useT();
+  // TutorialFinger is the guided first-run flow — let it finish (or declare
+  // itself already-dismissed) before these passive toasts start, so a new
+  // player never sees both overlapping at once.
+  const tutorialFingerActive = useStore((s) => s.tutorialFingerActive);
 
   useEffect(() => {
+    if (tutorialFingerActive) return;
     // Only show for first-time chars
     const me = room.state.players.get(room.sessionId);
     if (!me) return;
@@ -40,7 +46,7 @@ export function Onboarding({ room }: { room: Room<WorldState> }) {
       });
     }, 6000);
     return () => clearInterval(id);
-  }, [room]);
+  }, [room, tutorialFingerActive]);
 
   function skip() {
     const me = room.state.players.get(room.sessionId);

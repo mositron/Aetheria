@@ -4,6 +4,7 @@ import { useStore } from "../store";
 import { keyEq } from "../utils/keyMatch";
 import { useTooltip } from "../hooks/useTooltip";
 import { useT } from "../locales/useT";
+import { KeybindLegend } from "./KeybindLegend";
 
 /** Tiny icon row top-right (next to map/gold) — opens panels as overlays. */
 export function MenuBar() {
@@ -28,6 +29,9 @@ export function MenuBar() {
   }, []);
 
   const [open, setOpen] = useState(false);
+  const [showMore, setShowMore] = useState(false);
+  const [showKeys, setShowKeys] = useState(false);
+  function closeMenu() { setOpen(false); setShowMore(false); }
   // Burger menu is also a modal — listen for any other modal opening and close ourselves.
   useEffect(() => {
     const onOpened = (e: Event) => {
@@ -46,12 +50,13 @@ export function MenuBar() {
 if (collapsed) {
     if (!open) {
       return (
-        <div className="absolute select-none touch-none z-30" style={ANCHOR} data-no-screen-joy>
+        <div className="absolute select-none touch-none z-30" style={ANCHOR} data-no-screen-joy data-tutorial-target="menu-open">
           <IconBtn label="☰" title={t("menu.open")} onClick={() => setOpen(true)} ariaLabel={t("menu.open")} />
         </div>
       );
     }
     return (
+      <>
       <FocusTrap focusTrapOptions={{ allowOutsideClick: true }}>
       <div
         role="dialog"
@@ -63,65 +68,57 @@ if (collapsed) {
           paddingLeft: "var(--hud-side)",
           paddingRight: "var(--hud-side)",
         }}
-        onClick={(e) => { if (e.target === e.currentTarget) setOpen(false); }}
+        onClick={(e) => { if (e.target === e.currentTarget) closeMenu(); }}
         data-no-screen-joy
       >
       <div
-        className="grid grid-cols-5 gap-1 touch-none"
-        style={{ maxWidth: "min(420px, 96vw)", maxHeight: "100%", overflowY: "auto" }}
+        className="touch-none"
+        style={{ width: "min(420px, 96vw)", maxHeight: "100%", overflowY: "auto" }}
       >
-<IconBtn label="✕" title={t("menu.close")} onClick={() => setOpen(false)} variant="rose" ariaLabel={t("menu.close")} />
-        <IconBtn label="📦" name={t("menu.inventory")} title="Inventory (I)" onClick={toggleInv} />
-        <IconBtn label="🔨" name={t("menu.crafting")} title="Crafting (K)" onClick={() => window.dispatchEvent(new Event("toggle-craft"))} />
-        <IconBtn label="📊" name={t("menu.status")} title="Stats (C)" onClick={() => window.dispatchEvent(new Event("toggle-stats"))} />
-        <IconBtn label="📜" name={t("menu.quests")} title="Quest (Q)" onClick={() => window.dispatchEvent(new Event("toggle-quest"))} />
-        <IconBtn label="🏅" name={t("menu.achievements")} title="Achievements" onClick={() => window.dispatchEvent(new Event("toggle-achievements"))} />
-        <IconBtn label="🏆" name={t("menu.leaderboard")} title="Leaderboard" onClick={() => window.dispatchEvent(new Event("toggle-leaderboard"))} />
-        <IconBtn label="📬" name={t("menu.mail")} title="Mailbox" badge={mailUnread} onClick={() => window.dispatchEvent(new Event("toggle-mail"))} />
-        <IconBtn label="🐾" name={t("menu.pets")} title="Pets" onClick={() => window.dispatchEvent(new Event("toggle-pets"))} />
-        <IconBtn label="👥" name={t("menu.party")} title="Party" onClick={() => window.dispatchEvent(new Event("toggle-party"))} />
-        <IconBtn label="🤝" name={t("menu.friends")} title="Friends" onClick={() => window.dispatchEvent(new Event("toggle-friends"))} />
-        <IconBtn label="🟢" name={t("menu.online") || "Online"} title="Online players" onClick={() => window.dispatchEvent(new Event("toggle-online"))} />
-        <IconBtn label="⚔" name={t("menu.combatLog") || "Log"} title="Combat log" onClick={() => window.dispatchEvent(new Event("toggle-combat-log"))} />
-        <IconBtn label="🗺" name={t("menu.worldMap") || "Map"} title="World Map (M)" onClick={() => window.dispatchEvent(new Event("toggle-world-map"))} />
-        <IconBtn label="⚔" name={t("menu.guild")} title="Guild" onClick={() => window.dispatchEvent(new Event("toggle-guild"))} />
-        <IconBtn label="🏛" name={t("menu.auction")} title="Auction House" onClick={() => window.dispatchEvent(new Event("toggle-auction"))} />
-        <IconBtn label="🌍" name={t("menu.worlds")} title={t("world.title")} onClick={() => window.dispatchEvent(new Event("toggle-worlds"))} />
-        <IconBtn label="📍" name={t("menu.waypoints")} title="Waypoints" onClick={() => window.dispatchEvent(new Event("toggle-waypoints"))} />
-        <IconBtn label="💬" name={t("menu.chat")} title="Chat (Enter)" onClick={() => window.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" }))} />
-<IconBtn label="😊" name={t("menu.emote")} title="Emote (T)" onClick={() => window.dispatchEvent(new Event("toggle-emote"))} />
-        <IconBtn label="💍" name={t("menu.marriage")} title={t("marriage.title")} onClick={() => window.dispatchEvent(new Event("toggle-marriage"))} />
-        <IconBtn label="📸" name={t("menu.photo")} title="Photo (P)" onClick={() => window.dispatchEvent(new Event("toggle-photo"))} />
-        <IconBtn label="⚙" name={t("menu.settings")} title="Settings" onClick={() => window.dispatchEvent(new Event("toggle-settings"))} />
-<IconBtn label="👤" name={t("menu.character")} title={t("charsel.title")} onClick={exitToSelect} variant="violet" ariaLabel={t("menu.character")} />
-        <IconBtn label="⏻" name={t("menu.logout")} title={t("menu.logout")} onClick={logout} variant="rose" ariaLabel={t("menu.logout")} />
+        {/* Core row — the handful of actions a new player reaches for most;
+            always visible so the first glance isn't 23 buttons at once. */}
+        <div className="grid grid-cols-5 gap-1 mb-1.5">
+          <IconBtn label="✕" title={t("menu.close")} onClick={closeMenu} variant="rose" ariaLabel={t("menu.close")} />
+          <IconBtn label="📦" name={t("menu.inventory")} title="Inventory (I)" onClick={toggleInv} />
+          <IconBtn label="📜" name={t("menu.quests")} title="Quest (Q)" onClick={() => window.dispatchEvent(new Event("toggle-quest"))} />
+          <IconBtn label="🗺" name={t("menu.worldMap") || "Map"} title="World Map (M)" onClick={() => window.dispatchEvent(new Event("toggle-world-map"))} />
+          <IconBtn label="⚙" name={t("menu.settings")} title="Settings" onClick={() => window.dispatchEvent(new Event("toggle-settings"))} />
+        </div>
+        <div className="grid grid-cols-2 gap-1 mb-1.5">
+          <IconBtn label="❓" name={t("keybinds.title")} title={t("keybinds.title")} onClick={() => setShowKeys(true)} />
+          <IconBtn label={showMore ? "▲" : "▼"} name={t(showMore ? "menu.less" : "menu.more")} title={t(showMore ? "menu.less" : "menu.more")} onClick={() => setShowMore((v) => !v)} />
+        </div>
+        {showMore && (
+        <div className="grid grid-cols-5 gap-1">
+          <IconBtn label="🔨" name={t("menu.crafting")} title="Crafting (K)" onClick={() => window.dispatchEvent(new Event("toggle-craft"))} />
+          <IconBtn label="📊" name={t("menu.status")} title="Stats (C)" onClick={() => window.dispatchEvent(new Event("toggle-stats"))} />
+          <IconBtn label="🏅" name={t("menu.achievements")} title="Achievements" onClick={() => window.dispatchEvent(new Event("toggle-achievements"))} />
+          <IconBtn label="🏆" name={t("menu.leaderboard")} title="Leaderboard" onClick={() => window.dispatchEvent(new Event("toggle-leaderboard"))} />
+          <IconBtn label="📬" name={t("menu.mail")} title="Mailbox" badge={mailUnread} onClick={() => window.dispatchEvent(new Event("toggle-mail"))} />
+          <IconBtn label="🐾" name={t("menu.pets")} title="Pets" onClick={() => window.dispatchEvent(new Event("toggle-pets"))} />
+          <IconBtn label="👥" name={t("menu.party")} title="Party" onClick={() => window.dispatchEvent(new Event("toggle-party"))} />
+          <IconBtn label="🤝" name={t("menu.friends")} title="Friends" onClick={() => window.dispatchEvent(new Event("toggle-friends"))} />
+          <IconBtn label="🟢" name={t("menu.online") || "Online"} title="Online players" onClick={() => window.dispatchEvent(new Event("toggle-online"))} />
+          <IconBtn label="⚔" name={t("menu.combatLog") || "Log"} title="Combat log" onClick={() => window.dispatchEvent(new Event("toggle-combat-log"))} />
+          <IconBtn label="⚔" name={t("menu.guild")} title="Guild" onClick={() => window.dispatchEvent(new Event("toggle-guild"))} />
+          <IconBtn label="🏛" name={t("menu.auction")} title="Auction House" onClick={() => window.dispatchEvent(new Event("toggle-auction"))} />
+          <IconBtn label="🌍" name={t("menu.worlds")} title={t("world.title")} onClick={() => window.dispatchEvent(new Event("toggle-worlds"))} />
+          <IconBtn label="📍" name={t("menu.waypoints")} title="Waypoints" onClick={() => window.dispatchEvent(new Event("toggle-waypoints"))} />
+          <IconBtn label="💬" name={t("menu.chat")} title="Chat (Enter)" onClick={() => window.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" }))} />
+          <IconBtn label="😊" name={t("menu.emote")} title="Emote (T)" onClick={() => window.dispatchEvent(new Event("toggle-emote"))} />
+          <IconBtn label="💍" name={t("menu.marriage")} title={t("marriage.title")} onClick={() => window.dispatchEvent(new Event("toggle-marriage"))} />
+          <IconBtn label="📸" name={t("menu.photo")} title="Photo (P)" onClick={() => window.dispatchEvent(new Event("toggle-photo"))} />
+          <IconBtn label="👤" name={t("menu.character")} title={t("charsel.title")} onClick={exitToSelect} variant="violet" ariaLabel={t("menu.character")} />
+          <IconBtn label="⏻" name={t("menu.logout")} title={t("menu.logout")} onClick={logout} variant="rose" ariaLabel={t("menu.logout")} />
+        </div>
+        )}
       </div>
       </div>
       </FocusTrap>
+      {showKeys && <KeybindLegend onClose={() => setShowKeys(false)} />}
+      </>
     );
   }
-
-// Desktop: always-shown grid on the right (original layout)
-  return (
-    <div className="absolute right-3 grid grid-cols-3 gap-1 select-none touch-none" style={{ bottom: "12rem" }} data-no-screen-joy>
-      <IconBtn label="📦" name={t("menu.inventory")} title="Inventory (I)" onClick={toggleInv} />
-      <IconBtn label="🔨" name={t("menu.crafting")} title="Crafting (K)" onClick={() => window.dispatchEvent(new Event("toggle-craft"))} />
-      <IconBtn label="📊" name={t("menu.status")} title="Stats (C)" onClick={() => window.dispatchEvent(new Event("toggle-stats"))} />
-      <IconBtn label="📜" name={t("menu.quests")} title="Quest (Q)" onClick={() => window.dispatchEvent(new Event("toggle-quest"))} />
-      <IconBtn label="🏅" name={t("menu.achievements")} title="Achievements" onClick={() => window.dispatchEvent(new Event("toggle-achievements"))} />
-      <IconBtn label="🏆" name={t("menu.leaderboard")} title="Leaderboard" onClick={() => window.dispatchEvent(new Event("toggle-leaderboard"))} />
-      <IconBtn label="📬" name={t("menu.mail")} title="Mailbox" badge={mailUnread} onClick={() => window.dispatchEvent(new Event("toggle-mail"))} />
-      <IconBtn label="🐾" name={t("menu.pets")} title="Pets" onClick={() => window.dispatchEvent(new Event("toggle-pets"))} />
-      <IconBtn label="👥" name={t("menu.party")} title="Party" onClick={() => window.dispatchEvent(new Event("toggle-party"))} />
-      <IconBtn label="💬" name={t("menu.chat")} title="Chat (Enter)" onClick={() => window.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" }))} />
-<IconBtn label="😊" name={t("menu.emote")} title="Emote (T)" onClick={() => window.dispatchEvent(new Event("toggle-emote"))} />
-      <IconBtn label="💍" name={t("menu.marriage")} title={t("marriage.title")} onClick={() => window.dispatchEvent(new Event("toggle-marriage"))} />
-      <IconBtn label="📸" name={t("menu.photo")} title="Photo (P)" onClick={() => window.dispatchEvent(new Event("toggle-photo"))} />
-      <IconBtn label="⚙" name={t("menu.settings")} title="Settings" onClick={() => window.dispatchEvent(new Event("toggle-settings"))} />
-      <IconBtn label="👤" name={t("menu.character")} title={t("charsel.title")} onClick={exitToSelect} variant="violet" />
-      <IconBtn label="⏻" name={t("menu.logout")} title={t("menu.logout")} onClick={logout} variant="rose" />
-    </div>
-  );
 }
 
 function IconBtn({ label, name, title, onClick, variant, active, ariaLabel, badge }: { label: string; name?: string; title: string; onClick: () => void; variant?: "violet" | "rose" | "emerald"; active?: boolean; ariaLabel?: string; badge?: number }) {

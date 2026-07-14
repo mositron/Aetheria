@@ -365,7 +365,7 @@ function ActionButtons({ room }: { room: Room<WorldState> }) {
       </div>
 
       {/* ── Attack: shifted up-left from corner so thumb can reach comfortably ── */}
-      <div className="absolute select-none touch-none action-btn-attack" style={{ bottom: "2.5rem", right: "2.5rem" }} data-no-screen-joy>
+      <div className="absolute select-none touch-none action-btn-attack" style={{ bottom: "2.5rem", right: "2.5rem" }} data-no-screen-joy data-tutorial-target="attack">
         <ActionBtn label="⚔" name={t('touch.attack')} hint={t('touch.attackHint')} size="lg" primary onClick={() => send("attack")} />
       </div>
     </>

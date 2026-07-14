@@ -42,6 +42,11 @@ type S = {
   selectedStructItemId: string | null;
   waypoint: Waypoint | null;
   dismissedHints: string[];
+  // Coordinates the 3 onboarding layers (TutorialFinger / Onboarding toasts /
+  // HintSystem) so they never overlap on screen for a new player.
+  // TutorialFinger takes priority; defaults true so the other two wait for
+  // it to declare itself inactive (already-dismissed) on mount.
+  tutorialFingerActive: boolean;
   lang: "th" | "en";
   musicEnabled: boolean;
   musicVolume: number;
@@ -62,6 +67,7 @@ type S = {
   setMusicVolume: (v: number) => void;
   setWaypoint: (wp: Waypoint | null) => void;
   dismissHint: (id: string) => void;
+  setTutorialFingerActive: (v: boolean) => void;
   setAuth: (token: string, username: string, characters: CharacterSummary[]) => void;
   setCharacters: (characters: CharacterSummary[]) => void;
   selectCharacter: (id: string | null) => void;
@@ -98,6 +104,7 @@ export const useStore = create<S>((set, get) => ({
     try { return JSON.parse(localStorage.getItem("dismissedHints") || "[]"); }
     catch { return []; }
   })(),
+  tutorialFingerActive: true,
   lang: "th" as "th" | "en",
   musicEnabled: localStorage.getItem("musicEnabled") !== "false",
   musicVolume: parseFloat(localStorage.getItem("musicVolume") ?? "0.4"),
@@ -145,6 +152,7 @@ export const useStore = create<S>((set, get) => ({
     try { localStorage.setItem("dismissedHints", JSON.stringify(next)); } catch {}
     return { dismissedHints: next };
   }),
+  setTutorialFingerActive: (v) => set({ tutorialFingerActive: v }),
   setAuth: (token, username, characters) => {
     try { localStorage.setItem("token", token); } catch {}
     try { localStorage.setItem("username", username); } catch {}

@@ -4,6 +4,13 @@ import type { WorldState } from "@game/shared";
 import { useStore } from "../store";
 import { useT } from "../locales/useT";
 
+// Targets use stable data-tutorial-target attributes rather than title text —
+// title text used to be locale-dependent for some buttons (Thai regex) and
+// static English for others, so the tutorial silently broke depending on
+// which locale/button it hit. Steps also only reference elements that are
+// ALWAYS mounted (not hidden inside the collapsed "More" menu section) so a
+// missing target never blanks the whole overlay mid-tutorial.
+
 type Step = {
   id: string;
   text: string;
@@ -18,13 +25,13 @@ const STEPS: Step[] = [
   {
     id: "minimap",
     text: "tutorial.minimap",
-    targetSelector: "canvas[width='130']",
+    targetSelector: "[data-tutorial-target='minimap']",
     position: "left",
   },
   {
     id: "attack",
     text: "tutorial.attack",
-    targetSelector: "[title^='โจมตี']",
+    targetSelector: "[data-tutorial-target='attack']",
     position: "top",
     done: (room) => {
       const me = room.state.players.get(room.sessionId);
@@ -35,21 +42,9 @@ const STEPS: Step[] = [
     },
   },
   {
-    id: "inventory",
-    text: "tutorial.inventory",
-    targetSelector: "[title='Inventory (I)']",
-    position: "left",
-  },
-  {
-    id: "craft",
-    text: "tutorial.craft",
-    targetSelector: "[title='Crafting (K)']",
-    position: "left",
-  },
-  {
     id: "menu",
-    text: "tutorial.menu",
-    targetSelector: "[title^='Achievements']",
+    text: "tutorial.openMenu",
+    targetSelector: "[data-tutorial-target='menu-open']",
     position: "left",
   },
 ];
@@ -58,6 +53,7 @@ export function TutorialFinger({ room }: { room: Room<WorldState> }) {
   const t = useT();
   const dismissed = useStore((s) => s.dismissedHints);
   const dismissHint = useStore((s) => s.dismissHint);
+  const setTutorialFingerActive = useStore((s) => s.setTutorialFingerActive);
   const [step, setStep] = useState(0);
   const [active, setActive] = useState(true);
   const [rect, setRect] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
@@ -68,6 +64,13 @@ export function TutorialFinger({ room }: { room: Room<WorldState> }) {
       setActive(false);
     }
   }, [dismissed]);
+
+  // Publish active/inactive to the store so Onboarding + HintSystem don't
+  // render on top of this guided flow. Store defaults to true so those two
+  // wait for this effect's first run before showing anything.
+  useEffect(() => {
+    setTutorialFingerActive(active);
+  }, [active, setTutorialFingerActive]);
 
   // Track target element bounding rect; advance if step's goal met
   useEffect(() => {
