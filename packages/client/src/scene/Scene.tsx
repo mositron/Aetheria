@@ -92,7 +92,7 @@ const MONSTER_BILLBOARD_Y: Record<string, number> = {
 // happens behind the loading overlay instead of live in front of the player.
 const READY_FRAME_BUFFER = 10;
 
-export function Scene({ room, onReady }: { room: Room<WorldState>; onReady?: () => void }) {
+function SceneImpl({ room, onReady }: { room: Room<WorldState>; onReady?: () => void }) {
   const [players, setPlayers] = useState<Player[]>([]);
   const [monsters, setMonsters] = useState<Monster[]>([]);
   const [drops, setDrops] = useState<GroundItem[]>([]);
@@ -821,6 +821,17 @@ export function Scene({ room, onReady }: { room: Room<WorldState>; onReady?: () 
     </group>
   );
 }
+
+// R3F's <Canvas> reconciler re-renders its children on every parent commit
+// unconditionally, so without this, every unrelated store update anywhere in
+// the app (chat, hotbar, targeting, modals — see Game.tsx's selector note)
+// forced this whole ~2700-line component to fully re-execute. `room`/
+// `onReady` are both stable references across Game.tsx's now-selector-scoped
+// re-renders (room only changes on an actual reconnect/warp, onReady is
+// useCallback-memoized), so the default shallow prop comparison is correct
+// here — Scene's own internal state changes (monster/player add-remove,
+// targeting, etc.) are untouched by this, only the wasted parent-cascade is.
+export const Scene = React.memo(SceneImpl);
 
 function NpcView({ n, onClick, onHoverIn, onHoverOut }: { n: NpcDef; onClick: () => void; onHoverIn: () => void; onHoverOut: () => void }) {
   // Mark different NPC kinds with different bouncy icons.
@@ -1627,8 +1638,8 @@ function GolemModel({ isMoving, isDead, isAttacking }: { isMoving: () => boolean
   return (
     <group ref={root} scale={1.25}>
       {/* short thick legs */}
-      <RoundLimb ref={leftLeg} length={0.55} radius={0.22} color={rockDark} position={[-0.26, 0.32, 0]} castShadow />
-      <RoundLimb ref={rightLeg} length={0.55} radius={0.22} color={rockDark} position={[0.26, 0.32, 0]} castShadow />
+      <RoundLimb ref={leftLeg} length={0.55} radius={0.22} color={rockDark} position={[-0.26, 0.32, 0]} />
+      <RoundLimb ref={rightLeg} length={0.55} radius={0.22} color={rockDark} position={[0.26, 0.32, 0]} />
       {/* wide torso — blocky silhouette via proportions, not literal boxes */}
       <RoundTorso width={1.15} height={0.85} depth={0.65} color={rock} position={[0, 1.05, 0]} castShadow />
       {/* rock-chunk chest accents */}

@@ -25,8 +25,18 @@ import { toonGradient } from "./materials";
 // again to 1/2 (3×3=9 chunks resident). Paired with the fog retune in
 // Environment.tsx so the closer unload boundary is masked instead of
 // visibly popping into view.
+//
+// UNLOAD_RADIUS must equal LOAD_RADIUS, not exceed it — eviction below only
+// culls chunks farther than UNLOAD_RADIUS from the player's CURRENT tick
+// position, so a gap here doesn't just prevent boundary-crossing thrash (the
+// presumed intent), it lets the resident set grow to Chebyshev-distance-2 of
+// wherever the player has wandered — up to 5×5=25 chunks under normal
+// movement (e.g. fighting in place near a boundary), not the 9 documented
+// above, silently reintroducing the exact per-frame cost (grass/water
+// uniform writes, terrain draw calls, decor instance counts) this constant
+// was tightened twice already to avoid.
 const LOAD_RADIUS = 1;       // chunks loaded around player (1 = 3×3 area = ~96m wide)
-const UNLOAD_RADIUS = 2;     // chunks beyond this distance are evicted
+const UNLOAD_RADIUS = 1;     // chunks beyond this distance are evicted — keep equal to LOAD_RADIUS
 const STREAM_INTERVAL_MS = 300;
 
 // Elevation gradient stops per biome — [ground, rockMid, peak]. Blended
@@ -213,7 +223,10 @@ function TerrainMesh({ cx, cz }: { cx: number; cz: number }) {
   useEffect(() => () => geometry.dispose(), [geometry]);
 
   return (
-    <mesh geometry={geometry} receiveShadow castShadow>
+    // receiveShadow only — terrain casting shadows onto itself is invisible
+    // on this gentle a heightmap, but was still an extra shadow-pass draw
+    // call for every one of the up to 9 resident chunks, every frame.
+    <mesh geometry={geometry} receiveShadow>
       <meshToonMaterial vertexColors gradientMap={toonGradient} />
     </mesh>
   );
@@ -327,12 +340,16 @@ function TreeInstanced({ trees }: { trees: Array<{ x: number; z: number; scale: 
   const leaf3 = useRef<THREE.InstancedMesh>(null);
   useEffect(() => {
     const obj = new THREE.Object3D();
+    // getSmoothHeight does a bilinear blend of 4 getHeight() calls, each of
+    // which is ~7 noise() evaluations — the same (x,z) was being recomputed
+    // once per fill() call (trunk/leaf1/leaf2/leaf3 = 4x) for a value that's
+    // identical across all 4 parts of the same tree. Compute once per tree.
+    const baseYs = trees.map((t) => getSmoothHeight(t.x, t.z));
     const fill = (mesh: THREE.InstancedMesh | null, y: number, sx: number, sy: number, sz: number) => {
       if (!mesh) return;
       for (let i = 0; i < trees.length; i++) {
         const t = trees[i];
-        const baseY = getSmoothHeight(t.x, t.z);
-        obj.position.set(t.x, baseY + y * t.scale, t.z);
+        obj.position.set(t.x, baseYs[i] + y * t.scale, t.z);
         obj.scale.set(sx * t.scale, sy * t.scale, sz * t.scale);
         obj.rotation.set(0, t.rot, 0);
         obj.updateMatrix();
@@ -402,12 +419,14 @@ function BushInstanced({ bushes }: { bushes: Array<{ x: number; z: number; scale
   const b = useRef<THREE.InstancedMesh>(null);
   useEffect(() => {
     const obj = new THREE.Object3D();
+    // Same fix as TreeInstanced — one getSmoothHeight() per bush, not once
+    // per fill() call (a/b = 2x redundant otherwise).
+    const baseYs = bushes.map((u) => getSmoothHeight(u.x, u.z));
     const fill = (mesh: THREE.InstancedMesh | null, ox: number, oy: number, oz: number, s: number, jitter = 0) => {
       if (!mesh) return;
       for (let i = 0; i < bushes.length; i++) {
         const u = bushes[i];
-        const baseY = getSmoothHeight(u.x, u.z);
-        obj.position.set(u.x + ox * u.scale, baseY + oy * u.scale, u.z + oz * u.scale);
+        obj.position.set(u.x + ox * u.scale, baseYs[i] + oy * u.scale, u.z + oz * u.scale);
         obj.scale.set(s * u.scale, s * u.scale, s * u.scale);
         obj.rotation.set(jitter, u.rot, jitter);
         obj.updateMatrix();

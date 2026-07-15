@@ -73,7 +73,21 @@ const SERVER_WS = `ws://${location.hostname}:2567`;
 
 export function Game() {
   const t = useT();
-  const { token, characterId, setRoom, pushChat, logout, exitToSelect, viewMode } = useStore();
+  // Selector-scoped (not a whole-store destructure) — the store has 24+
+  // fields written from all over the app (chat, hotbar, targeting, modals,
+  // waypoints...), and a bare `useStore()` re-renders Game on ANY of them
+  // changing. Since Game renders the R3F <Canvas>, every one of those
+  // re-renders cascades into Scene's ~2700-line body fully re-executing
+  // (R3F's Canvas re-runs its reconciler on every commit, unconditionally),
+  // which is exactly the kind of "stutters no matter what I fix" cost none
+  // of the terrain/grass tuning this session could have touched.
+  const token = useStore((s) => s.token);
+  const characterId = useStore((s) => s.characterId);
+  const setRoom = useStore((s) => s.setRoom);
+  const pushChat = useStore((s) => s.pushChat);
+  const logout = useStore((s) => s.logout);
+  const exitToSelect = useStore((s) => s.exitToSelect);
+  const viewMode = useStore((s) => s.viewMode);
   useSfx();
   useMusic();
   const [room, setLocalRoom] = useState<Room<WorldState> | null>(null);

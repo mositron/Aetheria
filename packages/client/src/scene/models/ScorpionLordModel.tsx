@@ -68,12 +68,12 @@ export function ScorpionLordModel({ isMoving, isDead, isAttacking }: Props) {
       {/* Pedipalps (pincers) — left. Upper-arm + claw segments as capsules,
           tipped from their default vertical orientation to reach forward. */}
       <group ref={leftPincer} position={[-0.45, 0.5, 0.75]}>
-        <RoundLimb length={0.55} radius={0.08} color={darkRed} position={[-0.22, 0, 0.15]} rotation={[1.15, 0, 0.5]} castShadow />
+        <RoundLimb length={0.55} radius={0.08} color={darkRed} position={[-0.22, 0, 0.15]} rotation={[1.15, 0, 0.5]} />
         <RoundLimb length={0.4} radius={0.11} color={darkRed} position={[-0.5, -0.05, 0.4]} rotation={[0.9, 0, 0.9]} />
       </group>
       {/* Right pincer (mirrored) */}
       <group ref={rightPincer} position={[0.45, 0.5, 0.75]}>
-        <RoundLimb length={0.55} radius={0.08} color={darkRed} position={[0.22, 0, 0.15]} rotation={[1.15, 0, -0.5]} castShadow />
+        <RoundLimb length={0.55} radius={0.08} color={darkRed} position={[0.22, 0, 0.15]} rotation={[1.15, 0, -0.5]} />
         <RoundLimb length={0.4} radius={0.11} color={darkRed} position={[0.5, -0.05, 0.4]} rotation={[0.9, 0, -0.9]} />
       </group>
       {/* Eyes */}
@@ -95,13 +95,12 @@ export function ScorpionLordModel({ isMoving, isDead, isAttacking }: Props) {
             color={bodyColor}
             position={[side * 0.55, 0.25, 0.2 + z]}
             rotation={[0, 0, side * 0.3]}
-            castShadow
           />
         ))
       )}
       {/* Tail + stinger */}
       <group ref={tail} position={[0, 0.4, -1.3]}>
-        <mesh position={[0, 0.2, -0.4]} rotation={[0.5, 0, 0]} castShadow>
+        <mesh position={[0, 0.2, -0.4]} rotation={[0.5, 0, 0]}>
           <cylinderGeometry args={[0.18, 0.22, 0.7, 8]} />
           <meshStandardMaterial color={darkRed} />
         </mesh>

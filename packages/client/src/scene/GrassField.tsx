@@ -82,11 +82,15 @@ export function GrassField({ cx, cz, room }: { cx: number; cz: number; room: Roo
 
   useEffect(() => {
     const obj = new THREE.Object3D();
+    // Same fix as ChunkedTerrain's TreeInstanced/BushInstanced — one
+    // getSmoothHeight() per blade, not once per crossed-plane fill (meshA/
+    // meshB = 2x redundant otherwise), over up to ~110 blade candidates/chunk.
+    const baseYs = blades.map((b) => getSmoothHeight(b.x, b.z));
     const fill = (mesh: THREE.InstancedMesh | null, extraRot: number) => {
       if (!mesh) return;
       for (let i = 0; i < blades.length; i++) {
         const b = blades[i];
-        obj.position.set(b.x, getSmoothHeight(b.x, b.z), b.z);
+        obj.position.set(b.x, baseYs[i], b.z);
         obj.rotation.set(0, b.rot + extraRot, 0);
         obj.scale.setScalar(b.scale);
         obj.updateMatrix();
