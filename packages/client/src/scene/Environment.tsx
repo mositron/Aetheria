@@ -4,24 +4,7 @@ import type { Room } from "colyseus.js";
 import { MAPS, type MapId, type WorldState } from "@game/shared";
 import { ChunkedTerrain } from "./ChunkedTerrain";
 import { registerObstacles, unregisterObstacles } from "./obstacles";
-// 5-band gradient texture for built-in toon material (Pagonia-look)
-const toonGradient = (() => {
-  const steps = [60, 130, 195, 230, 255];
-  const data = new Uint8Array(steps.length * 4);
-  for (let i = 0; i < steps.length; i++) {
-    const v = steps[i];
-    data[i * 4 + 0] = v;
-    data[i * 4 + 1] = v;
-    data[i * 4 + 2] = v;
-    data[i * 4 + 3] = 255;
-  }
-  const tex = new THREE.DataTexture(data, steps.length, 1, THREE.RGBAFormat);
-  tex.minFilter = THREE.NearestFilter;
-  tex.magFilter = THREE.NearestFilter;
-  tex.generateMipmaps = false;
-  tex.needsUpdate = true;
-  return tex;
-})();
+import { toonGradient } from "./materials";
 
 // Deterministic PRNG so layout is the same every load
 function mulberry32(seed: number) {
