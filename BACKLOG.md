@@ -3,8 +3,65 @@
 > **Single source of truth สำหรับงานที่เหลือ.** อ่านไฟล์นี้ก่อนเริ่ม session ใหม่
 > เพื่อให้รู้ว่าสถานะอะไร, อยู่ที่ไหน, ทำอะไรต่อ.
 
-Last updated: 2026-07-15 — Voxel-look redesign phases 3b-3d complete: hair/accessories, all monster models, NPC props
+Last updated: 2026-07-15 — Fixed mob-spawn clustering pop-in; removed the multi-world/room-creation system, single shared room for all players
 Total commits to date: 110+ (this session not yet committed)
+
+## Session 2026-07-15 (part 5) — Mob-clustering fix + single-server simplification
+
+Two requests: a concrete bug report (mobs visibly cluster together near the
+origin on first map load, then "spread out" a moment later — feels stuttery)
+and an architecture question (should the multi-world/room-creation system be
+removed to make things leaner) that resolved to an explicit decision to
+collapse to one shared server room for everyone.
+
+**Root cause of the clustering, found via a dedicated read-only research
+agent rather than guessed:** `MonsterView`/`PlayerView` in `Scene.tsx` are
+`React.memo`'d groups whose `<group>` defaults to position `(0,0,0)` on
+mount; the only place position was ever set was inside `useFrame`'s lerp.
+When many monsters mount in one batch (e.g. everyone's first load, when the
+whole map's monster list arrives at once), every one of them lerps in from
+the origin over the next several frames — that's the "clump then spread"
+look, and the mass mount+lerp is what made the moment feel stuttery. Ruled
+out server-side staged spawning explicitly (no evidence of it — all monsters
+are sent in the initial state sync, confirmed by reading `WorldRoom.ts`/
+`MonsterService`). **Fix:** added a `useLayoutEffect` (empty deps, mount-only)
+to both `MonsterView` and `PlayerView` that sets the true position
+synchronously before first paint, so there's nothing left to lerp in from.
+
+**Single-server simplification.** Removed the multi-world/room-creation
+system entirely per explicit user decision. Confirmed low-risk beforehand via
+a 3-way parallel research workflow: no DB relations depend on it, and it had
+already-orphaned code paths (`WorldManager.setRoomId()` never called anywhere;
+`WorldLobby`'s `onJoin` handler didn't actually wire into the connected
+room). Bonus: this also fixes a latent bug for free — `Friend.ts`'s
+`isOnline`/`getLocation` were already room-local-only, so friends on a
+different world instance previously showed as incorrectly offline; with one
+shared room that condition can't happen anymore.
+
+Removed:
+- `packages/server/src/services/WorldManager.ts` (deleted, 152 lines)
+- `packages/client/src/ui/WorldCreate.tsx` / `WorldLobby.tsx` (deleted)
+- `GET /api/worlds`, `POST /api/worlds/create`, `GET /api/worlds/by-code/:code`
+  REST routes (`server/src/index.ts`)
+- `WorldState.worldId/worldName/worldMode/worldTemplate` schema fields
+  (`shared/src/schema.ts` — kept `mapId`)
+- World-lobby menu entry, HUD world-info badge, `worldLobby` panel id,
+  dead `world.*`/`worldCreate.*` locale keys (kept `worldLobby.moreQuests` —
+  actively used by `QuestTracker.tsx`, unrelated feature sharing the prefix)
+
+Kept: `WorldRoom` itself (now the one and only room, `maxClients=50` per the
+already-validated 50-player sizing doc), all per-room gameplay logic.
+
+**Verification:** `tsc --noEmit` clean on both `server` and `client`;
+`vite build` clean; `smoketest.mjs` passes (167 monsters loaded, join/move/
+chat all work). Did not re-verify live in-browser beyond the smoketest given
+this VM's known pre-existing WebGL instability (see part 2 notes) — the
+smoketest is a real Colyseus client/server round-trip, not a mock.
+
+Optional follow-up, not done (flagging per project convention rather than
+silently skipping): the now-unused `World` Postgres table/Prisma model was
+left in place — dropping it would need a migration and isn't required for
+correctness since nothing references it anymore.
 
 ## Session 2026-07-15 (part 4) — Voxel-look redesign phases 3b, 3c, 3d
 

@@ -152,20 +152,15 @@ export class WorldRoom extends Room<WorldState> {
     return true;
   }
 
-  onCreate(opts: { mapId?: MapId; worldId?: string; worldName?: string; worldMode?: string; worldTemplate?: string; maxPlayers?: number }) {
+  onCreate(opts: { mapId?: MapId }) {
     const mapId: MapId = (opts?.mapId ?? "field") as MapId;
     const state = new WorldState();
     this.setState(state);
     this.state.mapId = mapId;
-    this.state.worldId = opts.worldId ?? "";
-    this.state.worldName = opts.worldName ?? "";
-    this.state.worldMode = opts.worldMode ?? "adventure";
-    this.state.worldTemplate = opts.worldTemplate ?? "forest";
-    // Store maxPlayers from world metadata (default 8)
-    (this as any)._maxPlayers = opts.maxPlayers ?? 8;
-    (this as any)._worldId = opts.worldId ?? "";
-    // Set Colyseus maxClients so the underlying engine enforces the cap
-    this.maxClients = (this as any)._maxPlayers;
+    // Single shared room — no per-world player cap. 50 matches the
+    // load-tested/validated safe target in docs/SERVER_SIZING_50_PLAYERS.md
+    // (p95 49ms at 50 bots, still under 200ms target at 100 stretch).
+    this.maxClients = 50;
 
     this.combatSvc = new Combat(
       this.state,
@@ -1125,15 +1120,10 @@ export class WorldRoom extends Room<WorldState> {
     });
   }
 
-  async onJoin(client: Client, options: { token?: string; characterId?: string; worldId?: string }) {
-    // worldId routing: if the room has a worldId set, client must specify the matching one
-    const expectedWorldId = (this as any)._worldId as string | undefined;
-    if (expectedWorldId && options.worldId && options.worldId !== expectedWorldId) {
-      throw new Error("worldId mismatch");
-    }
-    // Max players cap
-    const max = (this as any)._maxPlayers as number ?? 8;
-    if (this.state.players.size >= max) {
+  async onJoin(client: Client, options: { token?: string; characterId?: string }) {
+    // Colyseus already enforces maxClients (set in onCreate) at the
+    // transport level; this is a friendlier error message for the same cap.
+    if (this.state.players.size >= this.maxClients) {
       throw new Error("world is full");
     }
     const token = options?.token;
@@ -1533,14 +1523,11 @@ export class WorldRoom extends Room<WorldState> {
   }
 
   handleAttack(attackerId: string, targetId: string) {
-    // PvP enforcement: in co-op/adventure worlds, players cannot damage each other
+    // The regular attack path never does player-vs-player damage — PvP is
+    // strictly opt-in via the separate pvpFlag/pvpAttack path below.
     const attacker = this.state.players.get(attackerId);
     const target = this.state.players.get(targetId);
-    if (attacker && target && this.state.worldMode !== "pvp") {
-      // Neither player is a monster — this is a player-vs-player attack
-      // Reject PvP in non-pvp worlds
-      return;
-    }
+    if (attacker && target) return;
     this.combatSvc.handleAttack(attackerId, targetId);
   }
 

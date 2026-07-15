@@ -12,7 +12,6 @@ import rateLimit from "express-rate-limit";
 import { authRouter, verifyToken, isAdmin } from "./auth.js";
 import { logger } from "./logger.js";
 import { getTop } from "./leaderboard.js";
-import { WorldManager } from "./services/WorldManager.js";
 import { WorldRoom } from "./rooms/WorldRoom.js";
 import { prisma } from "./db.js";
 import { auditService } from "./services/AuditService.js";
@@ -74,9 +73,6 @@ app.use(helmet({
 }));
 const httpServer = http.createServer(app);
 
-// ── World Manager ───────────────────────────────────────────────────────────
-const worldManager = new WorldManager();
-
 // ── Rate limiting ───────────────────────────────────────────────────────────
 const globalLimiter = rateLimit({ windowMs: 15_000, max: 200, standardHeaders: true, legacyHeaders: false });
 app.use(globalLimiter);
@@ -107,50 +103,6 @@ if (process.env.ENFORCE_HTTPS === "true") {
 }
 
 app.use("/api/auth", authRouter);
-
-// GET /api/worlds — list public worlds
-app.get("/api/worlds", async (_req, res) => {
-  try {
-    const worlds = await worldManager.listPublicWorlds(20);
-    res.json({ worlds });
-  } catch (e: any) {
-    res.status(500).json({ error: e.message });
-  }
-});
-
-// POST /api/worlds/create — create a new world record; Colyseus room is created on first player join
-app.post("/api/worlds/create", async (req, res) => {
-  try {
-    const { name, template, mode, privacy, maxPlayers } = req.body;
-    if (!name?.trim()) return res.status(400).json({ error: "name required" });
-    const world = await worldManager.createWorld({
-      hostId: (req.headers["x-user-id"] as string) ?? "anon",
-      hostName: (req.headers["x-user-name"] as string) ?? "Anonymous",
-      name: name.trim(),
-      template: template ?? "forest",
-      mode: mode ?? "adventure",
-      privacy: privacy ?? "private",
-      maxPlayers: Math.min(32, Math.max(1, Number(maxPlayers) || 8)),
-    });
-    res.json({ worldId: world.id, inviteCode: world.inviteCode });
-  } catch (e: any) {
-    res.status(500).json({ error: e.message });
-  }
-});
-
-// GET /api/worlds/by-code/:code — resolve invite code → worldId + name
-app.get("/api/worlds/by-code/:code", async (req, res) => {
-  const code = req.params.code.toUpperCase();
-  const worldId = worldManager.resolveCode(code);
-  if (!worldId) return res.status(404).json({ error: "invalid code" });
-  try {
-    const world = await worldManager.getWorld(worldId);
-    if (!world) return res.status(404).json({ error: "world not found" });
-    res.json({ worldId: world.id, name: world.name, hostName: world.hostName, template: world.template, mode: world.mode });
-  } catch (e: any) {
-    res.status(500).json({ error: e.message });
-  }
-});
 
 // GET /api/leaderboard/:scope?
 app.get("/api/leaderboard/:scope?", async (req, res) => {

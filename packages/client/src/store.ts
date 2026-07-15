@@ -11,7 +11,7 @@ export type PanelId =
   | "inventory" | "crafting" | "stats" | "questLog" | "achievements"
   | "auction" | "guild" | "friends" | "online" | "petbox" | "mailbox"
   | "skillTree" | "marriage" | "leaderboard" | "dailyReward"
-  | "worldLobby" | "settings" | "photoMode" | "accountRecovery"
+  | "settings" | "photoMode" | "accountRecovery"
   | "dungeonUI" | "jobAdvancement" | "jobPicker" | "characterSelect"
   | "waypoints" | "worldCompanion" | "autoPotion" | "tradeWindow" | "worldMap";
 

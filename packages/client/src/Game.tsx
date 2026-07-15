@@ -62,7 +62,6 @@ const OnlinePlayers = lazy(() => import("./ui/OnlinePlayers").then((m) => ({ def
 const GuildPanel = lazy(() => import("./ui/GuildPanel").then((m) => ({ default: m.GuildPanel })));
 const AuctionHouse = lazy(() => import("./ui/AuctionHouse").then((m) => ({ default: m.AuctionHouse })));
 const TradeWindow = lazy(() => import("./ui/TradeWindow").then((m) => ({ default: m.TradeWindow })));
-const WorldLobby = lazy(() => import("./ui/WorldLobby").then((m) => ({ default: m.WorldLobby })));
 const SkillTreeUI = lazy(() => import("./ui/SkillTreeUI").then((m) => ({ default: m.SkillTreeUI })));
 const MarriageUI = lazy(() => import("./ui/MarriageUI").then((m) => ({ default: m.MarriageUI })));
 const WorldCompanionPanel = lazy(() => import("./ui/WorldCompanionPanel").then((m) => ({ default: m.WorldCompanionPanel })));
@@ -79,7 +78,6 @@ export function Game() {
   const [ready, setReady] = useState(false);
   const [mapId, setMapId] = useState<MapId>("field");
   const [error, setError] = useState<string | null>(null);
-  const [showWorldLobby, setShowWorldLobby] = useState(false);
   const [showCompanion, setShowCompanion] = useState(false);
   const clientRef = useRef<Client | null>(null);
   const settings = useSettings();
@@ -166,14 +164,7 @@ export function Game() {
     return () => window.removeEventListener("toggle-companions", onToggle);
   }, []);
 
-  // World lobby toggle
-  useEffect(() => {
-    const onToggle = () => setShowWorldLobby((v) => !v);
-    window.addEventListener("toggle-worlds", onToggle);
-    return () => window.removeEventListener("toggle-worlds", onToggle);
-  }, []);
-
-  // Global mailbox unread-count subscription → updates the menu-bar badge
+// Global mailbox unread-count subscription → updates the menu-bar badge
   useEffect(() => {
     if (!room) return;
     const setMailUnread = useStore.getState().setMailUnread;
@@ -284,36 +275,6 @@ return (
 <Suspense fallback={null}>
         {showCompanion && <WorldCompanionPanel room={room} />}
       </Suspense>
-      {showWorldLobby && (
-        <WorldLobby
-          onJoin={async (worldId: string, inviteCode: string) => {
-            setShowWorldLobby(false);
-            // Wrap joinOrCreate calls so a rejected promise (network, auth,
-            // character-already-playing) reopens the lobby with feedback
-            // instead of leaving the user staring at an empty screen.
-            const join = (id: string) =>
-              clientRef.current?.joinOrCreate("world", { worldId: id, token, characterId })
-                .catch((e: unknown) => {
-                  console.error("[joinOrCreate] failed", e);
-                  setShowWorldLobby(true);
-                });
-            if (inviteCode && !worldId) {
-              try {
-                const res = await fetch(`/api/worlds/by-code/${inviteCode}`);
-                if (!res.ok) { console.error("invalid invite code"); setShowWorldLobby(true); return; }
-                const data = await res.json();
-                await join(data.worldId);
-              } catch (e) {
-                console.error("resolve code failed", e);
-                setShowWorldLobby(true);
-              }
-            } else if (worldId) {
-              await join(worldId);
-            }
-          }}
-          onClose={() => setShowWorldLobby(false)}
-        />
-      )}
     </div>
   );
 }

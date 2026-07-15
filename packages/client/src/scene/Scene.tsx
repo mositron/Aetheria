@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useFrame, useThree, type ThreeEvent } from "@react-three/fiber";
 import * as THREE from "three";
 import { getStateCallbacks, type Room } from "colyseus.js";
@@ -2052,6 +2052,12 @@ const PlayerView = React.memo(function PlayerView({ p, self, selfRef, attackPuls
   const labelRef = useRef<{ text: string }>({ text: "" });
   const labelSpriteRef = useRef<THREE.Sprite>(null);
   const tmp = useRef(new THREE.Vector3());
+  // Same origin-pop fix as MonsterView — a remote player's group otherwise
+  // defaults to (0,0,0) and lerps in from there on mount.
+  useLayoutEffect(() => {
+    if (!self && ref.current) ref.current.position.set(p.pos.x, terrainHeight(p.pos.x, p.pos.z), p.pos.z);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   useFrame((_, dt) => {
     if (!self && ref.current) {
       const alpha = 1 - Math.exp(-dt * 18);
@@ -2381,6 +2387,19 @@ const MonsterView = React.memo(function MonsterView({ m, selected, onClick, onHo
   // LOD throttle — distance + visibility toggle only ~5Hz so we don't
   // dirty the scene graph 60×/sec for every monster.
   const lodAcc = useRef(0);
+  // Without this, the group defaults to (0,0,0) on mount and the useFrame
+  // lerp below animates it INTO its real position over the next several
+  // frames — with every monster on the map mounting in one batch (e.g. on
+  // first load), that reads as a cluster of overlapping mobs at the origin
+  // that "spreads out" a moment later, and the mass mount+lerp is exactly
+  // what made that moment feel stuttery. Setting the true position
+  // synchronously before paint (useLayoutEffect, empty deps — runs once on
+  // mount only, unaffected by re-renders from e.g. `selected` toggling)
+  // eliminates the pop-in entirely.
+  useLayoutEffect(() => {
+    if (ref.current) ref.current.position.set(m.pos.x, terrainHeight(m.pos.x, m.pos.z), m.pos.z);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   useFrame((_, dt) => {
     if (ref.current) {
       const alpha = 1 - Math.exp(-dt * 18);

@@ -102,7 +102,6 @@ if (collapsed) {
           <IconBtn label="⚔" name={t("menu.combatLog") || "Log"} title="Combat log" onClick={() => window.dispatchEvent(new Event("toggle-combat-log"))} />
           <IconBtn label="⚔" name={t("menu.guild")} title="Guild" onClick={() => window.dispatchEvent(new Event("toggle-guild"))} />
           <IconBtn label="🏛" name={t("menu.auction")} title="Auction House" onClick={() => window.dispatchEvent(new Event("toggle-auction"))} />
-          <IconBtn label="🌍" name={t("menu.worlds")} title={t("world.title")} onClick={() => window.dispatchEvent(new Event("toggle-worlds"))} />
           <IconBtn label="📍" name={t("menu.waypoints")} title="Waypoints" onClick={() => window.dispatchEvent(new Event("toggle-waypoints"))} />
           <IconBtn label="💬" name={t("menu.chat")} title="Chat (Enter)" onClick={() => window.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" }))} />
           <IconBtn label="😊" name={t("menu.emote")} title="Emote (T)" onClick={() => window.dispatchEvent(new Event("toggle-emote"))} />
