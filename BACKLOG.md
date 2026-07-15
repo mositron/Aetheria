@@ -3,8 +3,59 @@
 > **Single source of truth สำหรับงานที่เหลือ.** อ่านไฟล์นี้ก่อนเริ่ม session ใหม่
 > เพื่อให้รู้ว่าสถานะอะไร, อยู่ที่ไหน, ทำอะไรต่อ.
 
-Last updated: 2026-07-15 — Added a "preparing scene" loading gate that masks world/entity pop-in; tightened grass shimmer
+Last updated: 2026-07-15 — Fixed a death-causing bug in the new loading gate + found and fixed the real cause of the ground shimmer (spawn-plane z-fighting, not grass)
 Total commits to date: 110+ (this session not yet committed)
+
+## Session 2026-07-15 (part 7) — Loading-gate death bug + real ground-shimmer root cause
+
+Two urgent follow-ups from part 6, reported live while playtesting.
+
+**Death bug in the "preparing scene" gate.** User reported the game
+stuttering so badly they couldn't walk, then dying the instant they
+regained control because a monster had been hitting them the whole time.
+Root cause: part 6's overlay reset (`setSceneReady(false)`) on *every*
+reconnect and map warp, not just the very first world join — but the
+server keeps simulating combat the whole time regardless of whether the
+client is showing the overlay. A network hiccup or warp while near
+monsters could leave the player blind and unable to react for up to
+several seconds, mid-combat. Fixed by adding a `hasShownSceneOnceRef` in
+`Game.tsx` — the gate now only ever arms once, on the very first
+successful entry (spawn is a safe area); every later reconnect/warp skips
+straight to the scene exactly like before this feature existed. Cosmetic
+smoothing lost for those cases, safety gained — correct trade.
+
+**Ground shimmer — actually found the cause this time.** The grass-blade
+tweaks in part 6 (and the sway-shader tuning in part 3) never moved the
+needle at all, per direct user feedback ("ไม่เคยดีขึ้นตั้งแต่ไหนแต่ไรแล้ว")
+— a strong signal the diagnosis was wrong, not just incomplete. Re-examined
+from scratch: `Environment.tsx` was drawing a flat circle mesh at exactly
+`position={[0,0,0]}` covering the spawn area, layered directly on top of
+`ChunkedTerrain` — which *already* renders real flat (y=0) geometry there
+via `getHeight()`'s own SPAWN_RADIUS special-case (this circle predates
+the terrain-mesh rewrite in part 2 and was never removed once redundant).
+Two coincident, differently-colored, same-orientation surfaces (the
+circle's flat `pal.groundC` vs. the terrain's per-biome vertex color)
+z-fight every frame as the camera's view matrix shifts by float-precision
+bits — reads as the ground flickering/strobing, worst right around spawn
+where players spend the most time. Confirmed via zoomed screenshots
+(visible banding) plus code inspection (colors provably differ). Removed
+the redundant circle; chunked terrain alone covers the area, and the
+part-6 loading gate already guarantees it's loaded before the scene is
+ever revealed, so there's no risk of a visible gap.
+
+Audited every other ground-hugging mesh in `scene/` for the same
+coincident-surface pattern per explicit user request ("เช็คจุดอื่นด้วย"):
+`WaterPatch` (+0.05), cave floor discs (+0.02/+0.04), every skill/cast/
+selection ring (+0.01 to +0.1), the click-catcher plane (+0.01) — all
+already use a small deliberate Y offset for exactly this reason. The
+spawn plane was the one exception; no other instances found.
+
+**Verification:** both fixes typecheck/build clean, `smoketest.mjs`
+passes. Confirmed live in Chrome that the WebGL context-loss issue (see
+part 2) is what's blocking final pixel-level confirmation of the shimmer
+fix, not the code — this VM's browser tooling keeps losing its WebGL
+context after repeated reloads across this session, independent of any
+code change. Ask the user to confirm both fixes on their next playtest.
 
 ## Session 2026-07-15 (part 6) — "Preparing scene" loading gate + grass shimmer
 
