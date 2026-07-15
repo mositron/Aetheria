@@ -174,7 +174,7 @@ function buildField(mapId: MapId, size: number, pal: Palette) {
   return { groundPatches, mountains, decor, village };
 }
 
-export function Environment({ mapId, room }: { mapId: MapId; room?: import("colyseus.js").Room<WorldState> }) {
+export function Environment({ mapId, room, onTerrainReady }: { mapId: MapId; room?: import("colyseus.js").Room<WorldState>; onTerrainReady?: () => void }) {
   const mapDef = MAPS[mapId];
   const pal = PALETTES[mapId];
   const data = useMemo(() => buildField(mapId, mapDef.size, pal), [mapId, mapDef.size, pal]);
@@ -196,7 +196,7 @@ export function Environment({ mapId, room }: { mapId: MapId; room?: import("coly
       {mapId === "field" ? (
         <>
           {/* Infinite chunked terrain — only loads chunks near player */}
-          {room && <ChunkedTerrain room={room} />}
+          {room && <ChunkedTerrain room={room} onInitialReady={onTerrainReady} />}
           {/* Flat spawn plane at origin so spawn area always has clean ground */}
           <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow position={[0, 0, 0]}>
             <circleGeometry args={[SPAWN_RADIUS, 64]} />

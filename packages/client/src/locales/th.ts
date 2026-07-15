@@ -518,6 +518,7 @@ export const th = {
   "loading.error": "ขัดข้อง",
   "loading.reconnecting": "⟳ กำลังเชื่อมต่อใหม่…",
   "loading.logout": "ออกจากระบบ",
+  "loading.preparingScene": "กำลังเตรียมฉาก...",
 
   // ── Onboarding ────────────────────────────────────────────────
   "onboard.welcome": "ยินดีต้อนรับสู่ AETHERIA",

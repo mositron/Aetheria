@@ -3,8 +3,73 @@
 > **Single source of truth สำหรับงานที่เหลือ.** อ่านไฟล์นี้ก่อนเริ่ม session ใหม่
 > เพื่อให้รู้ว่าสถานะอะไร, อยู่ที่ไหน, ทำอะไรต่อ.
 
-Last updated: 2026-07-15 — Fixed mob-spawn clustering pop-in; removed the multi-world/room-creation system, single shared room for all players
+Last updated: 2026-07-15 — Added a "preparing scene" loading gate that masks world/entity pop-in; tightened grass shimmer
 Total commits to date: 110+ (this session not yet committed)
+
+## Session 2026-07-15 (part 6) — "Preparing scene" loading gate + grass shimmer
+
+User asked for a loading screen that waits for the world to actually finish
+loading before revealing it, instead of the scene mounting immediately and
+streaming/popping content in while visible. Mid-way through, a second report
+came in that the grass field still reads as "ลายๆเหมือนจอสั่น" (a shimmering/
+striped pattern, like the screen is unstable) even after the earlier
+sway-shader tuning (part 3) — a distinct root cause, addressed in the same
+pass.
+
+**"Preparing scene" overlay.** Researched the actual mount flow first
+(dedicated read-only agent, file:line citations) rather than guessing: the
+existing `LoadingScreen` in `Game.tsx` already gates on the Colyseus room
+join + first state sync, but unmounts the INSTANT that handshake finishes —
+before `<Canvas>`/`<Scene>` has done any work. Everything after that (9
+terrain chunks building geometry synchronously, every monster/player/NPC in
+the initial state mounting its full model tree, first-draw shader compiles
+for all of it) was happening live, in front of the player.
+
+Fix: `Scene` now accepts an `onReady` callback. `ChunkedTerrain` reports
+once its first chunk batch has actually mounted (`onInitialReady`); `Scene`
+waits for that (or immediately, on non-"field" maps with no streaming) plus
+`READY_FRAME_BUFFER` (10) more rendered frames — giving the GPU time to
+actually draw and shader-compile everything that mounted synchronously —
+before calling `onReady`. `Game.tsx` overlays a new `flat` variant of
+`LoadingScreen` (skips the 3D `MenuScene` backdrop so it doesn't run a
+second live WebGL scene on top of the game canvas it's covering) until then,
+plus a 6s safety timeout so a stalled signal can never trap the player.
+
+**Bug found via live browser testing, not by inspection:** the safety
+timeout's `useEffect` only watched `[ready]`, so once `sceneReady` flipped
+true through the legitimate path the stale 6s timer was never cancelled —
+harmless as a same-cycle no-op, but on a map warp (which resets `ready`/
+`sceneReady` to start a new loading cycle) a leftover timer from the
+*previous* cycle could fire mid-new-cycle and force-reveal the scene early,
+defeating the gate. Caught by instrumenting the three handoff points with
+temporary console logging and actually driving a real login → character
+create → enter-world → exit-to-select → re-enter loop in Chrome — the
+`useFrame`/`useEffect` chain looked correct from reading it, and only the
+live timing trace exposed the stale-timer bug. Fixed by adding `sceneReady`
+to the effect's dependency array so its cleanup cancels the old timer.
+Confirmed post-fix: `onReady` fires the natural way in ~500ms after terrain
+mounts (~2.5s total from login), and the safety timeout no longer fires
+redundantly.
+
+**Grass shimmer.** Distinct from the sway-animation complaint fixed in part
+3 — this is geometric aliasing: each blade is a single sub-pixel-thin
+triangle pair (0.22m wide) with no MSAA-friendly silhouette, so at the
+game's usual camera distance (~16 units, ~30° pitch) distant/thin blades
+flicker between covered/uncovered per pixel on the normal per-frame camera
+micro-adjustments, reading as a shimmering pattern across the whole field —
+independent of wind sway, and would happen even with sway disabled.
+Widened blades (0.22 → 0.34m) and tightened `GRASS_RADIUS` (46 → 30m, now
+landing close to where fog already starts dulling contrast at 28m) so less
+sub-pixel geometry is on screen at once. Could not be visually confirmed
+live — this VM's known pre-existing WebGL context-loss issue (see part 2)
+kicked in partway through this session's browser testing — worth a look
+next playtest.
+
+**Verification:** `tsc --noEmit` + `vite build` clean on every pass;
+`smoketest.mjs` passes. The loading-gate feature was driven end-to-end in a
+real Chrome tab (register → create character → enter world → exit to select
+→ re-enter), including the debug-log trace that caught and confirmed the fix
+for the stale-timer bug above — not just typecheck-and-hope.
 
 ## Session 2026-07-15 (part 5) — Mob-clustering fix + single-server simplification
 

@@ -14,13 +14,22 @@ import type { Room } from "colyseus.js";
 import type { WorldState } from "@game/shared";
 import { getSmoothHeight, getChunkGrass, CHUNK_SIZE } from "./chunkWorld";
 
-const GRASS_RADIUS = 46;        // meters — only visible near the player
+// Radius tightened from 46 to 30 and blade width widened from 0.22 to 0.34 —
+// each blade is a single sub-pixel-thin triangle pair with no MSAA-friendly
+// silhouette, so at typical camera distance (16 units, ~30° pitch) far/thin
+// blades flicker between covered/uncovered per pixel as the camera makes its
+// usual per-frame micro-adjustments — reads as a shimmering "static" pattern
+// across the whole field, independent of the wind-sway animation (a separate,
+// already-tuned effect). Cutting the radius to roughly where fog (near=28 in
+// Environment.tsx) already starts dulling contrast, plus a wider/less-thin
+// blade, both reduce how much sub-pixel geometry is on screen at once.
+const GRASS_RADIUS = 30;        // meters — only visible near the player
 const CHECK_INTERVAL_MS = 220;  // throttled visibility re-check
 
 let _grassGeo: THREE.BufferGeometry | null = null;
 function grassBladeGeometry(): THREE.BufferGeometry {
   if (_grassGeo) return _grassGeo;
-  const w = 0.22, h = 0.9;
+  const w = 0.34, h = 0.9;
   const positions = new Float32Array([-w / 2, 0, 0, w / 2, 0, 0, 0, h, 0]);
   const base = new THREE.Color("#2f6b35");
   const tip = new THREE.Color("#9be36a");

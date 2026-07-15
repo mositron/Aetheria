@@ -1,4 +1,4 @@
-import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useFrame, useThree, type ThreeEvent } from "@react-three/fiber";
 import * as THREE from "three";
 import { getStateCallbacks, type Room } from "colyseus.js";
@@ -85,7 +85,14 @@ const MONSTER_BILLBOARD_Y: Record<string, number> = {
   skeleton_captain: 2.15,
 };
 
-export function Scene({ room }: { room: Room<WorldState> }) {
+// Frames to wait after the initial terrain chunks mount before declaring the
+// scene "ready" — gives the GPU a few rendered frames to actually compile
+// shaders for the materials that were all constructed synchronously on mount
+// (terrain, water, every initially-visible monster/player/NPC), so that cost
+// happens behind the loading overlay instead of live in front of the player.
+const READY_FRAME_BUFFER = 10;
+
+export function Scene({ room, onReady }: { room: Room<WorldState>; onReady?: () => void }) {
   const [players, setPlayers] = useState<Player[]>([]);
   const [monsters, setMonsters] = useState<Monster[]>([]);
   const [drops, setDrops] = useState<GroundItem[]>([]);
@@ -101,6 +108,21 @@ export function Scene({ room }: { room: Room<WorldState> }) {
   const seq = useRef(0);
   const selfRef = useRef<THREE.Group>(null);
   const mapDef = MAPS[room.state.mapId as MapId];
+  // Non-field maps have no chunk streaming to wait for (their ground is a
+  // static mesh built synchronously in Environment's own useMemo), so only
+  // "field" needs to wait for ChunkedTerrain's initial-mount signal.
+  const terrainReadyRef = useRef(mapDef.id !== "field");
+  const sceneReadyFiredRef = useRef(false);
+  const readyFrameCountRef = useRef(0);
+  const handleTerrainReady = useCallback(() => { terrainReadyRef.current = true; }, []);
+  useFrame(() => {
+    if (sceneReadyFiredRef.current || !onReady) return;
+    if (!terrainReadyRef.current) return;
+    if (++readyFrameCountRef.current >= READY_FRAME_BUFFER) {
+      sceneReadyFiredRef.current = true;
+      onReady();
+    }
+  });
   const cam = useRef({ yaw: 0, pitch: 0.55, dist: 16 });
   const tmpVec = useRef(new THREE.Vector3());
   const tmpVec2 = useRef(new THREE.Vector3());
@@ -664,7 +686,7 @@ export function Scene({ room }: { room: Room<WorldState> }) {
 
   return (
     <group>
-      <Environment mapId={mapDef.id} room={room} />
+      <Environment mapId={mapDef.id} room={room} onTerrainReady={handleTerrainReady} />
       {mapDef.id === "field" && <CaveZones room={room} />}
       {mapDef.id === "field" && <DistantMountains room={room} />}
       <AmbientParticles room={room} />

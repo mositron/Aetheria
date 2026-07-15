@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { Client, Room } from "colyseus.js";
 import { Canvas } from "@react-three/fiber";
 import { Sky, Stars } from "@react-three/drei";
@@ -48,6 +48,7 @@ import { ViewModeToggle } from "./ui/ViewModeToggle";
 import { DayNight } from "./scene/DayNight";
 import { useSfx } from "./hooks/useSfx";
 import { useMusic } from "./hooks/useMusic";
+import { useT } from "./locales/useT";
 import * as Sentry from "@sentry/react";
 
 // Heavy / rarely-opened panels — lazy-loaded so they don't bloat initial bundle.
@@ -71,11 +72,18 @@ const WorldMap = lazy(() => import("./ui/WorldMap").then((m) => ({ default: m.Wo
 const SERVER_WS = `ws://${location.hostname}:2567`;
 
 export function Game() {
+  const t = useT();
   const { token, characterId, setRoom, pushChat, logout, exitToSelect, viewMode } = useStore();
   useSfx();
   useMusic();
   const [room, setLocalRoom] = useState<Room<WorldState> | null>(null);
   const [ready, setReady] = useState(false);
+  // Flips true once Scene reports the initial terrain/entities are mounted
+  // and a few frames have rendered (see Scene.tsx's onReady) — gates the
+  // "preparing scene" overlay so world/monster pop-in and shader-compile
+  // stutter happen behind it instead of live in front of the player.
+  const [sceneReady, setSceneReady] = useState(false);
+  const handleSceneReady = useCallback(() => setSceneReady(true), []);
   const [mapId, setMapId] = useState<MapId>("field");
   const [error, setError] = useState<string | null>(null);
   const [showCompanion, setShowCompanion] = useState(false);
@@ -89,6 +97,7 @@ export function Game() {
     let active = true;
     let currentRoom: Room<WorldState> | null = null;
     setReady(false);
+    setSceneReady(false);
 
     async function connect(targetMap: MapId) {
       try {
@@ -129,7 +138,7 @@ export function Game() {
           // For world room, mapId changes via state — just update local mapId to trigger re-render
           setMapId(m.mapId);
         });
-        r.onLeave(() => { if (currentRoom === r) { setRoom(null); setReady(false); } });
+        r.onLeave(() => { if (currentRoom === r) { setRoom(null); setReady(false); setSceneReady(false); } });
       } catch (e: any) {
         const msg = String(e?.message ?? e);
         // distinguish auth failures (token bad/expired) from network failures
@@ -156,6 +165,15 @@ export function Game() {
     };
      
   }, [token, characterId, mapId]);
+
+// Safety net: never trap the player behind the "preparing scene" overlay —
+  // force it away 6s after the world join completes even if Scene's onReady
+  // never fires (e.g. an edge case where the player's chunk never resolves).
+  useEffect(() => {
+    if (!ready || sceneReady) return;
+    const t = setTimeout(() => setSceneReady(true), 6000);
+    return () => clearTimeout(t);
+  }, [ready, sceneReady]);
 
 // World companion panel toggle
   useEffect(() => {
@@ -209,7 +227,7 @@ return (
             <DayNight mapId={mapId} />
           )}
           <Sentry.ErrorBoundary fallback={<div className="text-white p-4">เกิดข้อผิดพลาด กรุณารีเฟรชหน้า</div>}>
-            <Scene room={room} />
+            <Scene room={room} onReady={handleSceneReady} />
           </Sentry.ErrorBoundary>
         </Canvas>
       ) : (
@@ -275,6 +293,9 @@ return (
 <Suspense fallback={null}>
         {showCompanion && <WorldCompanionPanel room={room} />}
       </Suspense>
+      {viewMode === "3d" && !sceneReady && (
+        <LoadingScreen title={`เข้าสู่ ${MAPS[mapId].name}`} subtitle={t("loading.preparingScene")} flat />
+      )}
     </div>
   );
 }

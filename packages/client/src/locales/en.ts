@@ -517,6 +517,7 @@ export const en = {
   "loading.error": "Error",
   "loading.reconnecting": "⟳ Reconnecting…",
   "loading.logout": "Logout",
+  "loading.preparingScene": "Preparing scene...",
 
   // ── Onboarding ────────────────────────────────────────────────
   "onboard.welcome": "Welcome to AETHERIA",

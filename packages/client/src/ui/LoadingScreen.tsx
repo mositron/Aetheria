@@ -8,18 +8,29 @@ type Props = {
   subtitle?: string;
   retrying?: boolean;
   onLogout?: () => void;
+  // Skips the 3D MenuScene backdrop — used when this is overlaid on top of
+  // the already-mounted game Canvas (warming up terrain/entities/shaders
+  // behind it) so we don't run two live WebGL scenes at once right when the
+  // game canvas most needs the GPU to itself.
+  flat?: boolean;
 };
 
-export function LoadingScreen({ title, subtitle, retrying, onLogout }: Props) {
+export function LoadingScreen({ title, subtitle, retrying, onLogout, flat }: Props) {
   const t = useT();
   return (
-    <div className="w-full h-full relative overflow-hidden">
-      <div className="absolute inset-0">
-        <Canvas camera={{ position: [0, 2, 10], fov: 50 }} dpr={[1, 1.25]} gl={{ antialias: true }}>
-          <MenuScene variant="dungeon" />
-        </Canvas>
-      </div>
-      <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(ellipse_at_center,transparent_30%,rgba(0,0,0,0.85)_100%)]" />
+    <div className={flat ? "absolute inset-0 z-[300] overflow-hidden" : "w-full h-full relative overflow-hidden"}>
+      {flat ? (
+        <div className="absolute inset-0 bg-black/70 backdrop-blur-md" />
+      ) : (
+        <>
+          <div className="absolute inset-0">
+            <Canvas camera={{ position: [0, 2, 10], fov: 50 }} dpr={[1, 1.25]} gl={{ antialias: true }}>
+              <MenuScene variant="dungeon" />
+            </Canvas>
+          </div>
+          <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(ellipse_at_center,transparent_30%,rgba(0,0,0,0.85)_100%)]" />
+        </>
+      )}
 
       <div className="absolute inset-0 flex items-center justify-center">
         <div className="w-[24rem]">

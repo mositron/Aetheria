@@ -487,9 +487,19 @@ function Bush({ x, z, scale, rot }: { x: number; z: number; scale: number; rot: 
 }
 
 // ── Main exported chunk manager ─────────────────────────────────────────────
-export function ChunkedTerrain({ room }: { room: Room<WorldState> }) {
+export function ChunkedTerrain({ room, onInitialReady }: { room: Room<WorldState>; onInitialReady?: () => void }) {
   const [loaded, setLoaded] = useState<Set<string>>(new Set());
   const lastCheck = useRef(0);
+  const firedReady = useRef(false);
+
+  // Fires once, right after the first batch of chunks around the player has
+  // actually mounted (not just been requested) — lets the loading screen
+  // know the ground under the player is no longer empty.
+  useEffect(() => {
+    if (firedReady.current || loaded.size === 0) return;
+    firedReady.current = true;
+    onInitialReady?.();
+  }, [loaded, onInitialReady]);
 
   // Drive chunk loading from a low-frequency tick (300ms)
   useFrame(() => {
