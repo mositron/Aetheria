@@ -4,7 +4,6 @@ import type { Room } from "colyseus.js";
 import { MAPS, type MapId, type WorldState } from "@game/shared";
 import { ChunkedTerrain } from "./ChunkedTerrain";
 import { registerObstacles, unregisterObstacles } from "./obstacles";
-import { SPAWN_RADIUS } from "./chunkWorld";
 // 5-band gradient texture for built-in toon material (Pagonia-look)
 const toonGradient = (() => {
   const steps = [60, 130, 195, 230, 255];
@@ -195,13 +194,18 @@ export function Environment({ mapId, room, onTerrainReady }: { mapId: MapId; roo
     <group>
       {mapId === "field" ? (
         <>
-          {/* Infinite chunked terrain — only loads chunks near player */}
+          {/* Infinite chunked terrain — only loads chunks near player. This
+              already draws real flat (Y=0) geometry across SPAWN_RADIUS via
+              getHeight()'s own flat-spawn special-case, so there used to be
+              a second flat circle mesh drawn exactly on top of it here "just
+              in case" — but two coincident, differently-colored surfaces
+              (this plane's flat pal.groundC vs. the terrain mesh's per-biome
+              vertex color) is textbook z-fighting: the GPU flips between
+              them by a few float-precision bits every frame, which reads as
+              the ground flickering/strobing right around spawn. Removed;
+              the chunked terrain alone is sufficient (and guaranteed loaded
+              before the scene is ever revealed — see Scene.tsx's onReady). */}
           {room && <ChunkedTerrain room={room} onInitialReady={onTerrainReady} />}
-          {/* Flat spawn plane at origin so spawn area always has clean ground */}
-          <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow position={[0, 0, 0]}>
-            <circleGeometry args={[SPAWN_RADIUS, 64]} />
-            <meshToonMaterial color={pal.groundC} gradientMap={toonGradient} />
-          </mesh>
           {/* Village buildings (at center) */}
           <InstancedBlocks blocks={data.village} />
         </>
