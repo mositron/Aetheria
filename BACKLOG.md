@@ -3,8 +3,82 @@
 > **Single source of truth สำหรับงานที่เหลือ.** อ่านไฟล์นี้ก่อนเริ่ม session ใหม่
 > เพื่อให้รู้ว่าสถานะอะไร, อยู่ที่ไหน, ทำอะไรต่อ.
 
-Last updated: 2026-07-15 — Fixed a death-causing bug in the new loading gate + found and fixed the real cause of the ground shimmer (spawn-plane z-fighting, not grass)
+Last updated: 2026-07-15 — Multi-agent perf investigation found + fixed the actual cause of persistent stutter (React re-render cascade), plus chunk-residency and shadow waste
 Total commits to date: 110+ (this session not yet committed)
+
+## Session 2026-07-15 (part 8) — Perf investigation: React re-render cascade, chunk residency, shadow waste
+
+User reported the game "still stutters exactly like before" despite every
+terrain/grass tuning pass this session (parts 2-3, 6) — a strong enough
+signal that those passes were tuning the wrong system that this warranted a
+proper investigation instead of another parameter guess. Ran a 7-agent
+Workflow: 5 parallel read-only subsystem audits (chunk streaming, entity
+rendering + shadows, React re-render triggers, network/state-sync churn)
+plus a live Chrome performance-trace attempt, then an adversarial synthesis
+pass that cross-checked every finding's evidence against its claimed impact
+before ranking anything — explicitly told to reject speculative findings
+given the user's history with fixes that didn't stick.
+
+**Highest-confidence finding — React re-render cascade (fixed).**
+`Game.tsx` called `useStore()` with no selector, subscribing to the whole
+24-field zustand store; any write anywhere in the app (chat, hotbar,
+targeting, opening any of 15+ modals, waypoints — dozens of call sites, all
+plausible many-times-per-minute during normal play) re-rendered `Game`.
+Because React Three Fiber's `<Canvas>` re-runs its reconciler unconditionally
+on every parent commit, that cascaded into `Scene.tsx`'s ~2700-line body
+fully re-executing on every one of those unrelated events — and `Scene`
+wasn't memoized, so there was nothing stopping it. This is mechanism-
+confirmed (not just plausible) and — critically — is a completely different
+system from anything the prior terrain/grass fixes touched, consistent with
+stutter surviving all of them. Fixed: `Game.tsx` now reads individual
+selector-scoped fields instead of destructuring the whole store; `Scene` is
+wrapped in `React.memo` (its only two props, `room`/`onReady`, are already
+stable references). Verified live in Chrome post-fix: monster targeting
+still works correctly (selected-state highlight, target HUD updates) — the
+highest-risk thing this specific change could have broken.
+
+**Confirmed, fixed, lower-risk:**
+- `ChunkedTerrain.tsx`'s `UNLOAD_RADIUS(2) > LOAD_RADIUS(1)` let the
+  resident chunk set silently grow to Chebyshev-distance-2 of wherever the
+  player wanders (up to 5×5=25 chunks) instead of the 3×3=9 the code's own
+  comment documents as the already-twice-tuned target — quietly
+  reintroducing the per-frame cost (grass/water uniforms, terrain draws,
+  decor instances) those tuning passes fought to remove. Set equal.
+- Terrain chunk meshes had `castShadow` set — self-shadowing a gentle
+  heightmap is invisible but was 9 extra shadow-pass draw calls every
+  frame. Removed, kept `receiveShadow`.
+- `ScorpionLordModel` (11 shadow-casting meshes, 8 of them legs/pincers)
+  and `GolemModel` (legs) violated CLAUDE.md's "shadows on torsos/bodies
+  only" rule that every other monster model in the earlier redesign
+  already follows — worst offenders found by an explicit per-model audit.
+  Fixed to torso-only.
+- Tree/bush/grass instance placement called `getSmoothHeight()` (a ~7-28
+  noise-function-call bilinear sample) once per sub-mesh part instead of
+  once per item — trunk+3 leaf layers each independently recomputing the
+  same tree's height (4x redundant), grass's two crossed planes doing the
+  same (2x). Hoisted to one call per item, reused across parts.
+
+**Checked and confirmed clean, not changed:** invisible/culled objects
+already gate their per-frame work correctly; every `InstancedMesh` has
+correct bounding-sphere/culling data; monster and item-drop map churn on
+the server is event-driven (kills, pickups, an 8s spawn sweep) and cheap at
+current player/entity counts — not a proven bottleneck, flagged only as a
+latent scaling risk if drop count grows uncapped under heavy multiplayer
+farming later.
+
+**Live trace attempt:** couldn't reach the already-authenticated game tab
+from the sandboxed sub-agent's isolated browser context (session isolation,
+not a code issue) — no real profiling data, so all findings above rest on
+static code analysis + evidence cross-checking, not a measured trace.
+
+**Verification:** `tsc --noEmit` + `vite build` clean; `smoketest.mjs`
+passes. Live-verified in Chrome post-fix: game loads, renders correctly
+(village/terrain/monsters/water all visible), chat round-trips through the
+store correctly, and monster click-to-target still works with the memo
+change in place. Did not get a before/after frame-time measurement (no
+working profiler access) — ask the user to confirm the stutter is actually
+better on next playtest, since the underlying claim (re-render cascade
+frequency) couldn't be measured, only reasoned about from code.
 
 ## Session 2026-07-15 (part 7) — Loading-gate death bug + real ground-shimmer root cause
 
