@@ -83,7 +83,16 @@ export function Game() {
   // "preparing scene" overlay so world/monster pop-in and shader-compile
   // stutter happen behind it instead of live in front of the player.
   const [sceneReady, setSceneReady] = useState(false);
-  const handleSceneReady = useCallback(() => setSceneReady(true), []);
+  // Once the gate has done its job for the very first world entry, it must
+  // never re-arm — a later reconnect or warp mid-session must not leave the
+  // player blind and unable to act while the server keeps simulating combat
+  // against them in the background (a real reported death: hit by a monster
+  // while stuck behind this overlay after a mid-session reconnect).
+  const hasShownSceneOnceRef = useRef(false);
+  const handleSceneReady = useCallback(() => {
+    hasShownSceneOnceRef.current = true;
+    setSceneReady(true);
+  }, []);
   const [mapId, setMapId] = useState<MapId>("field");
   const [error, setError] = useState<string | null>(null);
   const [showCompanion, setShowCompanion] = useState(false);
@@ -97,7 +106,7 @@ export function Game() {
     let active = true;
     let currentRoom: Room<WorldState> | null = null;
     setReady(false);
-    setSceneReady(false);
+    if (!hasShownSceneOnceRef.current) setSceneReady(false);
 
     async function connect(targetMap: MapId) {
       try {
@@ -138,7 +147,7 @@ export function Game() {
           // For world room, mapId changes via state — just update local mapId to trigger re-render
           setMapId(m.mapId);
         });
-        r.onLeave(() => { if (currentRoom === r) { setRoom(null); setReady(false); setSceneReady(false); } });
+        r.onLeave(() => { if (currentRoom === r) { setRoom(null); setReady(false); if (!hasShownSceneOnceRef.current) setSceneReady(false); } });
       } catch (e: any) {
         const msg = String(e?.message ?? e);
         // distinguish auth failures (token bad/expired) from network failures
